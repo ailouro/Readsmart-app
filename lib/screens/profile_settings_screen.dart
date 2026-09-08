@@ -81,9 +81,15 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
 
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text("Profile picture updated! 📸"),
             backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 1),
           ),
         );
       } else {
@@ -92,7 +98,16 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        SnackBar(
+          content: Text("error $e"),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+          duration: const Duration(seconds: 2),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isUploading = false);

@@ -169,12 +169,12 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
     Clipboard.setData(ClipboardData(text: code));
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          "Secret code '$code' copied to clipboard!",
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: maroonTheme,
+        content: Text("Secret code '$code' copied to clipboard!"),
+        backgroundColor: Colors.green,
         behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
+        margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+        duration: const Duration(seconds: 2),
       ),
     );
   }

@@ -197,8 +197,18 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _handleLogin() async {
     if (_loginController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill in all fields.")),
+        SnackBar(
+          content: Text("Please fill in all fields."),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+          duration: const Duration(seconds: 2),
+        ),
       );
+
       return;
     }
     setState(() => _isLoading = true);
@@ -256,8 +266,22 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
                 onPressed: () async {
                   Navigator.pop(context);
+
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text("Sending email...")),
+                    SnackBar(
+                      content: Text("Sending email..."),
+                      backgroundColor: Colors.green,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      margin: const EdgeInsets.only(
+                        bottom: 24,
+                        left: 16,
+                        right: 16,
+                      ),
+                      duration: const Duration(seconds: 2),
+                    ),
                   );
                   await http.post(
                     Uri.parse("$baseUrl/api/email/resend"),
@@ -265,11 +289,21 @@ class _LoginScreenState extends State<LoginScreen> {
                     body: jsonEncode({'email': decodedData['email']}),
                   );
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
+                    SnackBar(
                       content: Text(
                         "Verification link resent! Check your inbox.",
                       ),
                       backgroundColor: Colors.green,
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                      ),
+                      margin: const EdgeInsets.only(
+                        bottom: 24,
+                        left: 16,
+                        right: 16,
+                      ),
+                      duration: const Duration(seconds: 2),
                     ),
                   );
                 },
@@ -319,20 +353,36 @@ class _LoginScreenState extends State<LoginScreen> {
         if (_isStudentLogin && role != 'student') {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text(
                 "Account mismatch! Please use the Teacher/Parent tab.",
               ),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+              duration: const Duration(seconds: 2),
             ),
           );
+
           return;
         } else if (!_isStudentLogin && role == 'student') {
           setState(() => _isLoading = false);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
+            SnackBar(
               content: Text("Account mismatch! Please use the Student tab."),
+              backgroundColor: Colors.green,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+              duration: const Duration(seconds: 2),
             ),
           );
+
           return;
         }
 
@@ -388,16 +438,29 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              decodedData['message'] ??
-                  "Invalid credentials. Please try again.",
+            content: Text("Invalid credentials. Please try again."),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
             ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Could not connect to online server: $e")),
+        SnackBar(
+          content: Text("Could not connect to online server: $e"),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+          duration: const Duration(seconds: 2),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -422,8 +485,18 @@ class _LoginScreenState extends State<LoginScreen> {
     if (errors.isNotEmpty) {
       setDialogState(() => _reqFieldErrors = errors);
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill in all details.")),
+        SnackBar(
+          content: Text("Please fill in all details."),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+          duration: const Duration(seconds: 2),
+        ),
       );
+
       return;
     }
 
@@ -464,9 +537,15 @@ class _LoginScreenState extends State<LoginScreen> {
           SnackBar(
             content: Text(data['message'] ?? "Request submitted!"),
             backgroundColor: Colors.green,
-            duration: const Duration(seconds: 4),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
           ),
         );
+
         // Linisin ang form para sa susunod
         _reqFirstNameController.clear();
         _reqLastNameController.clear();
@@ -478,7 +557,13 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(data['message'] ?? "Request failed."),
-            backgroundColor: Colors.redAccent,
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -487,7 +572,13 @@ class _LoginScreenState extends State<LoginScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text("Connection error: $e"),
-          backgroundColor: Colors.red,
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+          duration: const Duration(seconds: 2),
         ),
       );
     } finally {

@@ -3,7 +3,6 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:image_picker/image_picker.dart';
 import '../services/config.dart';
 import 'login_screen.dart';
 import '../services/bgm_service.dart';
@@ -33,22 +32,13 @@ class _StudentDashboardState extends State<StudentDashboard> {
 
   List<dynamic> _myClasses = [];
   bool _isLoading = true;
-  String _avatarUrl = "";
   int _selectedClassIndex = 0;
 
   @override
   void initState() {
     super.initState();
-    _loadAvatarUrl();
     _fetchMyClasses();
     BgmService().startBgm();
-  }
-
-  Future<void> _loadAvatarUrl() async {
-    final prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _avatarUrl = prefs.getString('user_avatar') ?? "";
-    });
   }
 
   Future<int?> _getStudentId() async {
@@ -68,30 +58,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
       }
     }
     return id;
-  }
-
-  void _openProfileSettings() async {
-    final studentId = await _getStudentId();
-    if (studentId == null || !mounted) return;
-
-    final newUrl = await showDialog<String>(
-      context: context,
-      barrierColor: Colors.black.withOpacity(0.7),
-      builder: (context) => _ProfileSettingsDialog(
-        userId: studentId,
-        userName: widget.userName,
-        initialAvatarUrl: _avatarUrl,
-      ),
-    );
-
-    if (mounted) {
-      setState(() {
-        if (newUrl != null && newUrl.isNotEmpty) {
-          _avatarUrl = newUrl;
-        }
-      });
-      _loadAvatarUrl();
-    }
   }
 
   Future<void> _logout() async {
@@ -266,9 +232,14 @@ class _StudentDashboardState extends State<StudentDashboard> {
           mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              decoded['message'] ?? "New mission unlocked successfully!",
+            content: Text("New mission unlocked successfully"),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
             ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
           ),
         );
         _fetchMyClasses();
@@ -320,39 +291,16 @@ class _StudentDashboardState extends State<StudentDashboard> {
   }
 
   Widget _buildAvatarIndicator(double size) {
-    String cleanBaseUrl = baseUrl.endsWith('/')
-        ? baseUrl.substring(0, baseUrl.length - 1)
-        : baseUrl;
-    String displayUrl = _avatarUrl.startsWith('http')
-        ? _avatarUrl
-        : "$cleanBaseUrl$_avatarUrl";
-
-    return BouncyTap(
-      onTap: _openProfileSettings,
-      borderRadius: BorderRadius.circular(size),
-      child: Container(
-        width: size,
-        height: size,
-        decoration: BoxDecoration(
-          color: accentTheme,
-          shape: BoxShape.circle,
-          border: Border.all(color: Colors.black, width: 2.5),
-          boxShadow: const [
-            BoxShadow(color: Colors.black, offset: Offset(2, 2)),
-          ],
-        ),
-        child: ClipOval(
-          child: _avatarUrl.isNotEmpty
-              ? Image.network(
-                  displayUrl,
-                  fit: BoxFit.cover,
-                  headers: const {"ngrok-skip-browser-warning": "69420"},
-                  errorBuilder: (_, __, ___) =>
-                      const Icon(Icons.person, color: Colors.black),
-                )
-              : const Icon(Icons.person, color: Colors.black, size: 28),
-        ),
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: accentTheme,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.black, width: 2.5),
+        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(2, 2))],
       ),
+      child: const Icon(Icons.person, color: Colors.black, size: 28),
     );
   }
 
@@ -779,11 +727,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
             ),
             const SizedBox(height: 8),
             _buildNavItem(
-              Icons.person_rounded,
-              "Profile Settings",
-              _openProfileSettings,
-            ),
-            _buildNavItem(
               Icons.emoji_events_rounded,
               "My Trophies",
               _openProgress,
@@ -1123,220 +1066,6 @@ class _StudentDashboardState extends State<StudentDashboard> {
 // ==========================================
 // 2. POPUP PROFILE SETTINGS DIALOG
 // ==========================================
-class _ProfileSettingsDialog extends StatefulWidget {
-  final int userId;
-  final String userName;
-  final String initialAvatarUrl;
-
-  const _ProfileSettingsDialog({
-    required this.userId,
-    required this.userName,
-    required this.initialAvatarUrl,
-  });
-
-  @override
-  State<_ProfileSettingsDialog> createState() => _ProfileSettingsDialogState();
-}
-
-class _ProfileSettingsDialogState extends State<_ProfileSettingsDialog> {
-  bool _isUploading = false;
-  late String _avatarUrl;
-
-  @override
-  void initState() {
-    super.initState();
-    _avatarUrl = widget.initialAvatarUrl;
-  }
-
-  Future<void> _pickAndUploadImage() async {
-    final ImagePicker picker = ImagePicker();
-    final XFile? image = await picker.pickImage(
-      source: ImageSource.gallery,
-      imageQuality: 50,
-    );
-
-    if (image == null) return;
-
-    setState(() => _isUploading = true);
-
-    try {
-      var request = http.MultipartRequest(
-        'POST',
-        Uri.parse("$baseUrl/api/users/${widget.userId}/avatar"),
-      );
-
-      request.headers.addAll(networkHeaders);
-
-      final bytes = await image.readAsBytes();
-      request.files.add(
-        http.MultipartFile.fromBytes('avatar', bytes, filename: image.name),
-      );
-
-      var streamedResponse = await request.send();
-      var response = await http.Response.fromStream(streamedResponse);
-      var data = jsonDecode(response.body);
-
-      if (response.statusCode == 200 && data['success'] == true) {
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('user_avatar', data['avatar_url']);
-
-        setState(() {
-          _avatarUrl = data['avatar_url'];
-        });
-
-        if (!mounted) return;
-        Navigator.pop(context, _avatarUrl);
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Profile picture updated! 📸"),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        throw Exception(data['message'] ?? "Upload failed");
-      }
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-      );
-    } finally {
-      if (mounted) setState(() => _isUploading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    String cleanBaseUrl = baseUrl.endsWith('/')
-        ? baseUrl.substring(0, baseUrl.length - 1)
-        : baseUrl;
-    String displayUrl = _avatarUrl.startsWith('http')
-        ? _avatarUrl
-        : "$cleanBaseUrl$_avatarUrl";
-
-    return Dialog(
-      backgroundColor: Colors.transparent,
-      insetPadding: const EdgeInsets.all(20),
-      child: Container(
-        width: 400,
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFDE047),
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: Colors.black, width: 4),
-          boxShadow: const [
-            BoxShadow(color: Colors.black, offset: Offset(8, 8)),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  "PROFILE SETTINGS",
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w900,
-                    color: Color(0xFF9B0505),
-                  ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.black, size: 28),
-                  onPressed: () => Navigator.pop(context, _avatarUrl),
-                ),
-              ],
-            ),
-            const Divider(color: Colors.black, thickness: 2),
-            const SizedBox(height: 20),
-            Stack(
-              alignment: Alignment.bottomRight,
-              children: [
-                Container(
-                  width: 140,
-                  height: 140,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    shape: BoxShape.circle,
-                    border: Border.all(color: Colors.black, width: 4),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: _isUploading
-                        ? const Center(
-                            child: CircularProgressIndicator(
-                              color: Color(0xFF9B0505),
-                            ),
-                          )
-                        : (_avatarUrl.isNotEmpty)
-                        ? Image.network(
-                            displayUrl,
-                            fit: BoxFit.cover,
-                            headers: const {
-                              "ngrok-skip-browser-warning": "69420",
-                            },
-                            errorBuilder: (ctx, err, stack) => const Icon(
-                              Icons.person,
-                              size: 70,
-                              color: Colors.grey,
-                            ),
-                          )
-                        : const Icon(
-                            Icons.person,
-                            size: 70,
-                            color: Colors.grey,
-                          ),
-                  ),
-                ),
-                BouncyTap(
-                  onTap: _isUploading ? null : _pickAndUploadImage,
-                  borderRadius: BorderRadius.circular(40),
-                  child: Container(
-                    padding: const EdgeInsets.all(10),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFF9B0505),
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.black, width: 2),
-                    ),
-                    child: const Icon(
-                      Icons.camera_alt,
-                      color: Colors.white,
-                      size: 22,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            Text(
-              widget.userName,
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.w900,
-                color: Colors.black,
-              ),
-              textAlign: TextAlign.center,
-            ),
-            const Text(
-              "STUDENT",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF9B0505),
-                letterSpacing: 2,
-              ),
-            ),
-            const SizedBox(height: 10),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ==========================================
 // 3. COMIC BACKGROUND & PAINTER
