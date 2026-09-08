@@ -676,34 +676,48 @@ class _LibraryTabState extends State<_LibraryTab> {
     if (confirm != true) return;
 
     try {
-      final res = await http.delete(
-        Uri.parse("$baseUrl/api/stories/$storyId"),
-        headers: networkHeaders,
-      );
+  final res = await http.delete(
+    Uri.parse("$baseUrl/api/stories/$storyId"),
+    headers: networkHeaders,
+  );
 
-      if ((res.statusCode == 200 || res.statusCode == 204) && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Story deleted successfully.")),
-        );
-        fetchStories();
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                "Failed to delete story. Status code: ${res.statusCode}",
-              ),
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error deleting story: $e")));
-      }
-    }
+  // 1. Early return if the widget is no longer in the tree after the async gap
+  if (!mounted) return;
+
+  // 2. Safely use context now that we know the widget is mounted
+  if (res.statusCode == 200 || res.statusCode == 204) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text("Story deleted successfully.")),
+    );
+    
+    // Note: Calling fetchStories() works, but redownloads all data. 
+    // For better performance, consider using setState to remove the story from your local list instead.
+    fetchStories(); 
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          "Failed to delete story. Status code: ${res.statusCode}",
+        ),
+      ),
+    );
+  }
+} catch (e) {
+  // 3. Check mounted again after the catch block's potential async gap
+  if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+  SnackBar(
+    content: Text("Error deleting story: $e"),
+    backgroundColor: Colors.green,
+    behavior: SnackBarBehavior.floating,
+    shape: RoundedRectangleBorder(
+      borderRadius: BorderRadius.circular(30),
+    ),
+    margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+    duration: const Duration(seconds: 2),
+  ),
+);
+}
   }
 
   @override
