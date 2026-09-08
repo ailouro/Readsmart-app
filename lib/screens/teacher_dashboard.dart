@@ -2945,9 +2945,22 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
             backgroundColor: Colors.red,
           ),
         );
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed. Code: ${res.statusCode}, Body: ${res.body}"),
+            backgroundColor: Colors.orange,
+            duration: const Duration(seconds: 4),
+          ),
+        );
       }
     } catch (e) {
       debugPrint("Error deleting class: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.orange),
+        );
+      }
     }
   }
 

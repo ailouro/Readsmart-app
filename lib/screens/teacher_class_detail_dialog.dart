@@ -132,20 +132,29 @@ class _TeacherClassDetailScreenState extends State<TeacherClassDetailScreen> {
 
     if (confirm != true) return;
 
-    try {
+      try {
       final res = await http.delete(
         Uri.parse("$baseUrl/api/classes/${widget.classId}"),
         headers: networkHeaders,
       );
 
-      if (res.statusCode == 200 && mounted) {
+      if ((res.statusCode == 200 || res.statusCode == 204) && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Class deleted successfully")),
         );
         Navigator.pop(context, true); // Close screen & notify dashboard
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to delete. Code: ${res.statusCode}, Body: ${res.body}"), backgroundColor: Colors.orange),
+        );
       }
     } catch (e) {
       debugPrint("Error deleting class: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.orange),
+        );
+      }
     }
   }
 
