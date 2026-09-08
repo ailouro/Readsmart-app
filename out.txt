@@ -1,0 +1,129 @@
+class _StudentsTabState extends State<_StudentsTab> {
+  static const Color maroonTheme = Color(0xFF940D0D);
+  static const Color accentTheme = Color(0xFFFDE047);
+  List<Map<String, dynamic>> _classes = [];
+  bool _isLoading = true;
+
+  bool _isLoadingAnalytics = true;
+  Map<String, dynamic> _summaryData = {};
+  List<dynamic> _mispronunciations = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchClasses();
+    _fetchAnalytics();
+  }
+
+  Future _fetchAnalytics() async {
+    setState(() => _isLoadingAnalytics = true);
+    try {
+      // Resolve teacher ID the same way _fetchClasses does
+      int tId = 0;
+      if (widget.teacherId != null && widget.teacherId.toString() != "null") {
+        tId = int.tryParse(widget.teacherId.toString()) ?? 0;
+      }
+      if (tId == 0) {
+        final prefs = await SharedPreferences.getInstance();
+        tId =
+            prefs.getInt('user_id') ??
+            prefs.getInt('id') ??
+            prefs.getInt('teacher_id') ??
+            1;
+      }
+
+      final summaryRes = await http.get(
+        Uri.parse("$baseUrl/api/teachers/$tId/dashboard-summary"),
+        headers: networkHeaders,
+      );
+      final mispronunciationRes = await http.get(
+        Uri.parse("$baseUrl/api/teachers/$tId/mispronunciations"),
+        headers: networkHeaders,
+      );
+
+      if (summaryRes.statusCode == 200 &&
+          mispronunciationRes.statusCode == 200 &&
+          mounted) {
+        final decodedSummary = jsonDecode(summaryRes.body);
+        final decodedMispro = jsonDecode(mispronunciationRes.body);
+        setState(() {
+          // ✅ Unwrap 'data' key if API wraps the response
+          _summaryData = decodedSummary['data'] ?? decodedSummary;
+          // ✅ Handle multiple possible keys for mispronunciations
+          _mispronunciations =
+              decodedMispro['data'] ?? decodedMispro['mispronunciations'] ?? [];
+          _isLoadingAnalytics = false;
+        });
+      } else {
+        if (mounted) setState(() => _isLoadingAnalytics = false);
+      }
+    } catch (e) {
+      debugPrint("Error loading analytics: $e");
+      if (mounted) setState(() => _isLoadingAnalytics = false);
+    }
+  }
+
+  Future _fetchClasses() async {
+    try {
+      setState(() => _isLoading = true);
+
+      // Kunin ang tamang teacher ID
+      int tId = 0;
+      if (widget.teacherId != null && widget.teacherId.toString() != "null") {
+        tId = int.tryParse(widget.teacherId.toString()) ?? 0;
+      }
+      if (tId == 0) {
+        final prefs = await SharedPreferences.getInstance();
+        tId =
+            prefs.getInt('user_id') ??
+            prefs.getInt('id') ??
+            prefs.getInt('teacher_id') ??
+            1;
+      }
+
+      final response = await http.get(
+        Uri.parse("$baseUrl/api/teachers/$tId/classes"),
+        headers: networkHeaders,
+      );
+
+      if (response.statusCode == 200 && mounted) {
+        final dynamic decoded = jsonDecode(response.body);
+
+        // --- ANG BINAGONG LOGIC PARA MA-READ ANG CLASSES ---
+        List<dynamic> rawList = [];
+
+        if (decoded is List) {
+          // Kung ang response ay diretsong Array []
+          rawList = decoded;
+        } else if (decoded is Map) {
+          // Kung ang response ay Object na may "classes" o "data" key {"classes": []}
+          rawList = decoded['classes'] ?? decoded['data'] ?? [];
+        }
+
+        final List<Map<String, dynamic>> cleanList = [];
+        for (var item in rawList) {
+          if (item is Map) {
+            cleanList.add(Map<String, dynamic>.from(item));
+          }
+        }
+
+        setState(() {
+          _classes = cleanList;
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching classes: $e");
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  void _openClassDetails(
+    BuildContext context,
+    Map<String, dynamic> item,
+    String className,
+    String grade,
+    String section,
+  ) async {
+    final result = await showModalBottomSheet(
+      c

@@ -1,0 +1,124 @@
+The following is a <SYSTEM_MESSAGE> not actually sent by the user. It is provided by the system as important information to pay attention to.
+
+<SYSTEM_MESSAGE>
+[Message] timestamp=2026-09-01T13:12:03Z sender=5b62970f-5e34-4b9a-8b52-0b42738c000a/task-334 priority=MESSAGE_PRIORITY_HIGH content=Task id "5b62970f-5e34-4b9a-8b52-0b42738c000a/task-334" finished with result:
+
+The command exited with code 0.
+Output:
+
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          _buildStatCard(
+                            title: "Frustration",
+                            count:
+                                _summaryData['frustration_count']?.toString() ??
+                                "0",
+                            color: Colors.red.shade700,
+                          ),
+                          const SizedBox(width: 8),
+                          _buildStatCard(
+                            title: "Instructional",
+                            count:
+                                _summaryData['instructional_count']?.toString() ??
+                                "0",
+                            color: Colors.amber.shade800,
+                          ),
+                          const SizedBox(width: 8),
+                          _buildStatCard(
+                            title: "Independent",
+                            count:
+                                _summaryData['independent_count']?.toString() ??
+                                "0",
+                            color: Colors.green.shade700,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+>                     const ComicBadgeHeader(title: "LEARNERS' RECORDS"),
+                      const SizedBox(height: 10),
+                      if (_summaryData['students'] == null ||
+                          (_summaryData['students'] as List).isEmpty)
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.all(20),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: Colors.black, width: 3),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black,
+                                offset: Offset(4, 4),
+                              ),
+                            ],
+                          ),
+                          child: const Center(
+                            child: Text(
+                              "No students enrolled yet.",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        )
+                      else
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children:
+                              _groupStudentsByClass(
+                                _summaryData['students'] as List,
+                              ).map((entry) {
+                                final String classLabel = entry.key;
+                                final students = entry.value;
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 20),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      // Class group header chip
+                                      Container(
+                                        width: double.infinity,
+                                        margin: const EdgeInsets.only(bottom: 10),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 8,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: accentTheme,
+                                          borderRadius: BorderRadius.circular(10),
+                                          border: Border.all(
+                                            color: Colors.black,
+                                            width: 2.5,
+                                          ),
+                                          boxShadow: const [
+                                            BoxShadow(
+                                              color: Colors.black,
+                                              offset: Offset(3, 3),
+                                            ),
+                                          ],
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.class_rounded,
+                                              size: 18,
+                                              color: Colors.black,
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Expanded(
+                                              child: Text(
+                                                classLabel,
+                                                style: const TextStyle(
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 14,
+                                                ),
+                                              ),
+                                            ),
+                                            Text(
+                                              "${students.length} student${students.length == 1 ? '' : 's'}",
+                                              style: const TextStyle(
+
+
+
+
+</SYSTEM_MESSAGE>

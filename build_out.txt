@@ -1,0 +1,117 @@
+Widget build(BuildContext context) {
+    Widget mobileLayout = Scaffold(
+      backgroundColor: const Color(0xFFD4B2C2),
+      body: SafeArea(
+        child: Column(
+          children: [
+            _TopHeaderBar(
+              userName: widget.userName,
+              teacherId: widget.teacherId,
+              onLogout: _doLogout,
+            ),
+            Expanded(
+              child: IndexedStack(
+                index: _selectedIndex,
+                children: [
+                  _LibraryTab(
+                    userName: widget.userName,
+                    teacherId: widget.teacherId,
+                  ),
+                  _StudentsTab(teacherId: widget.teacherId),
+                  _AlertsTab(teacherId: widget.teacherId), // ⚠️ BAGONG TAB MO
+                  TeacherProfileScreen(userName: widget.userName),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+      bottomNavigationBar: Container(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: Colors.black, width: 3)),
+        ),
+        child: BottomNavigationBar(
+          currentIndex: _selectedIndex,
+          onTap: _onItemTapped,
+          selectedItemColor: const Color(0xFF940D0D),
+          unselectedItemColor: Colors.black54,
+          backgroundColor: Colors.white,
+          selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w900),
+          unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
+          elevation: 0,
+          items: const [
+            BottomNavigationBarItem(
+              icon: Icon(Icons.collections_bookmark),
+              label: 'Library',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.warning_amber_rounded),
+              label: 'Alerts',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.people_alt),
+              label: 'Students',
+            ),
+            BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
+          ],
+        ),
+      ),
+    );
+
+    Widget desktopLayout = Scaffold(
+      backgroundColor: const Color(0xFFD4B2C2),
+      body: Row(
+        children: [
+          // Left Sidebar
+          Container(
+            width: 260,
+            decoration: const BoxDecoration(
+              color: Color(0xFF940D0D),
+              border: Border(right: BorderSide(color: Colors.black, width: 4)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 40),
+
+                // SVES LOGO
+                Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black, width: 3),
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/sves_logo.jpg',
+                      width: 70,
+                      height: 70,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+                const Text(
+                  'READSMART HUB',
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Color(0xFFFDE047),
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 2,
+                  ),
+                ),
+                Text(
+                  widget.userName,
+                  style: const TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w900,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 40),
+                _buildDesktopNavItem(
+                  icon: Icons.collections_bookmark,
+                  label: 'Library',
+                  is

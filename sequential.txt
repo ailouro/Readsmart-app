@@ -1,0 +1,120 @@
+                // 2. WORD-BY-WORD SEQUENTIAL DISPLAY
+                Container(
+                  width: double.infinity,
+                  color: Colors.grey[850],
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                  child: Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            _currentWordIndex < _targetWords.length
+                                ? "Current Word Attempt: ${_currentWordAttempts + 1} / $_maxWordAttempts"
+                                : "Slide Completed",
+                            style: const TextStyle(
+                              color: Colors.amber,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 13,
+                            ),
+                          ),
+                          if (_isAssessmentPassed)
+                            const Row(
+                              children: [
+                                Icon(
+                                  Icons.check_circle,
+                                  color: Colors.greenAccent,
+                                  size: 16,
+                                ),
+                                SizedBox(width: 4),
+                                Text(
+                                  "Passed",
+                                  style: TextStyle(
+                                    color: Colors.greenAccent,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Interactive Word Badges
+                      Wrap(
+                        spacing: 6.0,
+                        runSpacing: 6.0,
+                        alignment: WrapAlignment.center,
+                        children: List.generate(_targetWords.length, (idx) {
+                          WordStatus wordObj = _targetWords[idx];
+                          bool isCurrentTarget = (idx == _currentWordIndex);
+                          Color bgColor = Colors.white12;
+                          Color textColor = Colors.white;
+                          Color borderColor = Colors.transparent;
+                          if (wordObj.isCorrect) {
+                            bgColor = Colors.green[700]!;
+                          } else if (wordObj.isFailed) {
+                            bgColor = Colors.red[700]!;
+                          }
+                          if (isCurrentTarget) {
+                            borderColor = Colors.amberAccent;
+                          }
+
+                          return Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: bgColor,
+                              borderRadius: BorderRadius.circular(6),
+                              border: Border.all(
+                                color: borderColor,
+                                width: isCurrentTarget ? 2.5 : 1.0,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                if (isCurrentTarget)
+                                  const Padding(
+                                    padding: EdgeInsets.only(right: 4.0),
+                                    child: Text(
+                                      "👉",
+                                      style: TextStyle(fontSize: 12),
+                                    ),
+                                  ),
+                                Text(
+                                  wordObj.originalWord,
+                                  style: TextStyle(
+                                    color: textColor,
+                                    fontWeight: isCurrentTarget
+                                        ? FontWeight.bold
+                                        : FontWeight.normal,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }),
+                      ),
+                      if (_spokenText.isNotEmpty) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          "Heard: \"$_spokenText\"",
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontStyle: FontStyle.italic,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+
+
