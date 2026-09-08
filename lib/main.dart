@@ -18,10 +18,12 @@ void main() async {
   ]);
 
   // Transparent status bar so the app feels full-screen and native
-  SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
-    statusBarColor: Colors.transparent,
-    statusBarIconBrightness: Brightness.light,
-  ));
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ),
+  );
 
   runApp(const ReadSmartApp());
 }
@@ -39,14 +41,12 @@ class ReadSmartApp extends StatelessWidget {
       theme: ThemeData(
         primaryColor: Colors.blue,
         useMaterial3: true,
-        textTheme: GoogleFonts.fredokaTextTheme(
-          Theme.of(context).textTheme,
-        ),
+        textTheme: GoogleFonts.fredokaTextTheme(Theme.of(context).textTheme),
         // Disable splash/highlight on buttons — removes jank on rapid taps
         splashFactory: NoSplash.splashFactory,
         highlightColor: Colors.transparent,
-        pageTransitionsTheme: const PageTransitionsTheme(
-          builders: {
+        pageTransitionsTheme: PageTransitionsTheme(
+          builders: <TargetPlatform, PageTransitionsBuilder>{
             TargetPlatform.android: CupertinoPageTransitionsBuilder(),
             TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
           },
