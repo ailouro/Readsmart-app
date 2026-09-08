@@ -647,7 +647,7 @@ class _LibraryTabState extends State<_LibraryTab> {
         ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text("Error fetching stories: $e"),
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.#FC9272,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(30),
@@ -716,8 +716,8 @@ class _LibraryTabState extends State<_LibraryTab> {
   } else {
     ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
-    content: Text("Failed to delete story. Status code: ${res.statusCode),
-    backgroundColor: Colors.green,
+    content: Text("Failed to delete story. Status code: ${res.statusCode}"),
+    backgroundColor: Colors.#FC9272,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(30),
@@ -733,7 +733,7 @@ class _LibraryTabState extends State<_LibraryTab> {
   ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text("Error deleting story: $e"),
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.#FC9272,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(30),
@@ -1418,7 +1418,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                       ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text("Class Name is required!"),
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.#FFB347,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(30),
@@ -1463,7 +1463,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                       ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text("Error: Teacher ID is missing. Please log out and log in again.",),
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.#FC9272,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(30),
@@ -1548,7 +1548,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                           ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text(cleanError),
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.#FC9272,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(30),
@@ -2946,7 +2946,7 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
           ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text( "Failed to unassign story. Status code: ${res.statusCode}",),
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.#FC9272,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(30),
@@ -2963,7 +2963,7 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text("Error unassigning story: $e"),
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.#FC9272,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(30),
@@ -3720,7 +3720,7 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text("Error: Invalid Class ID"),
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.#FC9272,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(30),
@@ -3737,7 +3737,7 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text("Please select at least one story."),
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.#FFB347,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(30),
@@ -3785,7 +3785,7 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
           ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text("Failed to assign stories (Status: ${response.statusCode})",),
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.#FC9272,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(30),
@@ -3801,7 +3801,7 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
   SnackBar(
     content: Text("Failed to assign story: $e"),
-    backgroundColor: Colors.green,
+    backgroundColor: Colors.#FC9272,
     behavior: SnackBarBehavior.floating,
     shape: RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(30),
