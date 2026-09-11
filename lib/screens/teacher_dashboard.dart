@@ -1638,7 +1638,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                           count:
                               _summaryData['independent_count']?.toString() ??
                               "0",
-                          color: Color(0xFF8BCA84).shade700,
+                          color: const Color(0xFF8BCA84),
                         ),
                       ],
                     ),
