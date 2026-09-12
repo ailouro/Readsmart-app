@@ -3751,14 +3751,22 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
                       final storyId = story['id'] ?? story['_id'];
                       List pages = story['pages'] is List ? story['pages'] : [];
                       String rawCoverPath = _safeString(story['cover_image']);
-                      if (rawCoverPath.startsWith('public/')) {
-                        rawCoverPath = rawCoverPath.replaceFirst('public/', '');
+                      String coverUrl;
+                      if (rawCoverPath.startsWith('http')) {
+                        coverUrl = rawCoverPath;
+                      } else {
+                        if (rawCoverPath.startsWith('public/')) {
+                          rawCoverPath = rawCoverPath.replaceFirst(
+                            'public/',
+                            '',
+                          );
+                        }
+                        String cleanBaseUrl = baseUrl.endsWith('/api')
+                            ? baseUrl.substring(0, baseUrl.length - 4)
+                            : baseUrl;
+                        coverUrl =
+                            "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
                       }
-                      String cleanBaseUrl = baseUrl.endsWith('/api')
-                          ? baseUrl.substring(0, baseUrl.length - 4)
-                          : baseUrl;
-                      String coverUrl =
-                          "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
 
                       bool isSelected = _selectedStoryIds.contains(storyId);
 
