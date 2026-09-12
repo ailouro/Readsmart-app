@@ -644,9 +644,18 @@ class _LibraryTabState extends State<_LibraryTab> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error fetching stories: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error fetching stories: $e"),
+            backgroundColor: Color(0xFFFC9272),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
     } finally {
       if (mounted) setState(() => _isLoading = false);
@@ -681,28 +690,58 @@ class _LibraryTabState extends State<_LibraryTab> {
         headers: networkHeaders,
       );
 
-      if ((res.statusCode == 200 || res.statusCode == 204) && mounted) {
+      // 1. Early return if the widget is no longer in the tree after the async gap
+      if (!mounted) return;
+
+      // 2. Safely use context now that we know the widget is mounted
+      if (res.statusCode == 200 || res.statusCode == 204) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Story deleted successfully.")),
+          SnackBar(
+            content: Text("Story deleted successfully."),
+            backgroundColor: Color(0xFF8BCA84),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
+          ),
         );
+
+        // Note: Calling fetchStories() works, but redownloads all data.
+        // For better performance, consider using setState to remove the story from your local list instead.
         fetchStories();
       } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                "Failed to delete story. Status code: ${res.statusCode}",
-              ),
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Failed to delete story. Status code: ${res.statusCode}",
             ),
-          );
-        }
+            backgroundColor: Color(0xFFFC9272),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error deleting story: $e")));
-      }
+      // 3. Check mounted again after the catch block's potential async gap
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error deleting story: $e"),
+          backgroundColor: Color(0xFFFC9272),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+          duration: const Duration(seconds: 2),
+        ),
+      );
     }
   }
 
@@ -1039,7 +1078,7 @@ class _LibraryTabState extends State<_LibraryTab> {
                                     vertical: 4,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.green,
+                                    color: Color(0xFF8BCA84),
                                     borderRadius: BorderRadius.circular(8),
                                     border: Border.all(
                                       color: Colors.black,
@@ -1376,9 +1415,19 @@ class _StudentsTabState extends State<_StudentsTab> {
                   : () async {
                       if (nameCtrl.text.trim().isEmpty) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
+                          SnackBar(
                             content: Text("Class Name is required!"),
-                            backgroundColor: Colors.red,
+                            backgroundColor: Color(0xFFFFB347),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            margin: const EdgeInsets.only(
+                              bottom: 24,
+                              left: 16,
+                              right: 16,
+                            ),
+                            duration: const Duration(seconds: 2),
                           ),
                         );
                         return;
@@ -1415,13 +1464,24 @@ class _StudentsTabState extends State<_StudentsTab> {
 
                       if (tId == 0) {
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
+                          SnackBar(
                             content: Text(
                               "Error: Teacher ID is missing. Please log out and log in again.",
                             ),
-                            backgroundColor: Colors.red,
+                            backgroundColor: Color(0xFFFC9272),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            margin: const EdgeInsets.only(
+                              bottom: 24,
+                              left: 16,
+                              right: 16,
+                            ),
+                            duration: const Duration(seconds: 2),
                           ),
                         );
+
                         setDialogState(() => isCreating = false);
                         return;
                       }
@@ -1462,9 +1522,19 @@ class _StudentsTabState extends State<_StudentsTab> {
                           Navigator.pop(context);
                           _fetchClasses();
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
+                            SnackBar(
                               content: Text("Class created successfully!"),
-                              backgroundColor: Colors.green,
+                              backgroundColor: Color(0xFF8BCA84),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              margin: const EdgeInsets.only(
+                                bottom: 24,
+                                left: 16,
+                                right: 16,
+                              ),
+                              duration: const Duration(seconds: 2),
                             ),
                           );
                         } else {
@@ -1490,7 +1560,17 @@ class _StudentsTabState extends State<_StudentsTab> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(cleanError),
-                              backgroundColor: Colors.red,
+                              backgroundColor: Color(0xFFFC9272),
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              margin: const EdgeInsets.only(
+                                bottom: 24,
+                                left: 16,
+                                right: 16,
+                              ),
+                              duration: const Duration(seconds: 2),
                             ),
                           );
                         }
@@ -1573,7 +1653,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                           count:
                               _summaryData['independent_count']?.toString() ??
                               "0",
-                          color: Colors.green.shade700,
+                          color: const Color(0xFF8BCA84),
                         ),
                       ],
                     ),
@@ -2863,8 +2943,18 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
 
       if ((res.statusCode == 200 || res.statusCode == 201) && mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Story unassigned successfully.")),
+          SnackBar(
+            content: Text("Story unassigned successfully."),
+            backgroundColor: Color(0xFF8BCA84),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
+          ),
         );
+
         _fetchClassStories();
       } else {
         if (mounted) {
@@ -2873,15 +2963,31 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
               content: Text(
                 "Failed to unassign story. Status code: ${res.statusCode}",
               ),
+              backgroundColor: Color(0xFFFC9272),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+              duration: const Duration(seconds: 2),
             ),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Error unassigning story: $e")));
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error unassigning story: $e"),
+            backgroundColor: Color(0xFFFC9272),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
+          ),
+        );
       }
     }
   }
@@ -2940,25 +3046,46 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
       if ((res.statusCode == 200 || res.statusCode == 204) && mounted) {
         Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text("Class deleted successfully"),
-            backgroundColor: Colors.red,
+            backgroundColor: Color(0xFF8BCA84),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
           ),
         );
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Failed. Code: ${res.statusCode}, Body: ${res.body}"),
-            backgroundColor: Colors.orange,
-            duration: const Duration(seconds: 4),
+            content: Text(
+              "Failed to delete class. Status code: ${res.statusCode}",
+            ),
+            backgroundColor: Color(0xFFFC9272),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
     } catch (e) {
-      debugPrint("Error deleting class: $e");
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.orange),
+          SnackBar(
+            content: Text("Failed to delete class: $e"),
+            backgroundColor: const Color(0xFFFC9272),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
+          ),
         );
       }
     }
@@ -3349,7 +3476,7 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                                                       vertical: 4,
                                                     ),
                                                 decoration: BoxDecoration(
-                                                  color: Colors.green,
+                                                  color: Color(0xFF8BCA84),
                                                   borderRadius:
                                                       BorderRadius.circular(8),
                                                   border: Border.all(
@@ -3632,16 +3759,36 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
 
   Future _assignSelectedStories() async {
     if (widget.classId == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Error: Invalid Class ID")));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text("Error: Invalid Class ID"),
+          backgroundColor: Color(0xFFFC9272),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+
       return;
     }
 
     if (_selectedStoryIds.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please select at least one story.")),
+        SnackBar(
+          content: Text("Please select at least one story."),
+          backgroundColor: Color(0xFFFFB347),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+          margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+          duration: const Duration(seconds: 2),
+        ),
       );
+
       return;
     }
 
@@ -3668,7 +3815,13 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
             content: Text(
               "${_selectedStoryIds.length} story/stories assigned successfully!",
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: Color(0xFF8BCA84),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
           ),
         );
       } else {
@@ -3678,7 +3831,13 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
               content: Text(
                 "Failed to assign stories (Status: ${response.statusCode})",
               ),
-              backgroundColor: Colors.red,
+              backgroundColor: Color(0xFFFC9272),
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(30),
+              ),
+              margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+              duration: const Duration(seconds: 2),
             ),
           );
         }
@@ -3688,7 +3847,13 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text("Failed to assign story: $e"),
-            backgroundColor: Colors.red,
+            backgroundColor: Color(0xFFFC9272),
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+            ),
+            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
@@ -3788,7 +3953,9 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
                                 : Colors.white,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
-                              color: isSelected ? Colors.green : Colors.black,
+                              color: isSelected
+                                  ? Color(0xFF8BCA84)
+                                  : Colors.black,
                               width: isSelected ? 4 : 3,
                             ),
                             boxShadow: const [
@@ -3832,7 +3999,7 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
                                         right: 8,
                                         child: Container(
                                           decoration: const BoxDecoration(
-                                            color: Colors.green,
+                                            color: Color(0xFF8BCA84),
                                             shape: BoxShape.circle,
                                           ),
                                           child: const Icon(
@@ -4076,7 +4243,7 @@ class _AlertsTabState extends State<_AlertsTab> {
                       Icon(
                         Icons.thumb_up_alt_rounded,
                         size: 70,
-                        color: Colors.green,
+                        color: Color(0xFF8BCA84),
                       ),
                       SizedBox(height: 10),
                       Text(
