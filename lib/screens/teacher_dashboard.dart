@@ -1324,6 +1324,288 @@ class _StudentsTabState extends State<_StudentsTab> {
     }
   }
 
+  // === ADD STUDENT DIALOG — creates a login account (User) + linked
+  // Student row via POST /admin/students. Mirrors _showCreateClassDialog's
+  // styling. Note: this does NOT enroll the student in a class — that's
+  // still a separate join-code flow, same as everywhere else in the app.
+  void _showAddStudentDialog() {
+    final firstNameCtrl = TextEditingController();
+    final lastNameCtrl = TextEditingController();
+    final lrnCtrl = TextEditingController();
+    final sectionCtrl = TextEditingController();
+    String selectedGrade = 'Grade 5';
+    bool isCreating = false;
+    String? lrnError;
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: Colors.black, width: 3.5),
+          ),
+          backgroundColor: const Color(0xFFFDE047),
+          title: const Text(
+            "ADD STUDENT 🎒",
+            style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black),
+            textAlign: TextAlign.center,
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: firstNameCtrl,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: "First Name",
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: lastNameCtrl,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: "Last Name",
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: lrnCtrl,
+                  keyboardType: TextInputType.number,
+                  decoration: InputDecoration(
+                    labelText: "LRN (used as login)",
+                    errorText: lrnError,
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: selectedGrade,
+                  decoration: InputDecoration(
+                    labelText: "Grade Level",
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  items: ['Grade 5', 'Grade 6']
+                      .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) setDialogState(() => selectedGrade = v);
+                  },
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: sectionCtrl,
+                  textCapitalization: TextCapitalization.words,
+                  decoration: InputDecoration(
+                    labelText: "Section",
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          actions: [
+            TextButton(
+              onPressed: isCreating ? null : () => Navigator.pop(context),
+              child: const Text(
+                "Cancel",
+                style: TextStyle(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF940D0D),
+              ),
+              onPressed: isCreating
+                  ? null
+                  : () async {
+                      setDialogState(() => lrnError = null);
+
+                      if (firstNameCtrl.text.trim().isEmpty ||
+                          lastNameCtrl.text.trim().isEmpty ||
+                          lrnCtrl.text.trim().isEmpty ||
+                          sectionCtrl.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text("Please fill in all fields!"),
+                            backgroundColor: const Color(0xFFFFB347),
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            margin: const EdgeInsets.only(
+                              bottom: 24,
+                              left: 16,
+                              right: 16,
+                            ),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                        return;
+                      }
+
+                      setDialogState(() => isCreating = true);
+
+                      try {
+                        final response = await http.post(
+                          Uri.parse("$baseUrl/api/admin/students"),
+                          headers: {
+                            ...networkHeaders,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                          },
+                          body: jsonEncode({
+                            'first_name': firstNameCtrl.text.trim(),
+                            'last_name': lastNameCtrl.text.trim(),
+                            'lrn': lrnCtrl.text.trim(),
+                            'grade_level': selectedGrade,
+                            'section': sectionCtrl.text.trim(),
+                          }),
+                        );
+
+                        final decoded = response.body.isNotEmpty
+                            ? jsonDecode(response.body)
+                            : {};
+
+                        if ((response.statusCode == 200 ||
+                                response.statusCode == 201) &&
+                            mounted) {
+                          Navigator.pop(context);
+                          // Default password note: the backend currently
+                          // hardcodes every new student's password to
+                          // "readsmart123" with no reset flow — surface it
+                          // so the teacher can actually hand it over.
+                          showDialog(
+                            context: this.context,
+                            builder: (context) => AlertDialog(
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(20),
+                                side: const BorderSide(
+                                  color: Colors.black,
+                                  width: 3.5,
+                                ),
+                              ),
+                              title: const Text("Student Added! 🎉"),
+                              content: Text(
+                                "LRN (login): ${lrnCtrl.text.trim()}\n"
+                                "Default password: readsmart123\n\n"
+                                "Please share these with the student securely.",
+                              ),
+                              actions: [
+                                TextButton(
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text("Done"),
+                                ),
+                              ],
+                            ),
+                          );
+                          _fetchAnalytics();
+                        } else if (response.statusCode == 422) {
+                          final errors = (decoded['errors'] as Map?) ?? {};
+                          final lrnMsg = (errors['lrn'] as List?)?.first;
+                          setDialogState(() {
+                            isCreating = false;
+                            lrnError =
+                                lrnMsg?.toString() ??
+                                (decoded['message']?.toString());
+                          });
+                        } else {
+                          setDialogState(() => isCreating = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                decoded['message']?.toString() ??
+                                    "Could not create student.",
+                              ),
+                              backgroundColor: Colors.red.shade700,
+                              behavior: SnackBarBehavior.floating,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(30),
+                              ),
+                              margin: const EdgeInsets.only(
+                                bottom: 24,
+                                left: 16,
+                                right: 16,
+                              ),
+                              duration: const Duration(seconds: 2),
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        setDialogState(() => isCreating = false);
+                        if (!mounted) return;
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text(
+                              "Could not reach the server. Please try again.",
+                            ),
+                            backgroundColor: Colors.red.shade700,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(30),
+                            ),
+                            margin: const EdgeInsets.only(
+                              bottom: 24,
+                              left: 16,
+                              right: 16,
+                            ),
+                            duration: const Duration(seconds: 2),
+                          ),
+                        );
+                      }
+                    },
+              child: isCreating
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      "Create",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   // === NAIDAGDAG: FUNCTION PARA SA CREATE CLASS DIALOG ===
   void _showCreateClassDialog() {
     final nameCtrl = TextEditingController();
@@ -1660,7 +1942,35 @@ class _StudentsTabState extends State<_StudentsTab> {
                     const SizedBox(height: 20),
                   ],
                 ),
-              const ComicBadgeHeader(title: "LEARNERS' RECORDS"),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const ComicBadgeHeader(title: "LEARNERS' RECORDS"),
+                  ElevatedButton.icon(
+                    onPressed: _showAddStudentDialog,
+                    icon: const Icon(
+                      Icons.person_add,
+                      color: Colors.black,
+                      size: 20,
+                    ),
+                    label: const Text(
+                      "Add Student",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accentTheme,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                        side: const BorderSide(color: Colors.black, width: 2),
+                      ),
+                      elevation: 0,
+                    ),
+                  ),
+                ],
+              ),
               const SizedBox(height: 10),
               if (_summaryData['students'] == null ||
                   (_summaryData['students'] as List).isEmpty)
