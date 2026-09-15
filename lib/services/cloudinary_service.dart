@@ -3,8 +3,8 @@ import 'dart:typed_data';
 import 'package:http/http.dart' as http;
 
 class CloudinaryService {
-  static const String cloudName = 'YOUR_CLOUD_NAME';
-  static const String uploadPreset = 'YOUR_UNSIGNED_UPLOAD_PRESET';
+  static const String cloudName = 'tlhtowg9';
+  static const String uploadPreset = 'zxpjpyfe';
 
   static Uri get _uploadUri =>
       Uri.parse('https://api.cloudinary.com/v1_1/$cloudName/image/upload');
@@ -14,7 +14,8 @@ class CloudinaryService {
     required String filename,
     String folder = 'stories',
   }) async {
-    if (cloudName == 'tlhtowg9' || uploadPreset == 'zxpjpyfe') {
+    if (cloudName == 'YOUR_CLOUD_NAME' ||
+        uploadPreset == 'YOUR_UNSIGNED_UPLOAD_PRESET') {
       throw Exception(
         'Cloudinary is not configured yet. Set cloudName and uploadPreset '
         'in lib/services/cloudinary_service.dart',
