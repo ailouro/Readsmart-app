@@ -239,6 +239,29 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           n['message']?.toString() ?? "Update available",
                           style: const TextStyle(fontWeight: FontWeight.w600),
                         ),
+                        subtitle: (n['lrn'] != null || n['password'] != null)
+                            ? Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    if (n['lrn'] != null)
+                                      Text("Username (LRN): ${n['lrn']}"),
+                                    if (n['password'] != null)
+                                      Text("Password: ${n['password']}"),
+                                    const SizedBox(height: 2),
+                                    const Text(
+                                      "Please change the password after first login.",
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        color: Colors.black54,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            : null,
+                        isThreeLine: n['lrn'] != null || n['password'] != null,
                         trailing: TextButton(
                           onPressed: () async {
                             final id = n['id'];

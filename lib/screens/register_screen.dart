@@ -23,6 +23,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // Which required fields failed validation on the last submit attempt —
   // drives the red border on each field until the person fixes it.
   Set<String> _fieldErrors = {};
+  // Tracks which password-type fields are currently showing plain text
+  // instead of dots, keyed by the same fieldKey used for error tracking.
+  final Set<String> _visiblePasswordFields = {};
 
   static const primaryColor = Color(0xFF940D0D);
   static const secondaryColor = Color(0xFFFDE047);
@@ -128,6 +131,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }) {
     final bool hasError = fieldKey != null && _fieldErrors.contains(fieldKey);
     final Color borderColor = hasError ? Colors.red.shade700 : Colors.black;
+    final bool isVisible =
+        fieldKey != null && _visiblePasswordFields.contains(fieldKey);
 
     return Container(
       decoration: BoxDecoration(
@@ -138,7 +143,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ),
       child: TextField(
         controller: controller,
-        obscureText: isPassword,
+        obscureText: isPassword && !isVisible,
         onChanged: fieldKey == null
             ? null
             : (_) {
@@ -157,6 +162,25 @@ class _RegisterScreenState extends State<RegisterScreen> {
             fontWeight: FontWeight.bold,
           ),
           prefixIcon: Icon(icon, color: Colors.black),
+          suffixIcon: isPassword
+              ? IconButton(
+                  icon: Icon(
+                    isVisible ? Icons.visibility_off : Icons.visibility,
+                    color: Colors.black54,
+                  ),
+                  onPressed: fieldKey == null
+                      ? null
+                      : () {
+                          setState(() {
+                            if (isVisible) {
+                              _visiblePasswordFields.remove(fieldKey);
+                            } else {
+                              _visiblePasswordFields.add(fieldKey);
+                            }
+                          });
+                        },
+                )
+              : null,
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -307,7 +331,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
         _buildComicTextField(
           controller: _loginController,
-          hintText: "Email",
+          hintText: "Email or LRN",
           icon: Icons.email_outlined,
           fieldKey: 'login',
         ),
