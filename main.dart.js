@@ -33427,9 +33427,9 @@ if(c===r-q)return q
 r=B.c.ld(a,b,r+1)}return null},
 CZ(a,b){var s=0,r=A.t(t.N),q,p,o,n,m,l
 var $async$CZ=A.o(function(c,d){if(c===1)return A.p(d,r)
-for(;;)switch(s){case 0:n=A.an5("POST",A.bC("https://api.cloudinary.com/v1_1/YOUR_CLOUD_NAME/image/upload",0,null))
+for(;;)switch(s){case 0:n=A.an5("POST",A.bC("https://api.cloudinary.com/v1_1/tlhtowg9/image/upload",0,null))
 m=n.x
-m.p(0,"upload_preset","YOUR_UNSIGNED_UPLOAD_PRESET")
+m.p(0,"upload_preset","zxpjpyfe")
 m.p(0,"folder","stories")
 n.y.push(A.aUJ("file",a,null,b))
 l=A
