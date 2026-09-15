@@ -49,6 +49,9 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
   // List ng slides kasama ang script controllers
   final List<SlideItem> _slides = [];
 
+  // Tracks which slides currently have an OCR request in flight (by identity)
+  final Set<SlideItem> _scanningSlides = {};
+
   // List ng quiz questions
   final List<QuizQuestion> _quizQuestions = [];
 
