@@ -6,6 +6,7 @@ import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../services/config.dart'; // Mula sa config.dart (baseUrl at networkHeaders)
+import '../services/cloudinary_service.dart'; // Mula sa cloudinary_service.dart (CloudinaryService)
 import '../widgets/guide_comic_background.dart';
 
 // Helper model para pagsamahin ang image file, bytes (para sa preview), at text controller
@@ -55,6 +56,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
   final TextEditingController _descController = TextEditingController();
 
   bool _isUploading = false;
+  String _uploadStatus = "";
 
   void _addQuizQuestion() {
     setState(() {
@@ -205,9 +207,39 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
       return;
     }
 
-    setState(() => _isUploading = true);
+    setState(() {
+      _isUploading = true;
+      _uploadStatus = "Uploading cover image...";
+    });
 
     try {
+      // --- STEP 1: Upload images to Cloudinary FIRST ---
+      // The backend no longer receives raw files for cover_image/pages —
+      // it only ever gets back plain URL strings. This is what avoids the
+      // "array offset on value of type null" crash: that error came from
+      // the backend's file-handling code, so taking files out of the
+      // request entirely sidesteps it.
+      final String coverImageUrl = await CloudinaryService.uploadImageBytes(
+        _coverBytes!,
+        filename: _coverImage!.name,
+      );
+
+      final List<String> pageImageUrls = [];
+      for (int i = 0; i < _slides.length; i++) {
+        setState(
+          () => _uploadStatus =
+              "Uploading slide ${i + 1} of ${_slides.length}...",
+        );
+        final url = await CloudinaryService.uploadImageBytes(
+          _slides[i].bytes,
+          filename: _slides[i].file.name,
+        );
+        pageImageUrls.add(url);
+      }
+
+      setState(() => _uploadStatus = "Saving story...");
+
+      // --- STEP 2: Send story data (URLs only, no files) to the backend ---
       final uri = Uri.parse("$baseUrl/api/stories");
       final request = http.MultipartRequest('POST', uri);
 
@@ -229,36 +261,15 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
         request.fields['audio_scripts[$i]'] = _slides[i].controller.text.trim();
       }
 
-      // Processing Cover Image (Cross-Platform)
-      if (kIsWeb) {
-        request.files.add(
-          http.MultipartFile.fromBytes(
-            'cover_image',
-            _coverBytes!,
-            filename: _coverImage!.name,
-          ),
-        );
-      } else {
-        request.files.add(
-          await http.MultipartFile.fromPath('cover_image', _coverImage!.path),
-        );
-      }
+      // Cover image: now a Cloudinary URL, sent as a normal text field.
+      request.fields['cover_image'] = coverImageUrl;
 
-      // Processing Story Pages / Slides (Cross-Platform)
-      for (var slide in _slides) {
-        if (kIsWeb) {
-          request.files.add(
-            http.MultipartFile.fromBytes(
-              'pages[]',
-              slide.bytes,
-              filename: slide.file.name,
-            ),
-          );
-        } else {
-          request.files.add(
-            await http.MultipartFile.fromPath('pages[]', slide.file.path),
-          );
-        }
+      // Story Pages / Slides: now Cloudinary URLs, indexed like the old
+      // pages[] file array so the backend field name can stay familiar
+      // (pages[0], pages[1], ...) but read as strings instead of files.
+      request.fields['pages'] = jsonEncode(pageImageUrls);
+      for (int i = 0; i < pageImageUrls.length; i++) {
+        request.fields['pages[$i]'] = pageImageUrls[i];
       }
 
       // Ipadala ang Request
@@ -327,7 +338,12 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
         );
       }
     } finally {
-      if (mounted) setState(() => _isUploading = false);
+      if (mounted) {
+        setState(() {
+          _isUploading = false;
+          _uploadStatus = "";
+        });
+      }
     }
   }
 
@@ -380,15 +396,17 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
       ),
       body: GuideComicBackground(
         child: _isUploading
-            ? const Center(
+            ? Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    CircularProgressIndicator(),
-                    SizedBox(height: 15),
+                    const CircularProgressIndicator(),
+                    const SizedBox(height: 15),
                     Text(
-                      "Uploading story & scripts, please wait...",
-                      style: TextStyle(
+                      _uploadStatus.isEmpty
+                          ? "Uploading story & scripts, please wait..."
+                          : _uploadStatus,
+                      style: const TextStyle(
                         fontWeight: FontWeight.w900,
                         color: Colors.white,
                         fontSize: 16,
