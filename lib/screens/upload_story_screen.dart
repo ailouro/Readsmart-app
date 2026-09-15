@@ -377,6 +377,11 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     );
   }
 
+  // ---------------------------------------------------------------------
+  // RESPONSIVE BREAKPOINT
+  // ---------------------------------------------------------------------
+  static const double _desktopBreakpoint = 900;
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -415,455 +420,508 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
                   ],
                 ),
               )
-            : SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // STORY TITLE
-                    TextField(
-                      controller: _titleController,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                      decoration: _comicInputDecoration("Story Title *"),
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final bool isDesktop =
+                      constraints.maxWidth >= _desktopBreakpoint;
+                  return SingleChildScrollView(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: isDesktop ? 40 : 16,
+                      vertical: 20,
                     ),
-                    const SizedBox(height: 15),
-
-                    // STORY DESCRIPTION
-                    TextField(
-                      controller: _descController,
-                      maxLines: 3,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                      decoration: _comicInputDecoration(
-                        "Description (Optional)",
+                    child: Center(
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(
+                          maxWidth: isDesktop ? 1180 : 640,
+                        ),
+                        child: isDesktop
+                            ? _buildDesktopLayout()
+                            : _buildMobileLayout(),
                       ),
                     ),
-                    const SizedBox(height: 25),
-
-                    // COVER IMAGE SECTION
-                    const Text(
-                      "Cover Image *",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-                        ],
-                      ),
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: const BorderSide(
-                              color: Colors.black,
-                              width: 3,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: _pickCover,
-                        icon: const Icon(Icons.image),
-                        label: Text(
-                          _coverImage == null
-                              ? "Select Cover Image"
-                              : "Change Cover Image",
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                    if (_coverBytes != null) ...[
-                      const SizedBox(height: 15),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(color: Colors.black, width: 3),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(5),
-                          child: Image.memory(
-                            _coverBytes!,
-                            height: 150,
-                            fit: BoxFit.cover,
-                          ),
-                        ),
-                      ),
-                    ],
-
-                    const SizedBox(height: 25),
-
-                    // STORY PAGES SECTION
-                    const Text(
-                      "Story Pages (Slides) & Narrator Scripts *",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-                        ],
-                      ),
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: const BorderSide(
-                              color: Colors.black,
-                              width: 3,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: _pickPages,
-                        icon: const Icon(Icons.photo_library),
-                        label: const Text(
-                          "Select Pages from Gallery",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // DYNAMIC SLIDE LIST WITH SCRIPT TEXTFIELDS
-                    if (_slides.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.black, width: 3),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black,
-                              offset: Offset(3, 3),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          "0 pages selected",
-                          style: TextStyle(
-                            color: Colors.grey[800],
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      )
-                    else
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _slides.length,
-                        itemBuilder: (context, index) {
-                          final slide = _slides[index];
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 20),
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(15),
-                              border: Border.all(color: Colors.black, width: 3),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Colors.black,
-                                  offset: Offset(4, 4),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Container(
-                                      decoration: BoxDecoration(
-                                        border: Border.all(
-                                          color: Colors.black,
-                                          width: 2,
-                                        ),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: ClipRRect(
-                                        borderRadius: BorderRadius.circular(4),
-                                        child: Image.memory(
-                                          slide.bytes,
-                                          width: 60,
-                                          height: 60,
-                                          fit: BoxFit.cover,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        "Slide ${index + 1}",
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 16,
-                                          color: Colors.black,
-                                        ),
-                                      ),
-                                    ),
-                                    IconButton(
-                                      tooltip: "Extract Text from Image",
-                                      icon: const Icon(
-                                        Icons.document_scanner,
-                                        color: Colors.blueAccent,
-                                      ),
-                                      onPressed: () =>
-                                          _scanTextFromImage(index),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete,
-                                        color: Colors.redAccent,
-                                      ),
-                                      onPressed: () => _removeSlide(index),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 12),
-                                TextField(
-                                  controller: slide.controller,
-                                  maxLines: 2,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  decoration:
-                                      _comicInputDecoration(
-                                        "Narrator Script / Text for Slide ${index + 1}",
-                                      ).copyWith(
-                                        hintText:
-                                            "Type story line for this slide...",
-                                      ),
-                                ),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-
-                    const SizedBox(height: 40),
-
-                    // QUIZ SECTION
-                    const Text(
-                      "Story Quiz (Optional)",
-                      style: TextStyle(
-                        fontWeight: FontWeight.w900,
-                        fontSize: 18,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    if (_quizQuestions.isEmpty)
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: Colors.black, width: 3),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black,
-                              offset: Offset(3, 3),
-                            ),
-                          ],
-                        ),
-                        child: Text(
-                          "No quiz questions added. Students won't take a quiz.",
-                          style: TextStyle(
-                            color: Colors.grey[800],
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      )
-                    else
-                      ListView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _quizQuestions.length,
-                        itemBuilder: (context, index) {
-                          final quiz = _quizQuestions[index];
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 20),
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFFDE047), // comic yellow
-                              borderRadius: BorderRadius.circular(15),
-                              border: Border.all(color: Colors.black, width: 3),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Colors.black,
-                                  offset: Offset(4, 4),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.spaceBetween,
-                                  children: [
-                                    Text(
-                                      "Question ${index + 1}",
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w900,
-                                        fontSize: 18,
-                                        color: Colors.black,
-                                      ),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete,
-                                        color: Colors.redAccent,
-                                      ),
-                                      onPressed: () =>
-                                          _removeQuizQuestion(index),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                TextField(
-                                  controller: quiz.questionController,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                  decoration: _comicInputDecoration(
-                                    "Type question here...",
-                                  ),
-                                ),
-                                const SizedBox(height: 15),
-                                const Text(
-                                  "Options & Correct Answer:",
-                                  style: TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 14,
-                                  ),
-                                ),
-                                const SizedBox(height: 10),
-                                ...List.generate(4, (optIndex) {
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 10),
-                                    child: Row(
-                                      children: [
-                                        Radio<int>(
-                                          value: optIndex,
-                                          groupValue: quiz.correctAnswerIndex,
-                                          activeColor: Colors.redAccent,
-                                          onChanged: (val) {
-                                            if (val != null) {
-                                              setState(() {
-                                                quiz.correctAnswerIndex = val;
-                                              });
-                                            }
-                                          },
-                                        ),
-                                        Expanded(
-                                          child: TextField(
-                                            controller: quiz
-                                                .optionControllers[optIndex],
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            decoration:
-                                                _comicInputDecoration(
-                                                  "Option ${String.fromCharCode(65 + optIndex)}",
-                                                ).copyWith(
-                                                  fillColor:
-                                                      quiz.correctAnswerIndex ==
-                                                          optIndex
-                                                      ? Colors.green[100]
-                                                      : Colors.white,
-                                                ),
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                }),
-                              ],
-                            ),
-                          );
-                        },
-                      ),
-                    const SizedBox(height: 12),
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-                        ],
-                      ),
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: const BorderSide(
-                              color: Colors.black,
-                              width: 3,
-                            ),
-                          ),
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        onPressed: _addQuizQuestion,
-                        icon: const Icon(Icons.add_task),
-                        label: const Text(
-                          "Add Quiz Question",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 40),
-
-                    // SUBMIT BUTTON
-                    Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(15),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black, offset: Offset(5, 5)),
-                        ],
-                      ),
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(vertical: 18),
-                          backgroundColor: const Color(0xFF9B0505),
-                          foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(15),
-                            side: const BorderSide(
-                              color: Colors.black,
-                              width: 3,
-                            ),
-                          ),
-                        ),
-                        onPressed: _uploadToServer,
-                        child: const Text(
-                          "UPLOAD AND SAVE",
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
       ),
     );
+  }
+
+  // ---------------------------------------------------------------------
+  // MOBILE LAYOUT — single stacked column, full-width fields (touch friendly)
+  // ---------------------------------------------------------------------
+  Widget _buildMobileLayout() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _titleField(),
+        const SizedBox(height: 15),
+        _descriptionField(),
+        const SizedBox(height: 25),
+        _coverImageSection(),
+        const SizedBox(height: 25),
+        _slidesSection(crossAxisCount: 1),
+        const SizedBox(height: 40),
+        _quizSection(crossAxisCount: 1),
+        const SizedBox(height: 24),
+        _addQuizButton(fullWidth: true),
+        const SizedBox(height: 40),
+        _submitButton(fullWidth: true),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // DESKTOP LAYOUT — two-column: details on the left, pages on the right,
+  // quiz + submit span the full width below. Nothing stretches edge to edge.
+  // ---------------------------------------------------------------------
+  Widget _buildDesktopLayout() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // LEFT: story details
+              Expanded(
+                flex: 4,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _titleField(),
+                    const SizedBox(height: 15),
+                    _descriptionField(),
+                    const SizedBox(height: 25),
+                    _coverImageSection(),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 28),
+              // RIGHT: pages / slides
+              Expanded(flex: 6, child: _slidesSection(crossAxisCount: 2)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 40),
+        _quizSection(crossAxisCount: 2),
+        const SizedBox(height: 16),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: _addQuizButton(fullWidth: false),
+        ),
+        const SizedBox(height: 40),
+        Center(child: _submitButton(fullWidth: false)),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // SHARED FIELD WIDGETS
+  // ---------------------------------------------------------------------
+  Widget _titleField() {
+    return TextField(
+      controller: _titleController,
+      style: const TextStyle(fontWeight: FontWeight.bold),
+      decoration: _comicInputDecoration("Story Title *"),
+    );
+  }
+
+  Widget _descriptionField() {
+    return TextField(
+      controller: _descController,
+      maxLines: 3,
+      style: const TextStyle(fontWeight: FontWeight.bold),
+      decoration: _comicInputDecoration("Description (Optional)"),
+    );
+  }
+
+  Widget _sectionLabel(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Text(
+        text,
+        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+      ),
+    );
+  }
+
+  // A comic-style button that only stretches to full width when asked to —
+  // on desktop it hugs its label instead of becoming a giant bar.
+  Widget _comicButton({
+    required VoidCallback onPressed,
+    required IconData icon,
+    required String label,
+    bool fullWidth = true,
+  }) {
+    final button = ElevatedButton.icon(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: const BorderSide(color: Colors.black, width: 3),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 18),
+      ),
+      onPressed: onPressed,
+      icon: Icon(icon),
+      label: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+    );
+
+    final decorated = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
+      ),
+      child: button,
+    );
+
+    return fullWidth
+        ? SizedBox(width: double.infinity, child: decorated)
+        : decorated;
+  }
+
+  Widget _emptyStateBox(String message) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.black, width: 3),
+        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(3, 3))],
+      ),
+      child: Text(
+        message,
+        style: TextStyle(color: Colors.grey[800], fontWeight: FontWeight.w900),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // COVER IMAGE SECTION
+  // ---------------------------------------------------------------------
+  Widget _coverImageSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel("Cover Image *"),
+        _comicButton(
+          onPressed: _pickCover,
+          icon: Icons.image,
+          label: _coverImage == null
+              ? "Select Cover Image"
+              : "Change Cover Image",
+        ),
+        if (_coverBytes != null) ...[
+          const SizedBox(height: 15),
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.black, width: 3),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(5),
+              child: Image.memory(
+                _coverBytes!,
+                height: 150,
+                width: double.infinity,
+                fit: BoxFit.cover,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // STORY PAGES / SLIDES SECTION (single column on mobile, grid on desktop)
+  // ---------------------------------------------------------------------
+  Widget _slidesSection({required int crossAxisCount}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel("Story Pages (Slides) & Narrator Scripts *"),
+        _comicButton(
+          onPressed: _pickPages,
+          icon: Icons.photo_library,
+          label: "Select Pages from Gallery",
+        ),
+        const SizedBox(height: 12),
+        if (_slides.isEmpty)
+          _emptyStateBox("0 pages selected")
+        else if (crossAxisCount > 1)
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _slides.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              mainAxisExtent: 230,
+            ),
+            itemBuilder: (context, index) => _buildSlideCard(index),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _slides.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            itemBuilder: (context, index) => _buildSlideCard(index),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildSlideCard(int index) {
+    final slide = _slides[index];
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.black, width: 3),
+        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.black, width: 2),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(4),
+                  child: Image.memory(
+                    slide.bytes,
+                    width: 44,
+                    height: 44,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  "Slide ${index + 1}",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 15,
+                    color: Colors.black,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              IconButton(
+                tooltip: "Extract Text from Image",
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(
+                  Icons.document_scanner,
+                  color: Colors.blueAccent,
+                  size: 20,
+                ),
+                onPressed: () => _scanTextFromImage(index),
+              ),
+              const SizedBox(width: 8),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(
+                  Icons.delete,
+                  color: Colors.redAccent,
+                  size: 20,
+                ),
+                onPressed: () => _removeSlide(index),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Expanded(
+            child: TextField(
+              controller: slide.controller,
+              maxLines: null,
+              expands: true,
+              textAlignVertical: TextAlignVertical.top,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+              decoration: _comicInputDecoration(
+                "Narrator Script for Slide ${index + 1}",
+              ).copyWith(hintText: "Type story line for this slide..."),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // QUIZ SECTION (single column on mobile, grid on desktop)
+  // ---------------------------------------------------------------------
+  Widget _quizSection({required int crossAxisCount}) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel("Story Quiz (Optional)"),
+        if (_quizQuestions.isEmpty)
+          _emptyStateBox("No quiz questions added. Students won't take a quiz.")
+        else if (crossAxisCount > 1)
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _quizQuestions.length,
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: crossAxisCount,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              mainAxisExtent: 340,
+            ),
+            itemBuilder: (context, index) => _buildQuizCard(index),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: _quizQuestions.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 16),
+            itemBuilder: (context, index) => _buildQuizCard(index),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildQuizCard(int index) {
+    final quiz = _quizQuestions[index];
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFDE047), // comic yellow
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.black, width: 3),
+        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                "Question ${index + 1}",
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 16,
+                  color: Colors.black,
+                ),
+              ),
+              IconButton(
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(
+                  Icons.delete,
+                  color: Colors.redAccent,
+                  size: 20,
+                ),
+                onPressed: () => _removeQuizQuestion(index),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: quiz.questionController,
+            style: const TextStyle(fontWeight: FontWeight.bold),
+            decoration: _comicInputDecoration("Type question here..."),
+          ),
+          const SizedBox(height: 12),
+          const Text(
+            "Options & Correct Answer:",
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+          ),
+          const SizedBox(height: 8),
+          ...List.generate(4, (optIndex) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Row(
+                children: [
+                  Radio<int>(
+                    value: optIndex,
+                    groupValue: quiz.correctAnswerIndex,
+                    activeColor: Colors.redAccent,
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    onChanged: (val) {
+                      if (val != null) {
+                        setState(() => quiz.correctAnswerIndex = val);
+                      }
+                    },
+                  ),
+                  const SizedBox(width: 4),
+                  Expanded(
+                    child: TextField(
+                      controller: quiz.optionControllers[optIndex],
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      decoration:
+                          _comicInputDecoration(
+                            "Option ${String.fromCharCode(65 + optIndex)}",
+                          ).copyWith(
+                            fillColor: quiz.correctAnswerIndex == optIndex
+                                ? Colors.green[100]
+                                : Colors.white,
+                          ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+
+  Widget _addQuizButton({required bool fullWidth}) {
+    return _comicButton(
+      onPressed: _addQuizQuestion,
+      icon: Icons.add_task,
+      label: "Add Quiz Question",
+      fullWidth: fullWidth,
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // SUBMIT BUTTON
+  // ---------------------------------------------------------------------
+  Widget _submitButton({required bool fullWidth}) {
+    final button = ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 32),
+        backgroundColor: const Color(0xFF9B0505),
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(15),
+          side: const BorderSide(color: Colors.black, width: 3),
+        ),
+      ),
+      onPressed: _uploadToServer,
+      child: const Text(
+        "UPLOAD AND SAVE",
+        style: TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+      ),
+    );
+
+    final decorated = DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(5, 5))],
+      ),
+      child: button,
+    );
+
+    if (!fullWidth) return decorated;
+    return SizedBox(width: double.infinity, child: decorated);
   }
 }
