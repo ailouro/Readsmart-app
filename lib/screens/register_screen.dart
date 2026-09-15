@@ -307,7 +307,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
         _buildComicTextField(
           controller: _loginController,
-          hintText: "Email or LRN",
+          hintText: "Email",
           icon: Icons.email_outlined,
           fieldKey: 'login',
         ),

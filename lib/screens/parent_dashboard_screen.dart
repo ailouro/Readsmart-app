@@ -42,8 +42,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   // ->classes()->first(); fixed on the ParentController side to return
   // all of them, and this list is what renders "YOUR CHILD'S CLASSES".
   List<Map<String, dynamic>> _classes = [];
+  List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
-
   Future<void> _doLogout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -161,11 +161,17 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           ];
         }
 
+        final List<dynamic> rawNotifications = data['notifications'] ?? [];
+        final notifications = rawNotifications
+            .whereType<Map<String, dynamic>>()
+            .toList();
+
         if (mounted) {
           setState(() {
             _studentId = data['student_id'];
             _studentName = data['student_name'];
             _classes = rawClasses.whereType<Map<String, dynamic>>().toList();
+            _notifications = notifications;
             _isLoading = false;
           });
         }
@@ -175,6 +181,138 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     } catch (e) {
       debugPrint("Error fetching parent dashboard: $e");
       if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  // Opens the notification list when the bell icon is tapped. Each item
+  // has its own "Got it" button — dismissing one marks it seen on the
+  // backend and removes it from the badge count locally, without closing
+  // the whole list if there are others left.
+  Future<void> _openNotificationsSheet() async {
+    await showModalBottomSheet(
+      context: context,
+      backgroundColor: paperColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            if (_notifications.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.all(32),
+                child: Text(
+                  "No new notifications 🎉",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Notifications 🔔",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                      color: maroonTheme,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ..._notifications.map((n) {
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Colors.black, width: 2),
+                      ),
+                      child: ListTile(
+                        leading: const Icon(
+                          Icons.celebration,
+                          color: maroonTheme,
+                        ),
+                        title: Text(
+                          n['message']?.toString() ?? "Update available",
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                        trailing: TextButton(
+                          onPressed: () async {
+                            final id = n['id'];
+                            if (id != null) await _dismissNotification(id);
+                            setState(() => _notifications.remove(n));
+                            setSheetState(() {});
+                            if (_notifications.isEmpty && mounted) {
+                              Navigator.pop(ctx);
+                              _fetchDashboard(); // refresh classes/child info
+                            }
+                          },
+                          child: const Text(
+                            "Got it",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: maroonTheme,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // A bell icon with a small red dot badge when there are unread
+  // notifications — tap opens the list via _openNotificationsSheet.
+  Widget _buildNotificationBell({double size = 20}) {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        IconButton(
+          icon: Icon(
+            Icons.notifications_rounded,
+            color: Colors.black,
+            size: size,
+          ),
+          onPressed: _openNotificationsSheet,
+        ),
+        if (_notifications.isNotEmpty)
+          Positioned(
+            right: 6,
+            top: 6,
+            child: Container(
+              width: 10,
+              height: 10,
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Future<void> _dismissNotification(dynamic id) async {
+    try {
+      await http.post(
+        Uri.parse("${widget.baseUrl}/api/parents/notifications/$id/dismiss"),
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420",
+        },
+      );
+    } catch (e) {
+      debugPrint("Error dismissing notification $id: $e");
     }
   }
 
@@ -777,23 +915,45 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       ),
                     ],
                   ),
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: Colors.black, width: 2),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black, offset: Offset(2, 2)),
-                      ],
-                    ),
-                    child: IconButton(
-                      icon: const Icon(
-                        Icons.exit_to_app_rounded,
-                        color: Colors.black,
-                        size: 20,
+                  Row(
+                    children: [
+                      Container(
+                        margin: const EdgeInsets.only(right: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.black, width: 2),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black,
+                              offset: Offset(2, 2),
+                            ),
+                          ],
+                        ),
+                        child: _buildNotificationBell(),
                       ),
-                      onPressed: _doLogout,
-                    ),
+                      Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.black, width: 2),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black,
+                              offset: Offset(2, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.exit_to_app_rounded,
+                            color: Colors.black,
+                            size: 20,
+                          ),
+                          onPressed: _doLogout,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -832,14 +992,27 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  const Text(
-                    "PARENT PORTAL",
-                    style: TextStyle(
-                      color: accentTheme,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2,
-                      fontSize: 14,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Text(
+                        "PARENT PORTAL",
+                        style: TextStyle(
+                          color: accentTheme,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 2,
+                          fontSize: 14,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                        ),
+                        child: _buildNotificationBell(size: 16),
+                      ),
+                    ],
                   ),
                   const SizedBox(height: 40),
                   const Padding(
