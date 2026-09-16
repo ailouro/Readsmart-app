@@ -145,12 +145,12 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               label: 'Library',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.warning_amber_rounded),
-              label: 'Alerts',
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.people_alt),
               label: 'Students',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.warning_amber_rounded),
+              label: 'Alerts',
             ),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],
@@ -1189,16 +1189,18 @@ class _StudentsTabState extends State<_StudentsTab> {
   List<dynamic> _mispronunciations = [];
   String _studentSearchQuery = '';
 
-  // The class roster endpoint (/api/classes/{id}/students) never embeds a
-  // student's progress logs, so the Learner Record card used to read
-  // student['progress'] and always show "No reading records yet." even
-  // when real progress existed. Fetch it separately per student instead,
-  // caching the Future so re-rendering the card (e.g. on rebuild) doesn't
-  // re-fire the request.
-  final Map<dynamic, Future<List<dynamic>>> _progressCache = {};
+  // GET /api/classes/{id}/students (used to populate the roster shown in
+  // the class details sheet) never includes each student's reading
+  // progress — that lives behind its own endpoint. The "Learner Record"
+  // card used to read student['progress'], which was always null, so it
+  // permanently showed "No reading records yet." even for students with
+  // real history. Fetch it on demand instead, cached per student so
+  // reopening the same record doesn't refire the request.
+  final Map<dynamic, Future<List<dynamic>>> _progressFutureCache = {};
 
   Future<List<dynamic>> _fetchStudentProgress(dynamic studentId) {
-    return _progressCache.putIfAbsent(studentId, () async {
+    if (studentId == null) return Future.value(const []);
+    return _progressFutureCache.putIfAbsent(studentId, () async {
       try {
         final res = await http.get(
           Uri.parse("$baseUrl/api/student/$studentId/all-progress"),
@@ -1206,15 +1208,12 @@ class _StudentsTabState extends State<_StudentsTab> {
         );
         if (res.statusCode == 200) {
           final decoded = jsonDecode(res.body);
-          if (decoded is Map && decoded['data'] is List) {
-            return decoded['data'] as List<dynamic>;
-          }
-          if (decoded is List) return decoded;
+          return (decoded['data'] ?? []) as List<dynamic>;
         }
       } catch (e) {
-        debugPrint("Error fetching progress for student $studentId: $e");
+        debugPrint("Error fetching student progress: $e");
       }
-      return <dynamic>[];
+      return const [];
     });
   }
 
@@ -2790,29 +2789,29 @@ class _StudentsTabState extends State<_StudentsTab> {
   }
 
   Widget _buildLearnerRecordCard(dynamic student) {
+    final Map<String, dynamic> s = Map<String, dynamic>.from(student as Map);
+    final studentId = s['id'] ?? s['user_id'];
+
     return FutureBuilder<List<dynamic>>(
-      future: _fetchStudentProgress(student['id']),
+      future: _fetchStudentProgress(studentId),
       builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Padding(
-            padding: EdgeInsets.symmetric(vertical: 24),
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
+        final bool isLoading =
+            snapshot.connectionState == ConnectionState.waiting;
+        final List progressLogs = snapshot.data ?? [];
         return _buildLearnerRecordCardContent(
-          student,
-          snapshot.data ?? const [],
+          s,
+          progressLogs,
+          isLoading: isLoading,
         );
       },
     );
   }
 
   Widget _buildLearnerRecordCardContent(
-    dynamic student,
-    List progressLogs,
-  ) {
-    final Map<String, dynamic> s = Map<String, dynamic>.from(student as Map);
-
+    Map<String, dynamic> student,
+    List progressLogs, {
+    bool isLoading = false,
+  }) {
     List studentMispronunciations = _mispronunciations
         .where((m) => m['student_id'] == student['id'])
         .toList();
@@ -2906,7 +2905,14 @@ class _StudentsTabState extends State<_StudentsTab> {
             ],
           ),
           const SizedBox(height: 12),
-          if (progressLogs.isEmpty)
+          if (isLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 12),
+              child: Center(
+                child: CircularProgressIndicator(color: Colors.brown),
+              ),
+            )
+          else if (progressLogs.isEmpty)
             Container(
               padding: const EdgeInsets.all(8),
               color: Colors.amber.shade200,
