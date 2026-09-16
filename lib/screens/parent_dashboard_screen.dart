@@ -368,20 +368,27 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       );
 
       if (response.statusCode == 200 || response.statusCode == 201) {
-        // Re-fetch the full list from the server instead of overwriting
-        // local state with just this one response — that's what was
-        // silently dropping previously-enrolled children before.
+        // The class doesn't attach immediately anymore — the teacher has
+        // to approve the request first — so this just re-syncs whatever
+        // did or didn't change (e.g. an "already enrolled" response still
+        // returns 200 with nothing new to show).
         await _fetchDashboard();
+
+        // Use whatever message the backend sent (it varies: "request
+        // sent", "already enrolled", "already pending") instead of a
+        // single hardcoded success line.
+        String message = "✅ Request sent! Waiting for the teacher's approval.";
+        try {
+          final data = jsonDecode(response.body);
+          if (data['message'] != null) message = data['message'];
+        } catch (_) {}
 
         if (mounted) {
           _classCodeController.clear();
           _studentNameController.clear();
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text("🎉 Successfully enrolled in Class!"),
-              backgroundColor: Colors.green,
-            ),
+            SnackBar(content: Text(message), backgroundColor: Colors.green),
           );
         }
       } else {
@@ -421,7 +428,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             side: const BorderSide(color: Colors.black, width: 3.5),
           ),
           title: const Text(
-            "Enroll Child in Class",
+            "Request to Join Class",
             style: TextStyle(color: maroonTheme, fontWeight: FontWeight.w900),
           ),
           content: Column(
@@ -507,7 +514,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       ),
                     )
                   : const Text(
-                      "Join Class",
+                      "Send Request",
                       style: TextStyle(
                         color: Colors.black,
                         fontWeight: FontWeight.w900,

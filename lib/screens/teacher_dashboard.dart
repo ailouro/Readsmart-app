@@ -323,7 +323,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
 }
 
 // TOP HEADER BAR
-class _TopHeaderBar extends StatelessWidget {
+class _TopHeaderBar extends StatefulWidget {
   final String userName;
   final dynamic teacherId;
   final VoidCallback onLogout;
@@ -333,6 +333,248 @@ class _TopHeaderBar extends StatelessWidget {
     this.teacherId,
     required this.onLogout,
   });
+
+  @override
+  State<_TopHeaderBar> createState() => _TopHeaderBarState();
+}
+
+class _TopHeaderBarState extends State<_TopHeaderBar> {
+  List<Map<String, dynamic>> _classRequests = [];
+  bool _isLoadingRequests = false;
+
+  static const Color maroonTheme = Color(0xFF940D0D);
+  static const Color paperColor = Color(0xFFFFF6E4);
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchClassRequests();
+  }
+
+  int get _teacherIdInt {
+    if (widget.teacherId != null && widget.teacherId.toString() != "null") {
+      return int.tryParse(widget.teacherId.toString()) ?? 0;
+    }
+    return 0;
+  }
+
+  // Pulls the pending "parent wants to join this class" requests for
+  // every class this teacher owns, so the bell badge stays accurate.
+  Future<void> _fetchClassRequests() async {
+    final tId = _teacherIdInt;
+    if (tId == 0) return;
+
+    setState(() => _isLoadingRequests = true);
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/api/teachers/$tId/class-requests"),
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final List<dynamic> raw = data['data'] ?? [];
+        if (mounted) {
+          setState(() {
+            _classRequests = raw.whereType<Map<String, dynamic>>().toList();
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint("Error fetching class requests: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingRequests = false);
+    }
+  }
+
+  Future<void> _respondToRequest(dynamic id, bool approve) async {
+    try {
+      final action = approve ? 'approve' : 'decline';
+      final response = await http.post(
+        Uri.parse("$baseUrl/api/teachers/class-requests/$id/$action"),
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420",
+        },
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          _classRequests.removeWhere((r) => r['id'] == id);
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                approve ? "Request approved ✅" : "Request declined",
+              ),
+              backgroundColor: approve ? Colors.green : Colors.grey[700],
+            ),
+          );
+        }
+      } else {
+        throw Exception("Server responded with ${response.statusCode}");
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to respond: $e")),
+        );
+      }
+    }
+  }
+
+  void _openRequestsSheet() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: paperColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            if (_classRequests.isEmpty) {
+              return const Padding(
+                padding: EdgeInsets.all(32),
+                child: Text(
+                  "No pending class requests 🎉",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+              );
+            }
+            return Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Class Join Requests 🔔",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                      color: maroonTheme,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  ..._classRequests.map((req) {
+                    return Card(
+                      margin: const EdgeInsets.only(bottom: 10),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                        side: const BorderSide(color: Colors.black, width: 2),
+                      ),
+                      child: ListTile(
+                        leading: const Icon(
+                          Icons.person_add_alt_1,
+                          color: maroonTheme,
+                        ),
+                        title: Text(
+                          req['student_name']?.toString() ?? "A student",
+                          style: const TextStyle(fontWeight: FontWeight.w700),
+                        ),
+                        subtitle: Text(
+                          "wants to join ${req['class_name'] ?? 'a class'}"
+                          "\nrequested by ${req['parent_name'] ?? 'a parent'}",
+                        ),
+                        isThreeLine: true,
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            IconButton(
+                              icon: const Icon(
+                                Icons.check_circle,
+                                color: Colors.green,
+                              ),
+                              tooltip: "Approve",
+                              onPressed: () async {
+                                final id = req['id'];
+                                await _respondToRequest(id, true);
+                                setSheetState(() {});
+                                if (_classRequests.isEmpty && mounted) {
+                                  Navigator.pop(ctx);
+                                }
+                              },
+                            ),
+                            IconButton(
+                              icon: const Icon(
+                                Icons.cancel,
+                                color: Colors.redAccent,
+                              ),
+                              tooltip: "Decline",
+                              onPressed: () async {
+                                final id = req['id'];
+                                await _respondToRequest(id, false);
+                                setSheetState(() {});
+                                if (_classRequests.isEmpty && mounted) {
+                                  Navigator.pop(ctx);
+                                }
+                              },
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildNotificationBell() {
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            border: Border.all(color: Colors.black, width: 2.5),
+          ),
+          child: IconButton(
+            icon: const Icon(
+              Icons.notifications_rounded,
+              color: Colors.black,
+              size: 20,
+            ),
+            onPressed: _openRequestsSheet,
+          ),
+        ),
+        if (_classRequests.isNotEmpty)
+          Positioned(
+            right: 2,
+            top: 2,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.red,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.white, width: 1.5),
+              ),
+              constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+              child: Text(
+                '${_classRequests.length}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w900,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+      ],
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -378,7 +620,7 @@ class _TopHeaderBar extends StatelessWidget {
                   ),
                 ),
                 Text(
-                  userName.isNotEmpty ? userName : "Teacher",
+                  widget.userName.isNotEmpty ? widget.userName : "Teacher",
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 18,
@@ -389,6 +631,8 @@ class _TopHeaderBar extends StatelessWidget {
               ],
             ),
           ),
+          _buildNotificationBell(),
+          const SizedBox(width: 8),
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -397,7 +641,7 @@ class _TopHeaderBar extends StatelessWidget {
             ),
             child: IconButton(
               icon: const Icon(Icons.logout, color: Colors.black, size: 20),
-              onPressed: onLogout,
+              onPressed: widget.onLogout,
             ),
           ),
         ],
