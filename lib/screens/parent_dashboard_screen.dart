@@ -44,6 +44,154 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   List<Map<String, dynamic>> _classes = [];
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
+
+  // Reading snapshot shown on the dashboard itself (not just after tapping
+  // into a class) — latest progress + the words the child is struggling
+  // with, pulled from the same endpoints StudentProgressScreen already
+  // uses for this student.
+  List<dynamic> _progressRecords = [];
+  List<dynamic> _mispronunciations = [];
+  bool _isLoadingHighlights = false;
+
+  Future<void> _fetchProgressHighlights() async {
+    if (_studentId == null) return;
+    setState(() => _isLoadingHighlights = true);
+    try {
+      final results = await Future.wait([
+        http.get(
+          Uri.parse("${widget.baseUrl}/api/student/$_studentId/all-progress"),
+          headers: const {"ngrok-skip-browser-warning": "69420"},
+        ),
+        http.get(
+          Uri.parse(
+            "${widget.baseUrl}/api/students/$_studentId/mispronunciations",
+          ),
+          headers: const {"ngrok-skip-browser-warning": "69420"},
+        ),
+      ]);
+      if (mounted) {
+        setState(() {
+          if (results[0].statusCode == 200) {
+            _progressRecords = jsonDecode(results[0].body)['data'] ?? [];
+          }
+          if (results[1].statusCode == 200) {
+            _mispronunciations = jsonDecode(results[1].body)['data'] ?? [];
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching progress highlights: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingHighlights = false);
+    }
+  }
+
+  // Top few words the child has struggled with most, across all stories —
+  // same data StudentProgressScreen's "Words" tab charts, just condensed
+  // to a handful of chips for the dashboard.
+  List<String> get _topStruggleWords {
+    final Map<String, int> counts = {};
+    for (final m in _mispronunciations) {
+      final word = m['word']?.toString();
+      if (word == null || word.isEmpty) continue;
+      counts[word] = (counts[word] ?? 0) + 1;
+    }
+    final sorted = counts.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+    return sorted.take(5).map((e) => e.key).toList();
+  }
+
+  Widget _buildProgressHighlightsCard() {
+    if (_isLoadingHighlights) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 12),
+        child: Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (_progressRecords.isEmpty && _mispronunciations.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    final latest = _progressRecords.isNotEmpty ? _progressRecords.last : null;
+    final struggleWords = _topStruggleWords;
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 14),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black, width: 3),
+        boxShadow: const [
+          BoxShadow(color: Colors.black, offset: Offset(4, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Reading Snapshot 📖",
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
+          ),
+          const SizedBox(height: 8),
+          if (latest != null)
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                Chip(
+                  label: Text(
+                    "Level: ${latest['reading_level'] ?? 'N/A'}",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  backgroundColor: cyanAccent,
+                ),
+                if (latest['oral_fluency_accuracy'] != null)
+                  Chip(
+                    label: Text(
+                      "Accuracy: ${latest['oral_fluency_accuracy']}%",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    backgroundColor: accentTheme,
+                  ),
+              ],
+            )
+          else
+            const Text(
+              "No reading activity yet.",
+              style: TextStyle(color: Colors.black54),
+            ),
+          if (struggleWords.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            const Text(
+              "Words to practice together:",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+            const SizedBox(height: 6),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: struggleWords
+                  .map(
+                    (w) => Chip(
+                      label: Text(
+                        w,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                      backgroundColor: maroonTheme,
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Future<void> _doLogout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -174,6 +322,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             _notifications = notifications;
             _isLoading = false;
           });
+          if (_studentId != null) _fetchProgressHighlights();
         }
       } else {
         if (mounted) setState(() => _isLoading = false);
@@ -761,6 +910,8 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           ],
                         ),
                       ),
+                      _buildProgressHighlightsCard(),
+                      const SizedBox(height: 14),
                       ..._classes.map((classInfo) {
                         return Container(
                           margin: const EdgeInsets.only(bottom: 14),
