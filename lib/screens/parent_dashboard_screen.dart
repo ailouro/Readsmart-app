@@ -23,7 +23,7 @@ class ParentDashboardScreen extends StatefulWidget {
 
 class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   final _classCodeController = TextEditingController();
-  final _studentNameController = TextEditingController();
+  final _studentLrnController = TextEditingController();
 
   static const Color maroonTheme = Color(0xFF9B0505);
   static const Color accentTheme = Color(0xFFFDE047);
@@ -490,9 +490,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
   Future<void> _enrollStudent() async {
     final code = _classCodeController.text.trim();
-    final name = _studentNameController.text.trim();
+    final lrn = _studentLrnController.text.trim();
 
-    if (code.isEmpty || name.isEmpty) {
+    if (code.isEmpty || lrn.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please fill in all fields")),
       );
@@ -512,7 +512,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         body: jsonEncode({
           "parent_id": widget.parentId,
           "class_code": code,
-          "student_name": name,
+          "lrn": lrn,
         }),
       );
 
@@ -524,7 +524,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
         if (mounted) {
           _classCodeController.clear();
-          _studentNameController.clear();
+          _studentLrnController.clear();
           Navigator.pop(context);
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
@@ -577,9 +577,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
-                controller: _studentNameController,
+                controller: _studentLrnController,
+                keyboardType: TextInputType.number,
                 decoration: InputDecoration(
-                  labelText: "Child's Full Name",
+                  labelText: "Child's LRN",
+                  helperText: "The 12-digit LRN on your child's report card",
                   labelStyle: const TextStyle(
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
