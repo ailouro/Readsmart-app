@@ -28,6 +28,32 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
   // dashboard can render it as a distinct, non-alarming column.
   List<dynamic> _selfCorrections = [];
 
+  // /api/teachers/{id}/dashboard-summary doesn't embed each student's
+  // progress logs either, so mirror the same per-student fetch+cache used
+  // on the teacher dashboard instead of reading student['progress'].
+  final Map<dynamic, Future<List<dynamic>>> _progressCache = {};
+
+  Future<List<dynamic>> _fetchStudentProgress(dynamic studentId) {
+    return _progressCache.putIfAbsent(studentId, () async {
+      try {
+        final res = await http.get(
+          Uri.parse("${widget.baseUrl}/api/student/$studentId/all-progress"),
+          headers: const {"ngrok-skip-browser-warning": "69420"},
+        );
+        if (res.statusCode == 200) {
+          final decoded = jsonDecode(res.body);
+          if (decoded is Map && decoded['data'] is List) {
+            return decoded['data'] as List<dynamic>;
+          }
+          if (decoded is List) return decoded;
+        }
+      } catch (e) {
+        debugPrint("Error fetching progress for student $studentId: $e");
+      }
+      return <dynamic>[];
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -199,8 +225,27 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
   }
 
   Widget _buildLearnerRecordCard(Map<String, dynamic> student) {
-    List progressLogs = student['progress'] ?? [];
+    return FutureBuilder<List<dynamic>>(
+      future: _fetchStudentProgress(student['id']),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 24),
+            child: Center(child: CircularProgressIndicator()),
+          );
+        }
+        return _buildLearnerRecordCardContent(
+          student,
+          snapshot.data ?? const [],
+        );
+      },
+    );
+  }
 
+  Widget _buildLearnerRecordCardContent(
+    Map<String, dynamic> student,
+    List progressLogs,
+  ) {
     List studentMispronunciations = _mispronunciations
         .where((m) => m['student_id'].toString() == student['id'].toString())
         .toList();

@@ -145,12 +145,12 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
               label: 'Library',
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.warning_amber_rounded),
-              label: 'Alerts',
-            ),
-            BottomNavigationBarItem(
               icon: Icon(Icons.people_alt),
               label: 'Students',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.warning_amber_rounded),
+              label: 'Alerts',
             ),
             BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
           ],
