@@ -946,20 +946,44 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       );
 
       if (!mounted) return;
-      // ... Ipagpatuloy ang pag-navigate papuntang QuizScreen ...
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(
-          builder: (context) => QuizScreen(
-            testType: widget.testType,
-            storyId: widget.story['id'] ?? widget.story['_id'],
-            studentId: widget.studentId,
-            baseUrl: widget.baseUrl,
-            oralAccuracy: wrPct,
-            totalWords: totalWordsCount,
-            readingTimeSeconds: elapsedSeconds > 0 ? elapsedSeconds : 1,
-          ),
-        ),
+
+      // 🛠️ FIX: _ReadingResultsDialog (score summary + confetti) was fully
+      // built but never actually shown anywhere — this used to be the step
+      // right here, before going to the quiz, but somewhere along the way
+      // the call to open it was dropped and the flow went straight to
+      // QuizScreen. Wiring it back in using the same values already
+      // computed above.
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) {
+          return _ReadingResultsDialog(
+            totalWordsCount: totalWordsCount,
+            failedWordsCount: failedWordsCount,
+            elapsedSeconds: elapsedSeconds > 0 ? elapsedSeconds : 1,
+            wrPct: wrPct.toStringAsFixed(2),
+            wrLevel: wrLevel,
+            allFailedWords: _allFailedWords,
+            selfCorrectedWords: _selfCorrectedWords,
+            onFinish: () {
+              Navigator.of(context).pop(); // close the results dialog
+              Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => QuizScreen(
+                    testType: widget.testType,
+                    storyId: widget.story['id'] ?? widget.story['_id'],
+                    studentId: widget.studentId,
+                    baseUrl: widget.baseUrl,
+                    oralAccuracy: wrPct,
+                    totalWords: totalWordsCount,
+                    readingTimeSeconds: elapsedSeconds > 0 ? elapsedSeconds : 1,
+                  ),
+                ),
+              );
+            },
+          );
+        },
       );
     }
   }
