@@ -28,7 +28,8 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
 
   int _currentPage = 0;
 
-  final TextEditingController _scriptController = TextEditingController();
+  // Managed list of text editing controllers for separate script segments
+  final List<TextEditingController> _scriptControllers = [];
   bool _isSaving = false;
   bool _isGeneratingVoice = false;
   bool _isPlayingAudio = false;
@@ -40,8 +41,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     _pages = List.from(widget.story['pages'] ?? []);
     _loadCurrentSlideScript();
 
-    _scriptController.addListener(_onScriptChanged);
-
     _audioPlayer.onPlayerComplete.listen((event) {
       if (mounted) {
         setState(() {
@@ -51,24 +50,71 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     });
   }
 
+  void _clearScriptControllers() {
+    for (var controller in _scriptControllers) {
+      controller.dispose();
+    }
+    _scriptControllers.clear();
+  }
+
+  void _loadCurrentSlideScript() {
+    _stopAudio();
+    _clearScriptControllers();
+
+    if (_pages.isNotEmpty && _currentPage < _pages.length) {
+      var rawScripts = _pages[_currentPage]['audio_scripts'];
+      if (rawScripts is List && rawScripts.isNotEmpty) {
+        for (var script in rawScripts) {
+          final controller = TextEditingController(text: script.toString());
+          controller.addListener(_onScriptChanged);
+          _scriptControllers.add(controller);
+        }
+      } else if (rawScripts is String && rawScripts.trim().isNotEmpty) {
+        final controller = TextEditingController(text: rawScripts);
+        controller.addListener(_onScriptChanged);
+        _scriptControllers.add(controller);
+      }
+    }
+
+    // Always ensure at least one active controller field exists
+    if (_scriptControllers.isEmpty) {
+      final controller = TextEditingController();
+      controller.addListener(_onScriptChanged);
+      _scriptControllers.add(controller);
+    }
+
+    if (mounted) setState(() {});
+  }
+
   void _onScriptChanged() {
     if (mounted) {
       setState(() {});
     }
   }
 
-  void _loadCurrentSlideScript() {
-    _stopAudio();
-    if (_pages.isNotEmpty && _currentPage < _pages.length) {
-      var rawScripts = _pages[_currentPage]['audio_scripts'];
-      if (rawScripts is List && rawScripts.isNotEmpty) {
-        _scriptController.text = rawScripts[0].toString();
-      } else if (rawScripts is String) {
-        _scriptController.text = rawScripts;
-      } else {
-        _scriptController.text = "";
-      }
+  void _addScriptSegment() {
+    setState(() {
+      final controller = TextEditingController();
+      controller.addListener(_onScriptChanged);
+      _scriptControllers.add(controller);
+    });
+  }
+
+  void _removeScriptSegment(int index) {
+    if (_scriptControllers.length > 1) {
+      setState(() {
+        _scriptControllers[index].removeListener(_onScriptChanged);
+        _scriptControllers[index].dispose();
+        _scriptControllers.removeAt(index);
+      });
     }
+  }
+
+  List<String> _getScriptsList() {
+    return _scriptControllers
+        .map((c) => c.text.trim())
+        .where((text) => text.isNotEmpty)
+        .toList();
   }
 
   Future<void> _stopAudio() async {
@@ -85,7 +131,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   Future<void> _scanTextFromImage() async {
     if (_pages.isEmpty || _currentPage >= _pages.length) return;
 
-    // Retrieve image URL
     String rawPath = _pages[_currentPage]['image_path'] ?? '';
     if (rawPath.startsWith('public/')) {
       rawPath = rawPath.replaceFirst('public/', '');
@@ -102,7 +147,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         );
       }
 
-      // 1. Download the image
       final response = await http.get(
         Uri.parse(imageUrl),
         headers: {"ngrok-skip-browser-warning": "69420"},
@@ -140,7 +184,9 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
             }
             if (mounted) {
               setState(() {
-                _scriptController.text = extracted.trim();
+                if (_scriptControllers.isNotEmpty) {
+                  _scriptControllers[0].text = extracted.trim();
+                }
               });
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text("Text extracted successfully!")),
@@ -155,14 +201,12 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         return;
       }
 
-      // 2. Save it to a temporary file (Android/iOS only)
       final tempDir = await getTemporaryDirectory();
       final file = File(
         '${tempDir.path}/temp_ocr_image_${DateTime.now().millisecondsSinceEpoch}.jpg',
       );
       await file.writeAsBytes(response.bodyBytes);
 
-      // 3. Process with ML Kit
       if (mounted) {
         ScaffoldMessenger.of(
           context,
@@ -177,17 +221,17 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         inputImage,
       );
 
-      // 4. Update UI
       if (mounted) {
         setState(() {
-          _scriptController.text = recognizedText.text;
+          if (_scriptControllers.isNotEmpty) {
+            _scriptControllers[0].text = recognizedText.text;
+          }
         });
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text("Text extracted successfully!")),
         );
       }
 
-      // 5. Cleanup
       textRecognizer.close();
       if (await file.exists()) {
         await file.delete();
@@ -284,7 +328,12 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     });
 
     try {
-      final slideIdentifier = _currentPage;
+      dynamic slideIdentifier = _currentPage;
+      if (_pages.isNotEmpty && _currentPage < _pages.length) {
+        slideIdentifier = _pages[_currentPage]['id'] ?? _currentPage;
+      }
+
+      final scripts = _getScriptsList();
 
       final url = Uri.parse(
         "${widget.baseUrl}/api/stories/${widget.story['id']}/slides/$slideIdentifier/update-script",
@@ -296,19 +345,19 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
           "Content-Type": "application/json",
           "ngrok-skip-browser-warning": "69420",
         },
-        body: jsonEncode({"audio_script": _scriptController.text}),
+        body: jsonEncode({"scripts": scripts}),
       );
 
       if (!mounted) return;
 
       if (response.statusCode == 200) {
         setState(() {
-          _pages[_currentPage]['audio_scripts'] = [_scriptController.text];
+          _pages[_currentPage]['audio_scripts'] = scripts;
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Slide ${_currentPage + 1} script saved! 💾"),
+            content: Text("Slide ${_currentPage + 1} scripts saved! 💾"),
             backgroundColor: Colors.green,
           ),
         );
@@ -336,11 +385,12 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   }
 
   Future<void> _generateAiVoice() async {
-    if (_scriptController.text.trim().isEmpty) {
+    final scripts = _getScriptsList();
+    if (scripts.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            "Please type a script first before generating AI voice! ⚠️",
+            "Please type at least one script segment before generating AI voice! ⚠️",
           ),
           backgroundColor: Colors.orange,
         ),
@@ -368,11 +418,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
           "Content-Type": "application/json",
           "ngrok-skip-browser-warning": "69420",
         },
-        body: jsonEncode({
-          "text": _scriptController.text,
-          "script_index": 0,
-          "lang": "tl",
-        }),
+        body: jsonEncode({"scripts": scripts, "lang": "tl"}),
       );
 
       if (!mounted) return;
@@ -411,10 +457,9 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
 
   @override
   void dispose() {
-    _scriptController.removeListener(_onScriptChanged);
+    _clearScriptControllers();
     _audioPlayer.dispose();
     _pageController.dispose();
-    _scriptController.dispose();
     super.dispose();
   }
 
@@ -423,6 +468,11 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     String cleanBaseUrl = widget.baseUrl.endsWith('/api')
         ? widget.baseUrl.substring(0, widget.baseUrl.length - 4)
         : widget.baseUrl;
+
+    String combinedText = _scriptControllers
+        .map((c) => c.text.trim())
+        .where((t) => t.isNotEmpty)
+        .join("\n\n");
 
     return Scaffold(
       backgroundColor: Colors.grey[900],
@@ -527,7 +577,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                   child: PageView.builder(
                     controller: _pageController,
                     itemCount: _pages.length,
-                    // ENABLE MOUSE DRAG ON WEB
                     scrollBehavior: const MaterialScrollBehavior().copyWith(
                       dragDevices: {
                         PointerDeviceKind.mouse,
@@ -550,7 +599,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                       return Stack(
                         alignment: Alignment.bottomCenter,
                         children: [
-                          // Slide Image
                           Image.network(
                             imageUrl,
                             headers: const {
@@ -564,8 +612,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                               size: 50,
                             ),
                           ),
-                          // Live Subtitle Overlay
-                          if (_scriptController.text.trim().isNotEmpty)
+                          if (combinedText.isNotEmpty)
                             Container(
                               width: double.infinity,
                               margin: const EdgeInsets.all(12),
@@ -581,11 +628,11 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                                 ),
                               ),
                               child: Text(
-                                _scriptController.text,
+                                combinedText,
                                 textAlign: TextAlign.center,
                                 style: const TextStyle(
                                   color: Colors.white,
-                                  fontSize: 15,
+                                  fontSize: 14,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -596,146 +643,198 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                   ),
                 ),
 
-                // 4. BOTTOM EDITING CONTROLS
-                Container(
-                  padding: const EdgeInsets.all(16.0),
-                  color: Colors.black,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // 4. BOTTOM EDITING CONTROLS FOR MULTIPLE TEXT SEGMENTS
+                Expanded(
+                  flex: 3,
+                  child: Container(
+                    padding: const EdgeInsets.all(16.0),
+                    color: Colors.black,
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          Text(
-                            "NARRATOR SCRIPT / TEXT FOR SLIDE ${_currentPage + 1}:",
-                            style: const TextStyle(
-                              color: Colors.amberAccent,
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          IconButton(
-                            tooltip: "Extract Text from Image",
-                            icon: const Icon(
-                              Icons.document_scanner,
-                              color: Colors.blueAccent,
-                            ),
-                            onPressed: _scanTextFromImage,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      TextField(
-                        controller: _scriptController,
-                        maxLines: 3,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: InputDecoration(
-                          hintText:
-                              "Type the story line or narrator script for Slide ${_currentPage + 1} here...",
-                          hintStyle: const TextStyle(color: Colors.white30),
-                          filled: true,
-                          fillColor: Colors.grey[800],
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                            borderSide: BorderSide.none,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-
-                      // PLAYBACK PREVIEW BUTTON
-                      ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _isPlayingAudio
-                              ? Colors.orange[800]
-                              : Colors.teal[700],
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 12),
-                        ),
-                        icon: Icon(
-                          _isPlayingAudio ? Icons.pause : Icons.play_arrow,
-                        ),
-                        label: Text(
-                          _isPlayingAudio
-                              ? "Pause Audio"
-                              : "Play Voice Preview",
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                        onPressed: _isSaving || _isGeneratingVoice
-                            ? null
-                            : _toggleAudioPlayback,
-                      ),
-                      const SizedBox(height: 8),
-
-                      // SAVE & CREATE VOICE BUTTONS
-                      Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.amber[700],
-                                foregroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                              ),
-                              icon: _isSaving
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.black,
-                                      ),
-                                    )
-                                  : const Icon(Icons.save),
-                              label: Text(
-                                _isSaving ? "Saving..." : "Save Text",
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                "SCRIPTS / TEXTS FOR SLIDE ${_currentPage + 1}:",
                                 style: const TextStyle(
+                                  color: Colors.amberAccent,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
-                              onPressed: _isSaving || _isGeneratingVoice
-                                  ? null
-                                  : _saveSlideScript,
-                            ),
+                              Row(
+                                children: [
+                                  IconButton(
+                                    tooltip: "Extract Text from Image",
+                                    icon: const Icon(
+                                      Icons.document_scanner,
+                                      color: Colors.blueAccent,
+                                    ),
+                                    onPressed: _scanTextFromImage,
+                                  ),
+                                  IconButton(
+                                    tooltip: "Add Text Segment",
+                                    icon: const Icon(
+                                      Icons.add_circle,
+                                      color: Colors.greenAccent,
+                                    ),
+                                    onPressed: _addScriptSegment,
+                                  ),
+                                ],
+                              ),
+                            ],
                           ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.blue[700],
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 14,
-                                ),
-                              ),
-                              icon: _isGeneratingVoice
-                                  ? const SizedBox(
-                                      width: 18,
-                                      height: 18,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        color: Colors.white,
+                          const SizedBox(height: 8),
+
+                          // DYNAMIC LIST OF SCRIPT TEXTFIELDS
+                          ListView.builder(
+                            shrinkWrap: true,
+                            physics: const NeverScrollableScrollPhysics(),
+                            itemCount: _scriptControllers.length,
+                            itemBuilder: (context, idx) {
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 8.0),
+                                child: Row(
+                                  children: [
+                                    Expanded(
+                                      child: TextField(
+                                        controller: _scriptControllers[idx],
+                                        maxLines: null,
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                        ),
+                                        decoration: InputDecoration(
+                                          hintText:
+                                              "Text Segment ${idx + 1}...",
+                                          hintStyle: const TextStyle(
+                                            color: Colors.white30,
+                                          ),
+                                          filled: true,
+                                          fillColor: Colors.grey[800],
+                                          border: OutlineInputBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            borderSide: BorderSide.none,
+                                          ),
+                                        ),
                                       ),
-                                    )
-                                  : const Icon(Icons.record_voice_over),
-                              label: Text(
-                                _isGeneratingVoice
-                                    ? "Creating..."
-                                    : "Create Voice",
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
+                                    ),
+                                    if (_scriptControllers.length > 1)
+                                      IconButton(
+                                        icon: const Icon(
+                                          Icons.delete_outline,
+                                          color: Colors.redAccent,
+                                        ),
+                                        onPressed: () =>
+                                            _removeScriptSegment(idx),
+                                      ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                          const SizedBox(height: 12),
+
+                          // PLAYBACK PREVIEW BUTTON
+                          ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _isPlayingAudio
+                                  ? Colors.orange[800]
+                                  : Colors.teal[700],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                            icon: Icon(
+                              _isPlayingAudio ? Icons.pause : Icons.play_arrow,
+                            ),
+                            label: Text(
+                              _isPlayingAudio
+                                  ? "Pause Audio"
+                                  : "Play Voice Preview",
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            onPressed: _isSaving || _isGeneratingVoice
+                                ? null
+                                : _toggleAudioPlayback,
+                          ),
+                          const SizedBox(height: 8),
+
+                          // SAVE & CREATE VOICE BUTTONS
+                          Row(
+                            children: [
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.amber[700],
+                                    foregroundColor: Colors.black,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                  icon: _isSaving
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.black,
+                                          ),
+                                        )
+                                      : const Icon(Icons.save),
+                                  label: Text(
+                                    _isSaving ? "Saving..." : "Save Texts",
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  onPressed: _isSaving || _isGeneratingVoice
+                                      ? null
+                                      : _saveSlideScript,
                                 ),
                               ),
-                              onPressed: _isSaving || _isGeneratingVoice
-                                  ? null
-                                  : _generateAiVoice,
-                            ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: ElevatedButton.icon(
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: Colors.blue[700],
+                                    foregroundColor: Colors.white,
+                                    padding: const EdgeInsets.symmetric(
+                                      vertical: 14,
+                                    ),
+                                  ),
+                                  icon: _isGeneratingVoice
+                                      ? const SizedBox(
+                                          width: 18,
+                                          height: 18,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: Colors.white,
+                                          ),
+                                        )
+                                      : const Icon(Icons.record_voice_over),
+                                  label: Text(
+                                    _isGeneratingVoice
+                                        ? "Creating..."
+                                        : "Create Voices",
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  onPressed: _isSaving || _isGeneratingVoice
+                                      ? null
+                                      : _generateAiVoice,
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                    ],
+                    ),
                   ),
                 ),
               ],
