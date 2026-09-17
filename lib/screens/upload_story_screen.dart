@@ -5,8 +5,8 @@ import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
-import '../services/config.dart'; // Mula sa config.dart (baseUrl at networkHeaders)
-import '../services/cloudinary_service.dart'; // Mula sa cloudinary_service.dart (CloudinaryService)
+import '../services/config.dart';
+import '../services/cloudinary_service.dart';
 import '../widgets/guide_comic_background.dart';
 
 // Helper model para pagsamahin ang image file, bytes, at multiple script controllers
@@ -54,7 +54,7 @@ class QuizQuestion {
     TextEditingController(),
     TextEditingController(),
   ];
-  int correctAnswerIndex = 0; // Default to first option
+  int correctAnswerIndex = 0;
 }
 
 class UploadStoryScreen extends StatefulWidget {
@@ -70,10 +70,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
   XFile? _coverImage;
   Uint8List? _coverBytes;
 
-  // List ng slides kasama ang script controllers
   final List<SlideItem> _slides = [];
-
-  // List ng quiz questions
   final List<QuizQuestion> _quizQuestions = [];
 
   final TextEditingController _titleController = TextEditingController();
@@ -98,7 +95,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     });
   }
 
-  // --- 1. PICK COVER IMAGE ---
   Future<void> _pickCover() async {
     final XFile? image = await _picker.pickImage(
       source: ImageSource.gallery,
@@ -113,7 +109,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     }
   }
 
-  // --- 2. PICK STORY PAGES (SLIDES) ---
   Future<void> _pickPages() async {
     final List<XFile> images = await _picker.pickMultiImage(imageQuality: 50);
     if (images.isNotEmpty) {
@@ -128,7 +123,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     }
   }
 
-  // --- 3. REMOVE SINGLE SLIDE ---
   void _removeSlide(int index) {
     setState(() {
       _slides[index].dispose();
@@ -136,7 +130,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     });
   }
 
-  // --- 3.5 SCAN TEXT FROM IMAGE ---
   Future<void> _scanTextFromImage(int index) async {
     final slide = _slides[index];
     try {
@@ -214,7 +207,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     }
   }
 
-  // --- 4. CROSS-PLATFORM UPLOAD LOGIC ---
   Future<void> _uploadToServer() async {
     if (_titleController.text.trim().isEmpty ||
         _coverImage == null ||
@@ -264,7 +256,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
       request.fields['title'] = _titleController.text.trim();
       request.fields['description'] = _descController.text.trim();
 
-      // Send multi-script arrays per slide
       List<List<String>> allScripts = _slides
           .map((s) => s.scriptsList)
           .toList();
@@ -462,9 +453,9 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
         const SizedBox(height: 25),
         _coverImageSection(),
         const SizedBox(height: 25),
-        _slidesSection(crossAxisCount: 1),
+        _slidesSection(),
         const SizedBox(height: 40),
-        _quizSection(crossAxisCount: 1),
+        _quizSection(),
         const SizedBox(height: 24),
         _addQuizButton(fullWidth: true),
         const SizedBox(height: 40),
@@ -477,30 +468,28 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        IntrinsicHeight(
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                flex: 4,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _titleField(),
-                    const SizedBox(height: 15),
-                    _descriptionField(),
-                    const SizedBox(height: 25),
-                    _coverImageSection(),
-                  ],
-                ),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              flex: 4,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _titleField(),
+                  const SizedBox(height: 15),
+                  _descriptionField(),
+                  const SizedBox(height: 25),
+                  _coverImageSection(),
+                ],
               ),
-              const SizedBox(width: 28),
-              Expanded(flex: 6, child: _slidesSection(crossAxisCount: 2)),
-            ],
-          ),
+            ),
+            const SizedBox(width: 28),
+            Expanded(flex: 6, child: _slidesSection()),
+          ],
         ),
         const SizedBox(height: 40),
-        _quizSection(crossAxisCount: 2),
+        _quizSection(),
         const SizedBox(height: 16),
         Align(
           alignment: Alignment.centerLeft,
@@ -624,7 +613,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     );
   }
 
-  Widget _slidesSection({required int crossAxisCount}) {
+  Widget _slidesSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -637,19 +626,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
         const SizedBox(height: 12),
         if (_slides.isEmpty)
           _emptyStateBox("0 pages selected")
-        else if (crossAxisCount > 1)
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _slides.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              mainAxisExtent: 320,
-            ),
-            itemBuilder: (context, index) => _buildSlideCard(index),
-          )
         else
           ListView.separated(
             shrinkWrap: true,
@@ -674,6 +650,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             children: [
@@ -745,68 +722,51 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
             ],
           ),
           const SizedBox(height: 10),
-          Expanded(
-            child: ListView.builder(
-              itemCount: slide.scriptControllers.length,
-              itemBuilder: (ctx, sIdx) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: slide.scriptControllers[sIdx],
-                          maxLines: null,
-                          style: const TextStyle(fontWeight: FontWeight.bold),
-                          decoration: _comicInputDecoration(
-                            "Segment ${sIdx + 1}",
-                          ).copyWith(hintText: "Type story segment..."),
-                        ),
-                      ),
-                      if (slide.scriptControllers.length > 1)
-                        IconButton(
-                          icon: const Icon(
-                            Icons.remove_circle_outline,
-                            color: Colors.redAccent,
-                            size: 20,
-                          ),
-                          onPressed: () {
-                            setState(() {
-                              slide.removeScript(sIdx);
-                            });
-                          },
-                        ),
-                    ],
+          ...List.generate(slide.scriptControllers.length, (sIdx) {
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: slide.scriptControllers[sIdx],
+                      maxLines: null,
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      decoration: _comicInputDecoration(
+                        "Segment ${sIdx + 1}",
+                      ).copyWith(hintText: "Type story segment..."),
+                    ),
                   ),
-                );
-              },
-            ),
-          ),
+                  if (slide.scriptControllers.length > 1)
+                    IconButton(
+                      icon: const Icon(
+                        Icons.remove_circle_outline,
+                        color: Colors.redAccent,
+                        size: 20,
+                      ),
+                      onPressed: () {
+                        setState(() {
+                          slide.removeScript(sIdx);
+                        });
+                      },
+                    ),
+                ],
+              ),
+            );
+          }),
         ],
       ),
     );
   }
 
-  Widget _quizSection({required int crossAxisCount}) {
+  Widget _quizSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _sectionLabel("Story Quiz (Optional)"),
         if (_quizQuestions.isEmpty)
           _emptyStateBox("No quiz questions added. Students won't take a quiz.")
-        else if (crossAxisCount > 1)
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _quizQuestions.length,
-            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: crossAxisCount,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              mainAxisExtent: 340,
-            ),
-            itemBuilder: (context, index) => _buildQuizCard(index),
-          )
         else
           ListView.separated(
             shrinkWrap: true,
@@ -831,6 +791,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
