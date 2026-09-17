@@ -9,17 +9,41 @@ import '../services/config.dart'; // Mula sa config.dart (baseUrl at networkHead
 import '../services/cloudinary_service.dart'; // Mula sa cloudinary_service.dart (CloudinaryService)
 import '../widgets/guide_comic_background.dart';
 
-// Helper model para pagsamahin ang image file, bytes (para sa preview), at text controller
+// Helper model para pagsamahin ang image file, bytes, at multiple script controllers
 class SlideItem {
   final XFile file;
   final Uint8List bytes;
-  final TextEditingController controller;
+  final List<TextEditingController> scriptControllers;
 
   SlideItem({
     required this.file,
     required this.bytes,
-    required this.controller,
-  });
+    List<TextEditingController>? scriptControllers,
+  }) : scriptControllers = scriptControllers ?? [TextEditingController()];
+
+  void addScript() {
+    scriptControllers.add(TextEditingController());
+  }
+
+  void removeScript(int index) {
+    if (scriptControllers.length > 1) {
+      scriptControllers[index].dispose();
+      scriptControllers.removeAt(index);
+    }
+  }
+
+  List<String> get scriptsList {
+    return scriptControllers
+        .map((c) => c.text.trim())
+        .where((t) => t.isNotEmpty)
+        .toList();
+  }
+
+  void dispose() {
+    for (var controller in scriptControllers) {
+      controller.dispose();
+    }
+  }
 }
 
 class QuizQuestion {
@@ -48,9 +72,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
 
   // List ng slides kasama ang script controllers
   final List<SlideItem> _slides = [];
-
-  // Tracks which slides currently have an OCR request in flight (by identity)
-  final Set<SlideItem> _scanningSlides = {};
 
   // List ng quiz questions
   final List<QuizQuestion> _quizQuestions = [];
@@ -99,13 +120,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
       List<SlideItem> newSlides = [];
       for (var file in images) {
         final bytes = await file.readAsBytes();
-        newSlides.add(
-          SlideItem(
-            file: file,
-            bytes: bytes,
-            controller: TextEditingController(),
-          ),
-        );
+        newSlides.add(SlideItem(file: file, bytes: bytes));
       }
       setState(() {
         _slides.addAll(newSlides);
@@ -116,7 +131,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
   // --- 3. REMOVE SINGLE SLIDE ---
   void _removeSlide(int index) {
     setState(() {
-      _slides[index].controller.dispose();
+      _slides[index].dispose();
       _slides.removeAt(index);
     });
   }
@@ -151,7 +166,9 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
               extracted += (result['ParsedText'] ?? "") + "\n";
             }
             setState(() {
-              slide.controller.text = extracted.trim();
+              if (slide.scriptControllers.isNotEmpty) {
+                slide.scriptControllers[0].text = extracted.trim();
+              }
             });
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -176,7 +193,9 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
       );
 
       setState(() {
-        slide.controller.text = recognizedText.text;
+        if (slide.scriptControllers.isNotEmpty) {
+          slide.scriptControllers[0].text = recognizedText.text;
+        }
       });
 
       textRecognizer.close();
@@ -216,12 +235,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     });
 
     try {
-      // --- STEP 1: Upload images to Cloudinary FIRST ---
-      // The backend no longer receives raw files for cover_image/pages —
-      // it only ever gets back plain URL strings. This is what avoids the
-      // "array offset on value of type null" crash: that error came from
-      // the backend's file-handling code, so taking files out of the
-      // request entirely sidesteps it.
       final String coverImageUrl = await CloudinaryService.uploadImageBytes(
         _coverBytes!,
         filename: _coverImage!.name,
@@ -242,40 +255,28 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
 
       setState(() => _uploadStatus = "Saving story...");
 
-      // --- STEP 2: Send story data (URLs only, no files) to the backend ---
       final uri = Uri.parse("$baseUrl/api/stories");
       final request = http.MultipartRequest('POST', uri);
 
-      // Add Headers (Kasama ang ngrok bypass at iba pang headers)
       request.headers.addAll(networkHeaders);
       request.headers["ngrok-skip-browser-warning"] = "69420";
 
-      // Story Text Fields
       request.fields['title'] = _titleController.text.trim();
       request.fields['description'] = _descController.text.trim();
 
-      // Audio Scripts Packaging (Papadala bilang JSON array at indexed array para sa flexibility ng backend)
-      List<String> scripts = _slides
-          .map((s) => s.controller.text.trim())
+      // Send multi-script arrays per slide
+      List<List<String>> allScripts = _slides
+          .map((s) => s.scriptsList)
           .toList();
-      request.fields['audio_scripts'] = jsonEncode(scripts);
+      request.fields['audio_scripts'] = jsonEncode(allScripts);
 
-      for (int i = 0; i < _slides.length; i++) {
-        request.fields['audio_scripts[$i]'] = _slides[i].controller.text.trim();
-      }
-
-      // Cover image: now a Cloudinary URL, sent as a normal text field.
       request.fields['cover_image'] = coverImageUrl;
-
-      // Story Pages / Slides: now Cloudinary URLs, indexed like the old
-      // pages[] file array so the backend field name can stay familiar
-      // (pages[0], pages[1], ...) but read as strings instead of files.
       request.fields['pages'] = jsonEncode(pageImageUrls);
+
       for (int i = 0; i < pageImageUrls.length; i++) {
         request.fields['pages[$i]'] = pageImageUrls[i];
       }
 
-      // Ipadala ang Request
       final streamedResponse = await request.send();
       final response = await http.Response.fromStream(streamedResponse);
 
@@ -285,7 +286,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
         final resData = jsonDecode(response.body);
         final storyId = resData['story']['id'];
 
-        // Upload Quiz if we have any questions
         if (_quizQuestions.isNotEmpty) {
           List<Map<String, dynamic>> questionsPayload = _quizQuestions.map((q) {
             return {
@@ -320,7 +320,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
             backgroundColor: Colors.green,
           ),
         );
-        Navigator.pop(context, true); // Auto refresh dashboard
+        Navigator.pop(context, true);
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -355,7 +355,13 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     _titleController.dispose();
     _descController.dispose();
     for (var slide in _slides) {
-      slide.controller.dispose();
+      slide.dispose();
+    }
+    for (var q in _quizQuestions) {
+      q.questionController.dispose();
+      for (var opt in q.optionControllers) {
+        opt.dispose();
+      }
     }
     super.dispose();
   }
@@ -380,9 +386,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // RESPONSIVE BREAKPOINT
-  // ---------------------------------------------------------------------
   static const double _desktopBreakpoint = 900;
 
   @override
@@ -449,9 +452,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // MOBILE LAYOUT — single stacked column, full-width fields (touch friendly)
-  // ---------------------------------------------------------------------
   Widget _buildMobileLayout() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -473,10 +473,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // DESKTOP LAYOUT — two-column: details on the left, pages on the right,
-  // quiz + submit span the full width below. Nothing stretches edge to edge.
-  // ---------------------------------------------------------------------
   Widget _buildDesktopLayout() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -485,7 +481,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // LEFT: story details
               Expanded(
                 flex: 4,
                 child: Column(
@@ -500,7 +495,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
                 ),
               ),
               const SizedBox(width: 28),
-              // RIGHT: pages / slides
               Expanded(flex: 6, child: _slidesSection(crossAxisCount: 2)),
             ],
           ),
@@ -518,9 +512,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // SHARED FIELD WIDGETS
-  // ---------------------------------------------------------------------
   Widget _titleField() {
     return TextField(
       controller: _titleController,
@@ -548,8 +539,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     );
   }
 
-  // A comic-style button that only stretches to full width when asked to —
-  // on desktop it hugs its label instead of becoming a giant bar.
   Widget _comicButton({
     required VoidCallback onPressed,
     required IconData icon,
@@ -601,9 +590,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // COVER IMAGE SECTION
-  // ---------------------------------------------------------------------
   Widget _coverImageSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -638,9 +624,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // STORY PAGES / SLIDES SECTION (single column on mobile, grid on desktop)
-  // ---------------------------------------------------------------------
   Widget _slidesSection({required int crossAxisCount}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -663,7 +646,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
               crossAxisCount: crossAxisCount,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
-              mainAxisExtent: 230,
+              mainAxisExtent: 320,
             ),
             itemBuilder: (context, index) => _buildSlideCard(index),
           )
@@ -732,7 +715,23 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
                 ),
                 onPressed: () => _scanTextFromImage(index),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 6),
+              IconButton(
+                tooltip: "Add Script Segment",
+                padding: EdgeInsets.zero,
+                constraints: const BoxConstraints(),
+                icon: const Icon(
+                  Icons.add_circle,
+                  color: Colors.green,
+                  size: 20,
+                ),
+                onPressed: () {
+                  setState(() {
+                    slide.addScript();
+                  });
+                },
+              ),
+              const SizedBox(width: 6),
               IconButton(
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(),
@@ -747,15 +746,40 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
           ),
           const SizedBox(height: 10),
           Expanded(
-            child: TextField(
-              controller: slide.controller,
-              maxLines: null,
-              expands: true,
-              textAlignVertical: TextAlignVertical.top,
-              style: const TextStyle(fontWeight: FontWeight.bold),
-              decoration: _comicInputDecoration(
-                "Narrator Script for Slide ${index + 1}",
-              ).copyWith(hintText: "Type story line for this slide..."),
+            child: ListView.builder(
+              itemCount: slide.scriptControllers.length,
+              itemBuilder: (ctx, sIdx) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 8.0),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: slide.scriptControllers[sIdx],
+                          maxLines: null,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                          decoration: _comicInputDecoration(
+                            "Segment ${sIdx + 1}",
+                          ).copyWith(hintText: "Type story segment..."),
+                        ),
+                      ),
+                      if (slide.scriptControllers.length > 1)
+                        IconButton(
+                          icon: const Icon(
+                            Icons.remove_circle_outline,
+                            color: Colors.redAccent,
+                            size: 20,
+                          ),
+                          onPressed: () {
+                            setState(() {
+                              slide.removeScript(sIdx);
+                            });
+                          },
+                        ),
+                    ],
+                  ),
+                );
+              },
             ),
           ),
         ],
@@ -763,9 +787,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // QUIZ SECTION (single column on mobile, grid on desktop)
-  // ---------------------------------------------------------------------
   Widget _quizSection({required int crossAxisCount}) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -803,7 +824,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFFFDE047), // comic yellow
+        color: const Color(0xFFFDE047),
         borderRadius: BorderRadius.circular(15),
         border: Border.all(color: Colors.black, width: 3),
         boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
@@ -895,9 +916,6 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
     );
   }
 
-  // ---------------------------------------------------------------------
-  // SUBMIT BUTTON
-  // ---------------------------------------------------------------------
   Widget _submitButton({required bool fullWidth}) {
     final button = ElevatedButton(
       style: ElevatedButton.styleFrom(
