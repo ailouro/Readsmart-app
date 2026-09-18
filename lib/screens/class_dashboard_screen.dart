@@ -8,6 +8,13 @@ import '../widgets/responsive_layout.dart';
 import 'story_view_screen.dart';
 import '../services/bgm_service.dart';
 
+String _safeString(dynamic value, [String fallback = ""]) {
+  if (value == null) return fallback;
+  final String str = value.toString();
+  if (str == "null" || str == "undefined") return fallback;
+  return str;
+}
+
 class ClassDashboardScreen extends StatefulWidget {
   final String classId;
   final String className;
@@ -615,8 +622,29 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                           final title = story['title'] ?? 'Untitled Mission';
                           final pagesCount =
                               (story['pages'] as List?)?.length ?? 0;
-                          String? coverImage =
-                              story['cover_image'] ?? story['thumbnail'];
+
+                          // 🛠️ FIXED COVER URL LOGIC HERE
+                          String rawCoverPath = _safeString(
+                            story['cover_image'] ?? story['thumbnail'],
+                          );
+                          String coverUrl = "";
+                          if (rawCoverPath.isNotEmpty) {
+                            if (rawCoverPath.startsWith('http')) {
+                              coverUrl = rawCoverPath;
+                            } else {
+                              if (rawCoverPath.startsWith('public/')) {
+                                rawCoverPath = rawCoverPath.replaceFirst(
+                                  'public/',
+                                  '',
+                                );
+                              }
+                              String cleanBaseUrl = baseUrl.endsWith('/api')
+                                  ? baseUrl.substring(0, baseUrl.length - 4)
+                                  : baseUrl;
+                              coverUrl =
+                                  "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
+                            }
+                          }
 
                           // The test_type this story is assigned as in THIS class
                           // (pre_test or post_test) — a story can be assigned as both,
@@ -626,11 +654,6 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                           if (story['pivot'] != null &&
                               story['pivot']['test_type'] != null) {
                             tType = story['pivot']['test_type'];
-                          }
-
-                          if (coverImage != null &&
-                              coverImage.startsWith('public/')) {
-                            coverImage = coverImage.replaceFirst('public/', '');
                           }
 
                           return GestureDetector(
@@ -685,21 +708,16 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                                             width: 2.5,
                                           ),
                                         ),
-                                        image:
-                                            coverImage != null &&
-                                                coverImage.isNotEmpty
+                                        image: coverUrl.isNotEmpty
                                             ? DecorationImage(
-                                                image: NetworkImage(
-                                                  "$baseUrl/api/get-image?path=$coverImage",
-                                                ),
+                                                image: NetworkImage(coverUrl),
                                                 fit: BoxFit.cover,
                                               )
                                             : null,
                                       ),
                                       child: Stack(
                                         children: [
-                                          if (coverImage == null ||
-                                              coverImage.isEmpty)
+                                          if (coverUrl.isEmpty)
                                             const Center(
                                               child: Icon(
                                                 Icons.image,

@@ -600,7 +600,6 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
               ),
             ),
           ),
-
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -1188,15 +1187,27 @@ class _LibraryTabState extends State<_LibraryTab> {
                   itemBuilder: (context, index) {
                     final story = _stories[index];
                     List pages = story['pages'] is List ? story['pages'] : [];
+
+                    // 🛠️ FIXED COVER URL LOGIC HERE
                     String rawCoverPath = _safeString(story['cover_image']);
-                    if (rawCoverPath.startsWith('public/')) {
-                      rawCoverPath = rawCoverPath.replaceFirst('public/', '');
+                    String coverUrl = "";
+                    if (rawCoverPath.isNotEmpty) {
+                      if (rawCoverPath.startsWith('http')) {
+                        coverUrl = rawCoverPath;
+                      } else {
+                        if (rawCoverPath.startsWith('public/')) {
+                          rawCoverPath = rawCoverPath.replaceFirst(
+                            'public/',
+                            '',
+                          );
+                        }
+                        String cleanBaseUrl = baseUrl.endsWith('/api')
+                            ? baseUrl.substring(0, baseUrl.length - 4)
+                            : baseUrl;
+                        coverUrl =
+                            "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
+                      }
                     }
-                    String cleanBaseUrl = baseUrl.endsWith('/api')
-                        ? baseUrl.substring(0, baseUrl.length - 4)
-                        : baseUrl;
-                    String coverUrl =
-                        "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
 
                     return Stack(
                       children: [
@@ -1237,21 +1248,32 @@ class _LibraryTabState extends State<_LibraryTab> {
                                     borderRadius: const BorderRadius.vertical(
                                       top: Radius.circular(13),
                                     ),
-                                    child: Image.network(
-                                      coverUrl,
-                                      fit: BoxFit.cover,
-                                      headers: const {
-                                        "ngrok-skip-browser-warning": "69420",
-                                      },
-                                      errorBuilder: (_, __, ___) => Container(
-                                        color: accentTheme,
-                                        child: const Icon(
-                                          Icons.image,
-                                          color: Colors.black87,
-                                          size: 35,
-                                        ),
-                                      ),
-                                    ),
+                                    child: coverUrl.isNotEmpty
+                                        ? Image.network(
+                                            coverUrl,
+                                            fit: BoxFit.cover,
+                                            headers: const {
+                                              "ngrok-skip-browser-warning":
+                                                  "69420",
+                                            },
+                                            errorBuilder: (_, __, ___) =>
+                                                Container(
+                                                  color: accentTheme,
+                                                  child: const Icon(
+                                                    Icons.image,
+                                                    color: Colors.black87,
+                                                    size: 35,
+                                                  ),
+                                                ),
+                                          )
+                                        : Container(
+                                            color: accentTheme,
+                                            child: const Icon(
+                                              Icons.image,
+                                              color: Colors.black87,
+                                              size: 35,
+                                            ),
+                                          ),
                                   ),
                                 ),
                                 const Divider(
@@ -3832,20 +3854,31 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                                   List<dynamic> pages = story['pages'] is List
                                       ? story['pages']
                                       : [];
+
+                                  // 🛠️ FIXED COVER URL LOGIC HERE
                                   String rawCoverPath = _safeString(
                                     story['cover_image'],
                                   );
-                                  if (rawCoverPath.startsWith('public/')) {
-                                    rawCoverPath = rawCoverPath.replaceFirst(
-                                      'public/',
-                                      '',
-                                    );
+                                  String coverUrl = "";
+                                  if (rawCoverPath.isNotEmpty) {
+                                    if (rawCoverPath.startsWith('http')) {
+                                      coverUrl = rawCoverPath;
+                                    } else {
+                                      if (rawCoverPath.startsWith('public/')) {
+                                        rawCoverPath = rawCoverPath
+                                            .replaceFirst('public/', '');
+                                      }
+                                      String cleanBaseUrl =
+                                          baseUrl.endsWith('/api')
+                                          ? baseUrl.substring(
+                                              0,
+                                              baseUrl.length - 4,
+                                            )
+                                          : baseUrl;
+                                      coverUrl =
+                                          "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
+                                    }
                                   }
-                                  String cleanBaseUrl = baseUrl.endsWith('/api')
-                                      ? baseUrl.substring(0, baseUrl.length - 4)
-                                      : baseUrl;
-                                  String coverUrl =
-                                      "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
 
                                   final Map<String, dynamic>? pivot =
                                       story['pivot'] is Map
@@ -3901,19 +3934,33 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                                                           13,
                                                         ),
                                                       ),
-                                                  child: Image.network(
-                                                    coverUrl,
-                                                    fit: BoxFit.cover,
-                                                    headers: const {
-                                                      "ngrok-skip-browser-warning":
-                                                          "69420",
-                                                    },
-                                                    errorBuilder:
-                                                        (
-                                                          _,
-                                                          __,
-                                                          ___,
-                                                        ) => Container(
+                                                  child: coverUrl.isNotEmpty
+                                                      ? Image.network(
+                                                          coverUrl,
+                                                          fit: BoxFit.cover,
+                                                          headers: const {
+                                                            "ngrok-skip-browser-warning":
+                                                                "69420",
+                                                          },
+                                                          errorBuilder:
+                                                              (
+                                                                _,
+                                                                __,
+                                                                ___,
+                                                              ) => Container(
+                                                                color:
+                                                                    const Color(
+                                                                      0xFFFDE047,
+                                                                    ),
+                                                                child: const Icon(
+                                                                  Icons.image,
+                                                                  color: Colors
+                                                                      .black87,
+                                                                  size: 35,
+                                                                ),
+                                                              ),
+                                                        )
+                                                      : Container(
                                                           color: const Color(
                                                             0xFFFDE047,
                                                           ),
@@ -3924,7 +3971,6 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                                                             size: 35,
                                                           ),
                                                         ),
-                                                  ),
                                                 ),
                                               ),
                                               const Divider(
@@ -4569,7 +4615,7 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
 
       if ((response.statusCode == 200 || response.statusCode == 201) &&
           mounted) {
-        Navigator.pop(context, true);
+        Navigator.pop(context, true); // Return 'true' on success
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -4675,22 +4721,26 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
                       final story = _stories[index];
                       final storyId = story['id'] ?? story['_id'];
                       List pages = story['pages'] is List ? story['pages'] : [];
+
+                      // 🛠️ FIXED COVER URL LOGIC HERE
                       String rawCoverPath = _safeString(story['cover_image']);
-                      String coverUrl;
-                      if (rawCoverPath.startsWith('http')) {
-                        coverUrl = rawCoverPath;
-                      } else {
-                        if (rawCoverPath.startsWith('public/')) {
-                          rawCoverPath = rawCoverPath.replaceFirst(
-                            'public/',
-                            '',
-                          );
+                      String coverUrl = "";
+                      if (rawCoverPath.isNotEmpty) {
+                        if (rawCoverPath.startsWith('http')) {
+                          coverUrl = rawCoverPath;
+                        } else {
+                          if (rawCoverPath.startsWith('public/')) {
+                            rawCoverPath = rawCoverPath.replaceFirst(
+                              'public/',
+                              '',
+                            );
+                          }
+                          String cleanBaseUrl = baseUrl.endsWith('/api')
+                              ? baseUrl.substring(0, baseUrl.length - 4)
+                              : baseUrl;
+                          coverUrl =
+                              "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
                         }
-                        String cleanBaseUrl = baseUrl.endsWith('/api')
-                            ? baseUrl.substring(0, baseUrl.length - 4)
-                            : baseUrl;
-                        coverUrl =
-                            "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
                       }
 
                       bool isSelected = _selectedStoryIds.contains(storyId);
@@ -4737,21 +4787,34 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
                                       borderRadius: const BorderRadius.vertical(
                                         top: Radius.circular(13),
                                       ),
-                                      child: Image.network(
-                                        coverUrl,
-                                        fit: BoxFit.cover,
-                                        headers: const {
-                                          "ngrok-skip-browser-warning": "69420",
-                                        },
-                                        errorBuilder: (_, __, ___) => Container(
-                                          color: const Color(0xFFFDE047),
-                                          child: const Icon(
-                                            Icons.image,
-                                            color: Colors.black87,
-                                            size: 35,
-                                          ),
-                                        ),
-                                      ),
+                                      child: coverUrl.isNotEmpty
+                                          ? Image.network(
+                                              coverUrl,
+                                              fit: BoxFit.cover,
+                                              headers: const {
+                                                "ngrok-skip-browser-warning":
+                                                    "69420",
+                                              },
+                                              errorBuilder: (_, __, ___) =>
+                                                  Container(
+                                                    color: const Color(
+                                                      0xFFFDE047,
+                                                    ),
+                                                    child: const Icon(
+                                                      Icons.image,
+                                                      color: Colors.black87,
+                                                      size: 35,
+                                                    ),
+                                                  ),
+                                            )
+                                          : Container(
+                                              color: const Color(0xFFFDE047),
+                                              child: const Icon(
+                                                Icons.image,
+                                                color: Colors.black87,
+                                                size: 35,
+                                              ),
+                                            ),
                                     ),
                                     if (isSelected)
                                       Positioned(
