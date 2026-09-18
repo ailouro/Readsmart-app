@@ -774,6 +774,19 @@ class _StudentDashboardState extends State<StudentDashboard>
               _openProgress,
             ),
             _buildNavItem(
+              Icons.lock_reset_rounded,
+              "Change Password",
+              () async {
+                final studentId = await _getStudentId();
+                if (studentId != null && mounted) {
+                  showDialog(
+                    context: context,
+                    builder: (_) => ChangePasswordDialog(userId: studentId),
+                  );
+                }
+              },
+            ),
+            _buildNavItem(
               Icons.map_rounded,
               "Adventure Map",
               _openAdventureMap,
@@ -1105,6 +1118,158 @@ class _StudentDashboardState extends State<StudentDashboard>
           ],
         ),
       ),
+    );
+  }
+}
+
+class ChangePasswordDialog extends StatefulWidget {
+  final int userId;
+
+  const ChangePasswordDialog({super.key, required this.userId});
+
+  @override
+  State<ChangePasswordDialog> createState() => _ChangePasswordDialogState();
+}
+
+class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
+  final _oldPasswordController = TextEditingController();
+  final _newPasswordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
+  bool _isLoading = false;
+
+  Future<void> _changePassword() async {
+    final oldPassword = _oldPasswordController.text.trim();
+    final newPassword = _newPasswordController.text.trim();
+    final confirmPassword = _confirmPasswordController.text.trim();
+
+    if (oldPassword.isEmpty || newPassword.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please fill in all fields.")),
+      );
+      return;
+    }
+
+    if (newPassword != confirmPassword) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("New passwords do not match.")),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/api/user/change-password"),
+        headers: {...networkHeaders, 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'user_id': widget.userId,
+          'current_password': oldPassword,
+          'new_password': newPassword,
+        }),
+      );
+
+      final decoded = jsonDecode(response.body);
+
+      if ((response.statusCode == 200 || response.statusCode == 201) &&
+          mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("Password updated successfully!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(decoded['message'] ?? "Failed to change password."),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Colors.black, width: 3.5),
+      ),
+      title: const Text(
+        "Change Password 🔑",
+        style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF9B0505)),
+      ),
+      content: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: _oldPasswordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: "Current Password",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _newPasswordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: "New Password",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _confirmPasswordController,
+              obscureText: true,
+              decoration: const InputDecoration(
+                labelText: "Confirm New Password",
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+        ),
+        ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF9B0505),
+          ),
+          onPressed: _isLoading ? null : _changePassword,
+          child: _isLoading
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+              : const Text(
+                  "Update Password",
+                  style: TextStyle(color: Colors.white),
+                ),
+        ),
+      ],
     );
   }
 }
