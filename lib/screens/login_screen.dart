@@ -395,20 +395,27 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         if (_rememberMe) {
-          await prefs.setString('auth_token', token);
-          await prefs.setString('user_role', role);
-          await prefs.setString('user_name', name);
-          await prefs.setBool('remember_me', true);
           await prefs.setString('saved_login', _loginController.text);
           await prefs.setString('saved_password', _passwordController.text);
         } else {
-          await prefs.remove('auth_token');
-          await prefs.remove('user_role');
-          await prefs.remove('user_name');
-          await prefs.setBool('remember_me', false);
           await prefs.remove('saved_login');
           await prefs.remove('saved_password');
         }
+        await prefs.setBool('remember_me', _rememberMe);
+
+        // 🛠️ FIX: The session itself (auth_token/user_role/user_name) used
+        // to be saved ONLY when "Remember me" was checked, and actively
+        // REMOVED otherwise. That meant an unchecked "Remember me" wiped
+        // the session on every login — so refreshing the page (which
+        // re-runs _checkSavedSession from scratch) always found nothing
+        // and bounced back to the login screen, even though login had
+        // just succeeded. "Remember me" should only control whether the
+        // login/password fields get pre-filled next time, not whether the
+        // current session survives a page refresh — so the token/role/name
+        // are now always saved here, independent of that checkbox.
+        await prefs.setString('auth_token', token);
+        await prefs.setString('user_role', role);
+        await prefs.setString('user_name', name);
 
         if (!mounted) return;
 
