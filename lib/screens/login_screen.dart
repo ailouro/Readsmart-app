@@ -755,6 +755,116 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  void showForgotPasswordDialog(BuildContext context) {
+    final identifierController = TextEditingController();
+    bool isLoading = false;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+            side: const BorderSide(color: Colors.black, width: 3.5),
+          ),
+          title: const Text(
+            "Forgot Password 🔒",
+            style: TextStyle(
+              fontWeight: FontWeight.w900,
+              color: Color(0xFF9B0505),
+            ),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                "Enter your LRN or registered Username/Email to request a reset.",
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: identifierController,
+                decoration: InputDecoration(
+                  labelText: "LRN / Username",
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: Colors.black, width: 2),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF9B0505),
+              ),
+              onPressed: isLoading
+                  ? null
+                  : () async {
+                      final text = identifierController.text.trim();
+                      if (text.isEmpty) return;
+
+                      setDialogState(() => isLoading = true);
+                      try {
+                        final response = await http.post(
+                          Uri.parse("$baseUrl/api/forgot-password"),
+                          headers: {
+                            ...networkHeaders,
+                            'Content-Type': 'application/json',
+                          },
+                          body: jsonEncode({'identifier': text}),
+                        );
+
+                        if (ctx.mounted) {
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                "Password reset link or temporary credentials have been sent.",
+                              ),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        }
+                      } catch (e) {
+                        if (ctx.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("Error requesting reset: $e"),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      } finally {
+                        if (ctx.mounted)
+                          setDialogState(() => isLoading = false);
+                      }
+                    },
+              child: isLoading
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                  : const Text("Submit", style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildDialogTextField(
     TextEditingController controller,
     String hint,
