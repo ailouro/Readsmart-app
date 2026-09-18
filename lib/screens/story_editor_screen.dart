@@ -287,7 +287,8 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
           _isPlayingAudio = true;
         });
 
-        final response = await http.get(
+        // 🛠️ FIX: Changed from http.get to http.post
+        final response = await http.post(
           Uri.parse(audioUrl),
           headers: const {"ngrok-skip-browser-warning": "69420"},
         );
@@ -339,7 +340,8 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         "${widget.baseUrl}/api/stories/${widget.story['id']}/slides/$slideIdentifier/update-script",
       );
 
-      final response = await http.put(
+      // 🛠️ FIX: Changed from http.put to http.post
+      final response = await http.post(
         url,
         headers: {
           "Content-Type": "application/json",
