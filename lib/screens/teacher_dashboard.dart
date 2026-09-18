@@ -2198,8 +2198,11 @@ class _StudentsTabState extends State<_StudentsTab> {
                     const SizedBox(height: 20),
                   ],
                 ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 10,
+                runSpacing: 10,
                 children: [
                   const ComicBadgeHeader(title: "LEARNERS' RECORDS"),
                   ElevatedButton.icon(
@@ -2265,9 +2268,16 @@ class _StudentsTabState extends State<_StudentsTab> {
                         );
                       }).toList(),
                 ),
+              if (_summaryData['students'] != null)
+                _buildUnassignedStudentsSection(
+                  _summaryData['students'] as List,
+                ),
               const SizedBox(height: 30),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              Wrap(
+                alignment: WrapAlignment.spaceBetween,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                spacing: 10,
+                runSpacing: 10,
                 children: [
                   const ComicBadgeHeader(title: "YOUR CLASSES"),
                   ElevatedButton.icon(
@@ -2451,18 +2461,241 @@ class _StudentsTabState extends State<_StudentsTab> {
               ),
             ),
             const SizedBox(height: 4),
-            Text(
-              title,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(
+                title,
+                maxLines: 1,
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+                textAlign: TextAlign.center,
               ),
-              textAlign: TextAlign.center,
             ),
           ],
         ),
       ),
+    );
+  }
+
+  /// True when a student has no real class assigned yet (only grouped under
+  /// a Grade/Section bucket, or fully "Ungrouped"). Used to surface them in
+  /// the "Needs Class Assignment" list so a teacher can assign one.
+  bool _hasNoClassAssigned(Map<String, dynamic> student) {
+    return _resolveClassInfo(student)['sortKey'].toString().startsWith('1|');
+  }
+
+  List<Map<String, dynamic>> _getUnassignedStudents(List<dynamic> rawStudents) {
+    return rawStudents
+        .map((s) => Map<String, dynamic>.from(s as Map))
+        .where(_hasNoClassAssigned)
+        .toList()
+      ..sort(
+        (a, b) => _safeString(
+          a['name'],
+        ).toLowerCase().compareTo(_safeString(b['name']).toLowerCase()),
+      );
+  }
+
+  Future<void> _assignStudentToClass(
+    Map<String, dynamic> student,
+    dynamic classId,
+  ) async {
+    final studentId = student['id'] ?? student['user_id'];
+    if (studentId == null || classId == null) return;
+
+    try {
+      final res = await http.post(
+        Uri.parse("$baseUrl/api/classes/$classId/bulk-add-students"),
+        headers: {...networkHeaders, 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "student_ids": [studentId],
+        }),
+      );
+
+      if (!mounted) return;
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "${_safeString(student['name'], 'Student')} assigned to class!",
+            ),
+            backgroundColor: const Color(0xFF8BCA84),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+        _refreshAll();
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Failed to assign student (${res.statusCode})."),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint("Error assigning student to class: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error assigning student: $e"),
+            backgroundColor: Colors.red.shade700,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  void _showAssignClassPicker(Map<String, dynamic> student) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+          side: const BorderSide(color: Colors.black, width: 3),
+        ),
+        title: Text(
+          "Assign ${_safeString(student['name'], 'Student')} to which class?",
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+        ),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: _classes.isEmpty
+              ? const Text(
+                  "You don't have any classes yet. Create a class first.",
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                )
+              : ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: _classes.length,
+                  itemBuilder: (context, index) {
+                    final cls = _classes[index];
+                    final classId = cls['id'] ?? cls['_id'] ?? cls['class_id'];
+                    final className = _safeString(
+                      cls['name'] ?? cls['class_name'],
+                      'Unnamed Class',
+                    );
+                    final gradeLevel = _safeString(cls['grade_level']);
+                    return ListTile(
+                      leading: const Icon(
+                        Icons.class_rounded,
+                        color: maroonTheme,
+                      ),
+                      title: Text(
+                        className,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      subtitle: gradeLevel.isNotEmpty ? Text(gradeLevel) : null,
+                      onTap: () {
+                        Navigator.pop(ctx);
+                        _assignStudentToClass(student, classId);
+                      },
+                    );
+                  },
+                ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text("Cancel"),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildUnassignedStudentsSection(List<dynamic> rawStudents) {
+    final unassigned = _getUnassignedStudents(rawStudents);
+    if (unassigned.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SizedBox(height: 20),
+        Row(
+          children: [
+            const Icon(Icons.priority_high_rounded, color: maroonTheme),
+            const SizedBox(width: 6),
+            Text(
+              "Needs Class Assignment (${unassigned.length})",
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+                color: maroonTheme,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.black, width: 3),
+            boxShadow: const [
+              BoxShadow(color: Colors.black, offset: Offset(4, 4)),
+            ],
+          ),
+          child: ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            itemCount: unassigned.length,
+            separatorBuilder: (_, __) =>
+                const Divider(height: 1, color: Colors.black12),
+            itemBuilder: (context, index) {
+              final student = unassigned[index];
+              return ListTile(
+                leading: CircleAvatar(
+                  backgroundColor: accentTheme,
+                  child: Text(
+                    _safeString(student['name'], '?').isNotEmpty
+                        ? _safeString(student['name'], '?')[0].toUpperCase()
+                        : '?',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w900,
+                      color: Colors.black,
+                    ),
+                  ),
+                ),
+                title: Text(
+                  _safeString(student['name'], 'Unknown Student'),
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                subtitle: Text(
+                  "LRN: ${_safeString(student['lrn'], 'N/A')}",
+                  style: const TextStyle(fontSize: 12),
+                ),
+                trailing: ElevatedButton.icon(
+                  onPressed: () => _showAssignClassPicker(student),
+                  icon: const Icon(Icons.add, size: 16, color: Colors.black),
+                  label: const Text(
+                    "Assign",
+                    style: TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accentTheme,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      side: const BorderSide(color: Colors.black, width: 1.5),
+                    ),
+                    elevation: 0,
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 

@@ -395,28 +395,30 @@ class _StudentDashboardState extends State<StudentDashboard> {
           ),
         ),
       ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(30),
-          boxShadow: const [
-            BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-          ],
-        ),
-        child: FloatingActionButton.extended(
-          onPressed: _showJoinClassDialog,
-          backgroundColor: accentTheme,
-          shape: RoundedRectangleBorder(
+      floatingActionButton: SafeArea(
+        child: Container(
+          decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(30),
-            side: const BorderSide(color: Colors.black, width: 3),
+            boxShadow: const [
+              BoxShadow(color: Colors.black, offset: Offset(4, 4)),
+            ],
           ),
-          elevation: 0,
-          icon: const Icon(Icons.key_rounded, color: Colors.black, size: 24),
-          label: const Text(
-            "UNLOCK MISSION",
-            style: TextStyle(
-              color: Colors.black,
-              fontWeight: FontWeight.w900,
-              letterSpacing: 0.5,
+          child: FloatingActionButton.extended(
+            onPressed: _showJoinClassDialog,
+            backgroundColor: accentTheme,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30),
+              side: const BorderSide(color: Colors.black, width: 3),
+            ),
+            elevation: 0,
+            icon: const Icon(Icons.key_rounded, color: Colors.black, size: 24),
+            label: const Text(
+              "UNLOCK MISSION",
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0.5,
+              ),
             ),
           ),
         ),
@@ -954,6 +956,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                         myClass['name'] ??
                             myClass['section_name'] ??
                             'Story Zone',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontWeight: FontWeight.w900,
                           fontSize: 18,
@@ -973,6 +977,8 @@ class _StudentDashboardState extends State<StudentDashboard> {
                         ),
                         child: Text(
                           "Level ${myClass['grade_level'] ?? 'N/A'} Zone",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             fontSize: 12,
