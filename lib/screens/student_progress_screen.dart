@@ -37,9 +37,6 @@ class _StudentProgressScreenState extends State<StudentProgressScreen>
   static const Color cardFill = Colors.white;
   static const Color cardBorder = Color(0xFF201A1A);
 
-  // Weekly reading goal — change this number to adjust the target.
-  static const int weeklyGoal = 5;
-
   @override
   void initState() {
     super.initState();
@@ -81,96 +78,6 @@ class _StudentProgressScreenState extends State<StudentProgressScreen>
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  // Counts how many stories were completed within the current week
-  // (Monday–Sunday), based on each record's `created_at` timestamp.
-  int _storiesThisWeek() {
-    final now = DateTime.now();
-    final startOfWeek = DateTime(
-      now.year,
-      now.month,
-      now.day,
-    ).subtract(Duration(days: now.weekday - 1));
-
-    return _records.where((r) {
-      final createdAtStr = r['created_at']?.toString();
-      if (createdAtStr == null) return false;
-      final createdAt = DateTime.tryParse(createdAtStr);
-      if (createdAt == null) return false;
-      return !createdAt.isBefore(startOfWeek);
-    }).length;
-  }
-
-  Widget _buildWeeklyGoalBanner() {
-    final int doneThisWeek = _storiesThisWeek();
-    final int goal = weeklyGoal;
-    final double progress = goal > 0
-        ? (doneThisWeek / goal).clamp(0.0, 1.0)
-        : 0.0;
-    final bool reached = doneThisWeek >= goal;
-
-    return Container(
-      margin: const EdgeInsets.fromLTRB(12, 10, 12, 4),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: cardFill,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cardBorder, width: 2),
-        boxShadow: const [BoxShadow(color: cardBorder, offset: Offset(2, 2))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                reached
-                    ? "Weekly Goal Reached! 🎉"
-                    : "This Week's Reading Quest 📚",
-                style: const TextStyle(
-                  color: inkText,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                ),
-              ),
-              Text(
-                "$doneThisWeek / $goal stories",
-                style: TextStyle(
-                  color: reached ? independentColor : maroon,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(6),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 10,
-              backgroundColor: Colors.black.withOpacity(0.08),
-              valueColor: AlwaysStoppedAnimation<Color>(
-                reached ? independentColor : accentYellow,
-              ),
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            reached
-                ? "Ang galing! Kumpleto na ang goal mo this week!"
-                : "${goal - doneThisWeek} more ${(goal - doneThisWeek) == 1 ? 'story' : 'stories'} to go this week!",
-            style: const TextStyle(
-              color: inkSubtext,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
   }
 
   Color _levelColor(String level) {
@@ -735,7 +642,9 @@ class _StudentProgressScreenState extends State<StudentProgressScreen>
         backgroundColor: maroon,
         foregroundColor: Colors.white,
         elevation: 0,
+        toolbarHeight: 68,
         title: Column(
+          mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
@@ -802,7 +711,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen>
                 ),
                 child: Column(
                   children: [
-                    _buildWeeklyGoalBanner(),
+                    const SizedBox(height: 8),
                     Expanded(
                       child: TabBarView(
                         controller: _tabController,

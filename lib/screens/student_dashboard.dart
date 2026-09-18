@@ -23,7 +23,8 @@ class StudentDashboard extends StatefulWidget {
   State<StudentDashboard> createState() => _StudentDashboardState();
 }
 
-class _StudentDashboardState extends State<StudentDashboard> {
+class _StudentDashboardState extends State<StudentDashboard>
+    with WidgetsBindingObserver {
   static const Color maroonTheme = Color(0xFF9B0505);
   static const Color accentTheme = Color(0xFFFDE047);
   static const Color cyanAccent = Color(0xFFAFE1EE);
@@ -33,12 +34,51 @@ class _StudentDashboardState extends State<StudentDashboard> {
   List<dynamic> _myClasses = [];
   bool _isLoading = true;
   int _selectedClassIndex = 0;
+  // Tracks whether WE paused the bgm because the tab/app went out of
+  // view, so we only resume it ourselves and don't fight with any
+  // screen (e.g. a story) that intentionally stopped it for its own
+  // narration audio.
+  bool _bgmPausedByLifecycle = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _fetchMyClasses();
     BgmService().startBgm();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  // Pauses the background music when the browser tab (or app) is
+  // switched away from / backgrounded, and resumes it when it's back
+  // in view -- as long as we're the ones who paused it, and as long as
+  // this dashboard is still the visible screen (not a story or class
+  // screen pushed on top, which manage their own audio).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+      case AppLifecycleState.hidden:
+        BgmService().stopBgm();
+        _bgmPausedByLifecycle = true;
+        break;
+      case AppLifecycleState.resumed:
+        if (_bgmPausedByLifecycle &&
+            mounted &&
+            (ModalRoute.of(context)?.isCurrent ?? true)) {
+          BgmService().startBgm();
+        }
+        _bgmPausedByLifecycle = false;
+        break;
+      case AppLifecycleState.detached:
+        break;
+    }
   }
 
   Future<int?> _getStudentId() async {

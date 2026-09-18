@@ -21,11 +21,13 @@ class WordStatus {
   bool isFailed;
   String? audioPath;
   int totalAttempts;
-  // True when the word was eventually read correctly but only after more
-  // than one attempt (i.e. the reader self-corrected). Per Phil-IRI scoring,
-  // self-corrections are NOT counted as errors, so this never flips
-  // isCorrect/isFailed — it's purely a teacher-facing signal.
-  bool neededRetry;
+  // True when this word looks like a character/place name (capitalized
+  // mid-sentence) rather than an actual vocabulary/decoding word. Words
+  // flagged this way are shown to the student like any other, but are
+  // excluded from the oral reading score — mispronouncing an unfamiliar
+  // proper noun isn't a fair test of reading skill, and in a short
+  // passage a single such miss can otherwise swing the whole score.
+  bool isProperNoun;
 
   WordStatus({
     required this.originalWord,
@@ -34,7 +36,7 @@ class WordStatus {
     this.isFailed = false,
     this.audioPath,
     this.totalAttempts = 0,
-    this.neededRetry = false,
+    this.isProperNoun = false,
   });
 }
 
@@ -238,10 +240,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   final Map<int, bool> _pageAssessmentPassed = {};
 
   final List<WordStatus> _allFailedWords = [];
-  // Words that were eventually read correctly but only after a retry.
-  // Kept separate from _allFailedWords: these never counted against the
-  // score, they're just a "needed prompting on" signal for the teacher.
-  final List<WordStatus> _selfCorrectedWords = [];
   final Map<int, Future<http.Response>> _imageFutures = {};
 
   bool _isStoryAlreadyRecorded = false;
@@ -375,6 +373,22 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     }
   }
 
+  // Turns a page's raw `audio_scripts` field (which may be a List of
+  // sentence strings or a single String) into one clean, space-joined
+  // string. Using this everywhere `audio_scripts` is read keeps word
+  // counts/boundaries consistent between the first page (loaded in
+  // build()) and pages reached later via swipe (onPageChanged) -- those
+  // two paths used to parse the field differently, which could corrupt
+  // word boundaries and inflate the miscue count on swiped-to pages.
+  String _extractScriptText(dynamic rawScripts) {
+    if (rawScripts is List) {
+      return rawScripts.map((e) => e.toString()).join(" ");
+    } else if (rawScripts is String) {
+      return rawScripts;
+    }
+    return "";
+  }
+
   void _setupTargetWords(String fullScriptText) {
     if (fullScriptText.trim().isEmpty) {
       _targetWords = [];
@@ -382,9 +396,23 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       return;
     }
     List<String> rawWords = fullScriptText.split(RegExp(r'\s+'));
+    // A word is treated as a likely proper noun (character/place name)
+    // when it starts with a capital letter but is NOT the first word of
+    // a sentence -- i.e. the word right before it doesn't end the
+    // previous sentence (. ! ?) and isn't the very start of the text.
+    // Such words get excluded from scoring further down (see
+    // _advanceToNextSlide / _finishSlideAssessment).
+    bool prevEndedSentence = true; // start of text counts as sentence-start
     _targetWords = rawWords.map((word) {
       String cleaned = word.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '');
-      return WordStatus(originalWord: word, cleanWord: cleaned);
+      final bool startsUpper = RegExp(r'^[A-Z]').hasMatch(word);
+      final bool likelyProperNoun = startsUpper && !prevEndedSentence;
+      prevEndedSentence = RegExp(r'[.!?]$').hasMatch(word.trim());
+      return WordStatus(
+        originalWord: word,
+        cleanWord: cleaned,
+        isProperNoun: likelyProperNoun,
+      );
     }).toList();
     _wordKeys = List.generate(_targetWords.length, (_) => GlobalKey());
     _currentWordIndex = 0;
@@ -697,22 +725,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       if (found) {
         _deepgramService.clearAudioBuffer();
         setState(() {
-          // The attempt that just succeeded counts too, so add 1.
-          final int attemptsUsed = _currentWordAttempts + 1;
           currentTarget.isCorrect = true;
           currentTarget.isFailed = false;
-          currentTarget.totalAttempts = attemptsUsed;
-          // Phil-IRI: a self-correction (correct on a retry) is NOT an
-          // error — isCorrect/isFailed above are untouched — but it's
-          // still worth flagging for the teacher.
-          if (attemptsUsed > 1) {
-            currentTarget.neededRetry = true;
-            if (!_selfCorrectedWords.any(
-              (e) => e.originalWord == currentTarget.originalWord,
-            )) {
-              _selfCorrectedWords.add(currentTarget);
-            }
-          }
           _currentWordAttempts = 0;
           _currentWordIndex++;
         });
@@ -861,7 +875,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       List<dynamic> allPages = widget.story['pages'] ?? [];
       for (int i = 0; i < allPages.length; i++) {
         if (_pageTargetWords.containsKey(i)) {
-          var list = _pageTargetWords[i]!;
+          // Character/place names (isProperNoun) are excluded from
+          // scoring entirely -- see _setupTargetWords for how they're
+          // detected. Mispronouncing an unfamiliar name isn't a fair
+          // test of decoding skill, and in a short passage a single
+          // such miss could otherwise swing the whole reading level.
+          var list = _pageTargetWords[i]!.where((w) => !w.isProperNoun);
           totalWordsCount += list.length;
           failedWordsCount += list
               .where((w) => w.isFailed && !w.isCorrect)
@@ -894,6 +913,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         wrLevel = 'Independent';
       } else if (wrPct >= 90) {
         wrLevel = 'Instructional';
+      } else if (totalWordsCount < 15 && failedWordsCount <= 1) {
+        // Short passages (common for early missions) swing wildly on a
+        // single miss -- a 6-word passage with 1 miss is already under
+        // 90%. Don't brand that as "Frustration"; treat one slip on a
+        // short passage as still within normal Instructional range.
+        wrLevel = 'Instructional';
       } else {
         wrLevel = 'Frustration';
       }
@@ -918,16 +943,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             "struggled_words": _allFailedWords
                 .map((w) => w.cleanWord)
                 .join(", "),
-            // Words that were correct but needed a retry — never counted
-            // against wrPct, just surfaced separately for the teacher.
-            "self_corrected_words": _selfCorrectedWords
-                .map(
-                  (w) => {
-                    'word': w.cleanWord,
-                    'total_attempts': w.totalAttempts,
-                  },
-                )
-                .toList(),
             "test_type": widget.testType,
           }),
         );
@@ -946,44 +961,20 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       );
 
       if (!mounted) return;
-
-      // 🛠️ FIX: _ReadingResultsDialog (score summary + confetti) was fully
-      // built but never actually shown anywhere — this used to be the step
-      // right here, before going to the quiz, but somewhere along the way
-      // the call to open it was dropped and the flow went straight to
-      // QuizScreen. Wiring it back in using the same values already
-      // computed above.
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) {
-          return _ReadingResultsDialog(
-            totalWordsCount: totalWordsCount,
-            failedWordsCount: failedWordsCount,
-            elapsedSeconds: elapsedSeconds > 0 ? elapsedSeconds : 1,
-            wrPct: wrPct.toStringAsFixed(2),
-            wrLevel: wrLevel,
-            allFailedWords: _allFailedWords,
-            selfCorrectedWords: _selfCorrectedWords,
-            onFinish: () {
-              Navigator.of(context).pop(); // close the results dialog
-              Navigator.pushReplacement(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => QuizScreen(
-                    testType: widget.testType,
-                    storyId: widget.story['id'] ?? widget.story['_id'],
-                    studentId: widget.studentId,
-                    baseUrl: widget.baseUrl,
-                    oralAccuracy: wrPct,
-                    totalWords: totalWordsCount,
-                    readingTimeSeconds: elapsedSeconds > 0 ? elapsedSeconds : 1,
-                  ),
-                ),
-              );
-            },
-          );
-        },
+      // ... Ipagpatuloy ang pag-navigate papuntang QuizScreen ...
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QuizScreen(
+            testType: widget.testType,
+            storyId: widget.story['id'] ?? widget.story['_id'],
+            studentId: widget.studentId,
+            baseUrl: widget.baseUrl,
+            oralAccuracy: wrPct,
+            totalWords: totalWordsCount,
+            readingTimeSeconds: elapsedSeconds > 0 ? elapsedSeconds : 1,
+          ),
+        ),
       );
     }
   }
@@ -1433,14 +1424,63 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             Column(
               children: currentScripts.asMap().entries.map((entry) {
                 int sIndex = entry.key;
+                String currentText = entry.value;
+                bool isThisTtsPlaying =
+                    _isPlayingTts && _playingIndex == sIndex;
                 bool isThisServerPlaying =
                     _isPlayingServerAudio && _playingIndex == sIndex;
 
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4.0),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
                     children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(12),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black,
+                                offset: Offset(3, 3),
+                              ),
+                            ],
+                          ),
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isThisTtsPlaying
+                                  ? Colors.redAccent
+                                  : const Color(0xFF9B0505),
+                              foregroundColor: Colors.white,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: const BorderSide(
+                                  color: Colors.black,
+                                  width: 2.5,
+                                ),
+                              ),
+                            ),
+                            icon: Icon(
+                              isThisTtsPlaying
+                                  ? Icons.stop
+                                  : Icons.record_voice_over,
+                              size: 18,
+                            ),
+                            label: Text(
+                              isThisTtsPlaying ? "Stop TTS" : "Listen",
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w900,
+                              ),
+                            ),
+                            onPressed: _isGenerating
+                                ? null
+                                : () => _speakWebSpeech(sIndex, currentText),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
                       Container(
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
@@ -1540,7 +1580,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         }
 
         if (!_pageTargetWords.containsKey(index)) {
-          _setupTargetWords(pages[index]['audio_scripts']?.toString() ?? "");
+          _setupTargetWords(_extractScriptText(pages[index]['audio_scripts']));
         }
         final prefs = await SharedPreferences.getInstance();
         prefs.setInt('story_${widget.story['id']}_page', index);
@@ -2071,10 +2111,6 @@ class _ReadingResultsDialog extends StatefulWidget {
   final String wrPct;
   final String wrLevel;
   final List<WordStatus> allFailedWords;
-  // Correct-but-needed-a-retry words. Shown separately from
-  // allFailedWords so the teacher can see them without it looking like
-  // they hurt the score (they don't).
-  final List<WordStatus> selfCorrectedWords;
   final VoidCallback onFinish;
 
   const _ReadingResultsDialog({
@@ -2084,7 +2120,6 @@ class _ReadingResultsDialog extends StatefulWidget {
     required this.wrPct,
     required this.wrLevel,
     required this.allFailedWords,
-    this.selfCorrectedWords = const [],
     required this.onFinish,
   });
 
@@ -2250,50 +2285,6 @@ class _ReadingResultsDialogState extends State<_ReadingResultsDialog> {
                           ),
                           child: Text(
                             word.originalWord,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 13,
-                            ),
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
-              ],
-              if (widget.selfCorrectedWords.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                const Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    "🔁 Self-corrected (needed a retry, but got it right):",
-                    style: TextStyle(
-                      color: Colors.amber,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: widget.selfCorrectedWords
-                      .map(
-                        (word) => Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.amber[900],
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.black, width: 1.5),
-                          ),
-                          child: Text(
-                            word.totalAttempts > 1
-                                ? "${word.originalWord} (try ${word.totalAttempts})"
-                                : word.originalWord,
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
