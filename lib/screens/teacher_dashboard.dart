@@ -118,7 +118,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                     teacherId: widget.teacherId,
                   ),
                   _StudentsTab(teacherId: widget.teacherId),
-                  _AlertsTab(teacherId: widget.teacherId), // ⚠️ BAGONG TAB MO
+                  _AlertsTab(teacherId: widget.teacherId),
                   TeacherProfileScreen(userName: widget.userName),
                 ],
               ),
@@ -234,8 +234,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                 _buildDesktopNavItem(
                   icon: Icons.person,
                   label: 'Profile',
-                  isActive:
-                      _selectedIndex == 3, // ⚠️ NAGING INDEX 3 NA ANG PROFILE
+                  isActive: _selectedIndex == 3,
                   onTap: () => _onItemTapped(3),
                 ),
                 const Spacer(),
@@ -261,7 +260,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                     teacherId: widget.teacherId,
                   ),
                   _StudentsTab(teacherId: widget.teacherId),
-                  _AlertsTab(teacherId: widget.teacherId), // ⚠️ BAGONG TAB MO
+                  _AlertsTab(teacherId: widget.teacherId),
                   TeacherProfileScreen(userName: widget.userName),
                 ],
               ),
@@ -358,8 +357,6 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
     return 0;
   }
 
-  // Pulls the pending "parent wants to join this class" requests for
-  // every class this teacher owns, so the bell badge stays accurate.
   Future<void> _fetchClassRequests() async {
     final tId = _teacherIdInt;
     if (tId == 0) return;
@@ -420,9 +417,9 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to respond: $e")),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Failed to respond: $e")));
       }
     }
   }
@@ -666,8 +663,6 @@ class _ComicBackgroundWrapperState extends State<ComicBackgroundWrapper>
   @override
   void initState() {
     super.initState();
-    // Same slow, gentle rotation used on the student dashboard's
-    // spinning background.
     _controller = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 40),
@@ -733,7 +728,6 @@ class _SunburstPainter extends CustomPainter {
     final paint1 = Paint()..color = const Color(0xFFD4B2C2);
     final paint2 = Paint()..color = const Color(0xFFE4C7D5);
 
-    // Solid backdrop stays fixed; only the rays spin around the center.
     canvas.drawRect(Rect.fromLTWH(0, 0, size.width, size.height), paint1);
 
     const int numberOfRays = 24;
@@ -796,9 +790,6 @@ class ComicBadgeHeader extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            // Non-interactive section label: white instead of the
-            // button-yellow (accentTheme) so it doesn't look tappable
-            // next to real actions like "Create New Story".
             color: Colors.white,
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: Colors.black, width: 3),
@@ -934,10 +925,8 @@ class _LibraryTabState extends State<_LibraryTab> {
         headers: networkHeaders,
       );
 
-      // 1. Early return if the widget is no longer in the tree after the async gap
       if (!mounted) return;
 
-      // 2. Safely use context now that we know the widget is mounted
       if (res.statusCode == 200 || res.statusCode == 204) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -952,8 +941,6 @@ class _LibraryTabState extends State<_LibraryTab> {
           ),
         );
 
-        // Note: Calling fetchStories() works, but redownloads all data.
-        // For better performance, consider using setState to remove the story from your local list instead.
         fetchStories();
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -972,7 +959,6 @@ class _LibraryTabState extends State<_LibraryTab> {
         );
       }
     } catch (e) {
-      // 3. Check mounted again after the catch block's potential async gap
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1433,13 +1419,6 @@ class _StudentsTabState extends State<_StudentsTab> {
   List<dynamic> _mispronunciations = [];
   String _studentSearchQuery = '';
 
-  // GET /api/classes/{id}/students (used to populate the roster shown in
-  // the class details sheet) never includes each student's reading
-  // progress — that lives behind its own endpoint. The "Learner Record"
-  // card used to read student['progress'], which was always null, so it
-  // permanently showed "No reading records yet." even for students with
-  // real history. Fetch it on demand instead, cached per student so
-  // reopening the same record doesn't refire the request.
   final Map<dynamic, Future<List<dynamic>>> _progressFutureCache = {};
 
   Future<List<dynamic>> _fetchStudentProgress(dynamic studentId) {
@@ -1471,7 +1450,6 @@ class _StudentsTabState extends State<_StudentsTab> {
   Future _fetchAnalytics() async {
     setState(() => _isLoadingAnalytics = true);
     try {
-      // Resolve teacher ID the same way _fetchClasses does
       int tId = 0;
       if (widget.teacherId != null && widget.teacherId.toString() != "null") {
         tId = int.tryParse(widget.teacherId.toString()) ?? 0;
@@ -1500,9 +1478,7 @@ class _StudentsTabState extends State<_StudentsTab> {
         final decodedSummary = jsonDecode(summaryRes.body);
         final decodedMispro = jsonDecode(mispronunciationRes.body);
         setState(() {
-          // ✅ Unwrap 'data' key if API wraps the response
           _summaryData = decodedSummary['data'] ?? decodedSummary;
-          // ✅ Handle multiple possible keys for mispronunciations
           _mispronunciations =
               decodedMispro['data'] ?? decodedMispro['mispronunciations'] ?? [];
           _isLoadingAnalytics = false;
@@ -1520,7 +1496,6 @@ class _StudentsTabState extends State<_StudentsTab> {
     try {
       setState(() => _isLoading = true);
 
-      // Kunin ang tamang teacher ID
       int tId = 0;
       if (widget.teacherId != null && widget.teacherId.toString() != "null") {
         tId = int.tryParse(widget.teacherId.toString()) ?? 0;
@@ -1542,14 +1517,11 @@ class _StudentsTabState extends State<_StudentsTab> {
       if (response.statusCode == 200 && mounted) {
         final dynamic decoded = jsonDecode(response.body);
 
-        // --- ANG BINAGONG LOGIC PARA MA-READ ANG CLASSES ---
         List<dynamic> rawList = [];
 
         if (decoded is List) {
-          // Kung ang response ay diretsong Array []
           rawList = decoded;
         } else if (decoded is Map) {
-          // Kung ang response ay Object na may "classes" o "data" key {"classes": []}
           rawList = decoded['classes'] ?? decoded['data'] ?? [];
         }
 
@@ -1596,10 +1568,6 @@ class _StudentsTabState extends State<_StudentsTab> {
     }
   }
 
-  // === ADD STUDENT DIALOG — creates a login account (User) + linked
-  // Student row via POST /admin/students. Mirrors _showCreateClassDialog's
-  // styling. Note: this does NOT enroll the student in a class — that's
-  // still a separate join-code flow, same as everywhere else in the app.
   void _showAddStudentDialog() {
     final firstNameCtrl = TextEditingController();
     final lastNameCtrl = TextEditingController();
@@ -1772,10 +1740,6 @@ class _StudentsTabState extends State<_StudentsTab> {
                                 response.statusCode == 201) &&
                             mounted) {
                           Navigator.pop(context);
-                          // Default password note: the backend currently
-                          // hardcodes every new student's password to
-                          // "readsmart123" with no reset flow — surface it
-                          // so the teacher can actually hand it over.
                           showDialog(
                             context: this.context,
                             builder: (context) => AlertDialog(
@@ -1878,7 +1842,6 @@ class _StudentsTabState extends State<_StudentsTab> {
     );
   }
 
-  // === NAIDAGDAG: FUNCTION PARA SA CREATE CLASS DIALOG ===
   void _showCreateClassDialog() {
     final nameCtrl = TextEditingController();
     final sectionCtrl = TextEditingController();
@@ -1992,7 +1955,6 @@ class _StudentsTabState extends State<_StudentsTab> {
                       String finalSection = sectionCtrl.text.trim();
                       if (finalSection.isEmpty) finalSection = "N/A";
 
-                      // ROBUST TEACHER ID FETCHING: Kunin ang tamang ID galing sa memory
                       int tId = 0;
                       if (widget.teacherId != null &&
                           widget.teacherId.toString() != "null") {
@@ -2265,7 +2227,6 @@ class _StudentsTabState extends State<_StudentsTab> {
                   ),
                 )
               else
-                // === CLASS TABS: tap a class chip to pop up its sorted student list ===
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
@@ -2483,10 +2444,6 @@ class _StudentsTabState extends State<_StudentsTab> {
     );
   }
 
-  // === GROUP STUDENTS PER CLASS (Grade + Section), sorted ascending ===
-  // === Try to resolve a REAL class name/id from the student record first.
-  // Checks several common Laravel API shapes; falls back to Grade+Section
-  // (the old proxy) only if no real class relation is present yet. ===
   Map<String, dynamic> _resolveClassInfo(Map<String, dynamic> student) {
     dynamic classField =
         student['school_classes'] ??
@@ -2507,7 +2464,6 @@ class _StudentsTabState extends State<_StudentsTab> {
       }
     }
 
-    // Flat fallbacks some APIs use instead of a nested object
     if (realClassName == null) {
       final n1 = _safeString(student['class_name']);
       if (n1.isNotEmpty) realClassName = n1;
@@ -2524,7 +2480,6 @@ class _StudentsTabState extends State<_StudentsTab> {
       };
     }
 
-    // --- FALLBACK: Grade + Section proxy (used until API returns class) ---
     final String grade = _safeString(student['grade_level'], 'N/A');
     final String section = _safeString(student['section'], 'N/A');
     final String label = grade == 'N/A'
@@ -2551,7 +2506,6 @@ class _StudentsTabState extends State<_StudentsTab> {
       grouped.putIfAbsent(label, () => []).add(student);
     }
 
-    // Sort students inside each class alphabetically (A-Z) by name
     for (var list in grouped.values) {
       list.sort(
         (a, b) => _safeString(
@@ -2560,7 +2514,6 @@ class _StudentsTabState extends State<_StudentsTab> {
       );
     }
 
-    // Sort the classes themselves using their resolved sort key
     final sortedLabels = grouped.keys.toList()
       ..sort((a, b) => sortKeys[a]!.compareTo(sortKeys[b]!));
 
@@ -2569,7 +2522,6 @@ class _StudentsTabState extends State<_StudentsTab> {
         .toList();
   }
 
-  // === CLASS TAB CHIP: tap a class to pop up its sorted student list ===
   Widget _buildClassTabChip(
     BuildContext context,
     String classLabel,
@@ -2637,7 +2589,6 @@ class _StudentsTabState extends State<_StudentsTab> {
     );
   }
 
-  // === CLASS STUDENTS POPUP: sorted (A-Z) list of students in the tapped class ===
   void _openClassStudentsPopup(
     BuildContext context,
     String classLabel,
@@ -2840,7 +2791,6 @@ class _StudentsTabState extends State<_StudentsTab> {
     );
   }
 
-  // === STUDENT PROFILE POPUP: opens the learner's record inside a popup dialog ===
   void _openStudentProfilePopup(
     BuildContext context,
     Map<String, dynamic> student,
@@ -3314,10 +3264,6 @@ class _StudentsTabState extends State<_StudentsTab> {
   }
 }
 
-// ==========================================
-// STUDENT RECORD SCREEN — opens when a learner's name is tapped
-// (same comic design language, pushed as its own screen/"tab")
-// ==========================================
 class _StudentRecordScreen extends StatelessWidget {
   final String studentName;
   final Widget recordCard;
@@ -3352,7 +3298,6 @@ class _StudentRecordScreen extends StatelessWidget {
   }
 }
 
-// 2-TAB CLASS DETAIL DIALOG (STORIES & STUDENTS + SETTINGS)
 class _ClassDetailsSheet extends StatefulWidget {
   final Map<String, dynamic> item;
   final String className;
@@ -3744,7 +3689,6 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                     ],
                   ),
                 ),
-                // SETTINGS OPTION (DELETE CLASS)
                 PopupMenuButton<String>(
                   icon: const Icon(
                     Icons.settings,
@@ -3903,11 +3847,6 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                                   String coverUrl =
                                       "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
 
-                                  // The test_type this story is assigned as
-                                  // in THIS class (pre_test/post_test) — a
-                                  // story can be assigned twice (once as
-                                  // each), so always show which one this
-                                  // tile is.
                                   final Map<String, dynamic>? pivot =
                                       story['pivot'] is Map
                                       ? Map<String, dynamic>.from(
@@ -4183,130 +4122,159 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                     ],
                   ),
                   // TAB 2: ENROLLED STUDENTS LIST
-                  _isLoadingStudents
-                      ? const Center(
-                          child: CircularProgressIndicator(
-                            color: Color(0xFF940D0D),
+                  Column(
+                    children: [
+                      ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFFFDE047),
+                          minimumSize: const Size.fromHeight(48),
+                          side: const BorderSide(color: Colors.black, width: 2),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
                           ),
-                        )
-                      : _students.isEmpty
-                      ? Center(
-                          child: Container(
-                            padding: const EdgeInsets.all(20),
-                            decoration: BoxDecoration(
-                              color: const Color(0xFFBAE6FD),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Colors.black,
-                                width: 2.5,
-                              ),
-                            ),
-                            child: const Text(
-                              "No students joined in this class yet.",
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
-                            ),
+                        ),
+                        icon: const Icon(Icons.group_add, color: Colors.black),
+                        label: const Text(
+                          "Add Students from Masterlist",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.w900,
                           ),
-                        )
-                      : ListView.builder(
-                          itemCount: _students.length,
-                          itemBuilder: (context, index) {
-                            final student = _students[index];
-                            final name = _safeString(
-                              student['name'] ?? student['username'],
-                              'Student',
-                            );
-                            final email = _safeString(
-                              student['email'],
-                              'No email',
-                            );
-
-                            return Container(
-                              margin: const EdgeInsets.only(bottom: 10),
-                              decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Colors.black,
-                                  width: 2,
+                        ),
+                        onPressed: () => _showAddStudentsSheet(context),
+                      ),
+                      const SizedBox(height: 15),
+                      Expanded(
+                        child: _isLoadingStudents
+                            ? const Center(
+                                child: CircularProgressIndicator(
+                                  color: Color(0xFF940D0D),
                                 ),
-                              ),
-                              child: ListTile(
-                                onTap: () {
-                                  if (widget.buildRecordCard != null) {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) => _StudentRecordScreen(
-                                          studentName: _safeString(
-                                            student['name'],
-                                            'Student',
-                                          ),
-                                          recordCard: widget.buildRecordCard!(
-                                            student,
-                                          ),
-                                        ),
-                                      ),
-                                    );
-                                  }
-                                },
-                                leading: Container(
-                                  width: 45,
-                                  height: 45,
+                              )
+                            : _students.isEmpty
+                            ? Center(
+                                child: Container(
+                                  padding: const EdgeInsets.all(20),
                                   decoration: BoxDecoration(
-                                    color: const Color(0xFFFDE047),
-                                    shape: BoxShape.circle,
+                                    color: const Color(0xFFBAE6FD),
+                                    borderRadius: BorderRadius.circular(16),
                                     border: Border.all(
                                       color: Colors.black,
                                       width: 2.5,
                                     ),
                                   ),
-                                  child: ClipOval(
-                                    child:
-                                        (student['avatar'] != null &&
-                                            student['avatar']
-                                                .toString()
-                                                .isNotEmpty)
-                                        ? Image.network(
-                                            student['avatar']
-                                                    .toString()
-                                                    .startsWith('http')
-                                                ? student['avatar']
-                                                : "$baseUrl${student['avatar']}",
-                                            fit: BoxFit.cover,
-                                            headers: const {
-                                              "ngrok-skip-browser-warning":
-                                                  "69420",
-                                            },
-                                            errorBuilder: (ctx, err, stack) =>
-                                                const Icon(
+                                  child: const Text(
+                                    "No students joined in this class yet.",
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black,
+                                    ),
+                                  ),
+                                ),
+                              )
+                            : ListView.builder(
+                                itemCount: _students.length,
+                                itemBuilder: (context, index) {
+                                  final student = _students[index];
+                                  final name = _safeString(
+                                    student['name'] ?? student['username'],
+                                    'Student',
+                                  );
+                                  final email = _safeString(
+                                    student['email'],
+                                    'No email',
+                                  );
+
+                                  return Container(
+                                    margin: const EdgeInsets.only(bottom: 10),
+                                    decoration: BoxDecoration(
+                                      color: Colors.white,
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.black,
+                                        width: 2,
+                                      ),
+                                    ),
+                                    child: ListTile(
+                                      onTap: () {
+                                        if (widget.buildRecordCard != null) {
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) =>
+                                                  _StudentRecordScreen(
+                                                    studentName: _safeString(
+                                                      student['name'],
+                                                      'Student',
+                                                    ),
+                                                    recordCard:
+                                                        widget.buildRecordCard!(
+                                                          student,
+                                                        ),
+                                                  ),
+                                            ),
+                                          );
+                                        }
+                                      },
+                                      leading: Container(
+                                        width: 45,
+                                        height: 45,
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFFDE047),
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: Colors.black,
+                                            width: 2.5,
+                                          ),
+                                        ),
+                                        child: ClipOval(
+                                          child:
+                                              (student['avatar'] != null &&
+                                                  student['avatar']
+                                                      .toString()
+                                                      .isNotEmpty)
+                                              ? Image.network(
+                                                  student['avatar']
+                                                          .toString()
+                                                          .startsWith('http')
+                                                      ? student['avatar']
+                                                      : "$baseUrl${student['avatar']}",
+                                                  fit: BoxFit.cover,
+                                                  headers: const {
+                                                    "ngrok-skip-browser-warning":
+                                                        "69420",
+                                                  },
+                                                  errorBuilder:
+                                                      (ctx, err, stack) =>
+                                                          const Icon(
+                                                            Icons.person,
+                                                            color: Colors.black,
+                                                          ),
+                                                )
+                                              : const Icon(
                                                   Icons.person,
                                                   color: Colors.black,
+                                                  size: 24,
                                                 ),
-                                          )
-                                        : const Icon(
-                                            Icons.person,
-                                            color: Colors.black,
-                                            size: 24,
-                                          ),
-                                  ),
-                                ),
-                                title: Text(
-                                  name,
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                                subtitle: Text(
-                                  email,
-                                  style: const TextStyle(fontSize: 12),
-                                ),
+                                        ),
+                                      ),
+                                      title: Text(
+                                        name,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      subtitle: Text(
+                                        email,
+                                        style: const TextStyle(fontSize: 12),
+                                      ),
+                                    ),
+                                  );
+                                },
                               ),
-                            );
-                          },
-                        ),
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
@@ -4315,9 +4283,192 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
       ),
     );
   }
+
+  Future<void> _showAddStudentsSheet(BuildContext context) async {
+    final classId =
+        widget.item['id'] ?? widget.item['_id'] ?? widget.item['class_id'];
+    List<dynamic> availableStudents = [];
+    bool isLoading = true;
+    bool isSaving = false;
+    Set<int> selectedIds = {};
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) {
+        return StatefulBuilder(
+          builder: (ctx, setSheetState) {
+            if (isLoading && availableStudents.isEmpty) {
+              http
+                  .get(
+                    Uri.parse(
+                      "$baseUrl/api/classes/$classId/available-students",
+                    ),
+                    headers: networkHeaders,
+                  )
+                  .then((res) {
+                    if (res.statusCode == 200 && mounted) {
+                      final decoded = jsonDecode(res.body);
+                      setSheetState(() {
+                        availableStudents = decoded['data'] ?? [];
+                        isLoading = false;
+                      });
+                    }
+                  })
+                  .catchError((e) {
+                    setSheetState(() => isLoading = false);
+                  });
+            }
+
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.75,
+              decoration: BoxDecoration(
+                color: const Color(0xFFD4B2C2),
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+                border: Border.all(color: Colors.black, width: 3.5),
+              ),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text(
+                        "Add to Class",
+                        style: TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.black,
+                          size: 28,
+                        ),
+                        onPressed: () => Navigator.pop(ctx),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: isLoading
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF940D0D),
+                            ),
+                          )
+                        : availableStudents.isEmpty
+                        ? const Center(
+                            child: Text(
+                              "No new students available for this Grade and Section.",
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                          )
+                        : ListView.builder(
+                            itemCount: availableStudents.length,
+                            itemBuilder: (context, index) {
+                              final student = availableStudents[index];
+                              final studentId = student['id'];
+                              final isSelected = selectedIds.contains(
+                                studentId,
+                              );
+
+                              return Card(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                  side: const BorderSide(
+                                    color: Colors.black,
+                                    width: 2,
+                                  ),
+                                ),
+                                child: CheckboxListTile(
+                                  activeColor: const Color(0xFF8BCA84),
+                                  checkColor: Colors.black,
+                                  value: isSelected,
+                                  onChanged: (val) {
+                                    setSheetState(() {
+                                      if (val == true) {
+                                        selectedIds.add(studentId);
+                                      } else {
+                                        selectedIds.remove(studentId);
+                                      }
+                                    });
+                                  },
+                                  title: Text(
+                                    student['name'] ?? '',
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  subtitle: Text(
+                                    "LRN: ${student['lrn'] ?? 'N/A'}",
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                  ),
+                  if (selectedIds.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 15),
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF940D0D),
+                          minimumSize: const Size.fromHeight(50),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: isSaving
+                            ? null
+                            : () async {
+                                setSheetState(() => isSaving = true);
+                                final res = await http.post(
+                                  Uri.parse(
+                                    "$baseUrl/api/classes/$classId/bulk-add-students",
+                                  ),
+                                  headers: {
+                                    ...networkHeaders,
+                                    'Content-Type': 'application/json',
+                                  },
+                                  body: jsonEncode({
+                                    "student_ids": selectedIds.toList(),
+                                  }),
+                                );
+                                if (res.statusCode == 200) {
+                                  if (mounted) Navigator.pop(ctx);
+                                  _fetchClassStudents();
+                                }
+                                setSheetState(() => isSaving = false);
+                              },
+                        child: isSaving
+                            ? const CircularProgressIndicator(
+                                color: Colors.white,
+                              )
+                            : Text(
+                                "Add ${selectedIds.length} Students",
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                ),
+                              ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
 }
 
-// STORY PICKER SHEET
 class _StoryPickerSheet extends StatefulWidget {
   final dynamic classId;
   final String className;
@@ -4418,7 +4569,7 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
 
       if ((response.statusCode == 200 || response.statusCode == 201) &&
           mounted) {
-        Navigator.pop(context, true); // Return 'true' on success
+        Navigator.pop(context, true);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -4753,9 +4904,6 @@ class _StoryPickerSheetState extends State<_StoryPickerSheet> {
   }
 }
 
-// ==========================================
-// TAB 3: ALERTS TAB (NEW) - TEACHER INTERVENTION
-// ==========================================
 class _AlertsTab extends StatefulWidget {
   final dynamic teacherId;
   const _AlertsTab({this.teacherId});
@@ -4792,7 +4940,6 @@ class _AlertsTabState extends State<_AlertsTab> {
             1;
       }
 
-      // ⚠️ TATAWAGIN ANG LARAVEL API MO DITO
       final response = await http.get(
         Uri.parse("$baseUrl/api/teachers/$tId/alerts"),
         headers: networkHeaders,
