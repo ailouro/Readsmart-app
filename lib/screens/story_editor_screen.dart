@@ -529,12 +529,12 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         child: GestureDetector(
           onTap: () => _updateStoryType(value),
           child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
+            padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
               color: selected ? const Color(0xFFFDE047) : Colors.grey[800],
               borderRadius: BorderRadius.circular(10),
               border: Border.all(
-                color: selected ? Colors.amberAccent : Colors.grey[600]!,
+                color: selected ? Colors.amberAccent : Colors.grey[700]!,
                 width: 2,
               ),
             ),
@@ -571,9 +571,10 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
             color: Colors.amberAccent,
             fontSize: 12,
             fontWeight: FontWeight.bold,
+            letterSpacing: 0.8,
           ),
         ),
-        const SizedBox(height: 6),
+        const SizedBox(height: 8),
         Row(
           children: [
             buildOption('pre_test', "Pre Test", Icons.edit_note_rounded),
@@ -593,86 +594,27 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    String cleanBaseUrl = widget.baseUrl.endsWith('/api')
-        ? widget.baseUrl.substring(0, widget.baseUrl.length - 4)
-        : widget.baseUrl;
-
-    String combinedText = _scriptControllers
-        .map((c) => c.text.trim())
-        .where((t) => t.isNotEmpty)
-        .join("\n\n");
-
-    return Scaffold(
-      backgroundColor: Colors.grey[900],
-      appBar: AppBar(
-        title: Text("Edit: ${widget.story['title'] ?? 'Story'}"),
-        backgroundColor: Colors.black,
-        foregroundColor: Colors.white,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context, true);
-          },
-        ),
-      ),
-      body: _pages.isEmpty
-          ? const Center(
-              child: Text(
-                "No slides to edit.",
-                style: TextStyle(color: Colors.white),
-              ),
-            )
-          : Column(
+  // ---------------------------------------------------------------------------
+  // DESKTOP / LAPTOP LAYOUT (SIDE-BY-SIDE 2 COLUMNS)
+  // ---------------------------------------------------------------------------
+  Widget _buildDesktopLayout(String cleanBaseUrl, String combinedText) {
+    return Row(
+      children: [
+        // LEFT COLUMN: SLIDE PREVIEW & NAVIGATION (50% WIDTH)
+        Expanded(
+          flex: 5,
+          child: Container(
+            color: const Color(0xFF141414),
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
               children: [
-                // 1. TOP SLIDE NAVIGATION CONTROLS
+                // 1. QUICK JUMP SLIDE CHIPS (TOP)
                 Container(
-                  color: Colors.black,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        onPressed: _currentPage > 0 ? _goToPreviousSlide : null,
-                        icon: const Icon(Icons.arrow_back_ios),
-                        color: _currentPage > 0
-                            ? Colors.amberAccent
-                            : Colors.grey[700],
-                      ),
-                      Text(
-                        "Editing Slide ${_currentPage + 1} of ${_pages.length}",
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                      IconButton(
-                        onPressed: _currentPage < _pages.length - 1
-                            ? _goToNextSlide
-                            : null,
-                        icon: const Icon(Icons.arrow_forward_ios),
-                        color: _currentPage < _pages.length - 1
-                            ? Colors.amberAccent
-                            : Colors.grey[700],
-                      ),
-                    ],
-                  ),
-                ),
-
-                // 2. QUICK JUMP SLIDE CHIPS
-                Container(
-                  height: 48,
-                  color: Colors.grey[850],
-                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  height: 44,
+                  margin: const EdgeInsets.only(bottom: 16),
                   child: ListView.builder(
                     scrollDirection: Axis.horizontal,
                     itemCount: _pages.length,
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
                     itemBuilder: (context, idx) {
                       bool isSelected = idx == _currentPage;
                       return Padding(
@@ -681,9 +623,9 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                           label: Text("Slide ${idx + 1}"),
                           selected: isSelected,
                           selectedColor: Colors.amber[700],
-                          backgroundColor: Colors.grey[800],
+                          backgroundColor: Colors.grey[850],
                           labelStyle: TextStyle(
-                            color: isSelected ? Colors.black : Colors.white,
+                            color: isSelected ? Colors.black : Colors.white70,
                             fontWeight: FontWeight.bold,
                           ),
                           onSelected: (selected) {
@@ -701,277 +643,814 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                   ),
                 ),
 
-                // 3. SLIDE IMAGE & SUBTITLE PREVIEW AREA
+                // 2. SLIDE IMAGE & SUBTITLE OVERLAY PREVIEW
                 Expanded(
-                  flex: 2,
-                  child: PageView.builder(
-                    controller: _pageController,
-                    itemCount: _pages.length,
-                    scrollBehavior: const MaterialScrollBehavior().copyWith(
-                      dragDevices: {
-                        PointerDeviceKind.mouse,
-                        PointerDeviceKind.touch,
-                        PointerDeviceKind.trackpad,
-                        PointerDeviceKind.stylus,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey[800]!),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.5),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                    clipBehavior: Clip.antiAlias,
+                    child: PageView.builder(
+                      controller: _pageController,
+                      itemCount: _pages.length,
+                      onPageChanged: (index) {
+                        setState(() {
+                          _currentPage = index;
+                        });
+                        _loadCurrentSlideScript();
+                      },
+                      itemBuilder: (context, index) {
+                        String pageImagePath =
+                            _pages[index]['image_path'] ?? "";
+                        String imageUrl =
+                            "$cleanBaseUrl/api/get-image?path=$pageImagePath";
+
+                        return Stack(
+                          alignment: Alignment.bottomCenter,
+                          children: [
+                            Center(
+                              child: Image.network(
+                                imageUrl,
+                                headers: const {
+                                  "ngrok-skip-browser-warning": "69420",
+                                },
+                                fit: BoxFit.contain,
+                                width: double.infinity,
+                                height: double.infinity,
+                                errorBuilder: (c, o, s) => Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: const [
+                                    Icon(
+                                      Icons.image_not_supported_outlined,
+                                      color: Colors.white38,
+                                      size: 64,
+                                    ),
+                                    SizedBox(height: 8),
+                                    Text(
+                                      "Image preview unavailable",
+                                      style: TextStyle(color: Colors.white38),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            if (combinedText.isNotEmpty)
+                              Container(
+                                width: double.infinity,
+                                margin: const EdgeInsets.all(16),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 12,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black.withOpacity(0.8),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.amberAccent.withOpacity(0.4),
+                                  ),
+                                ),
+                                child: Text(
+                                  combinedText,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.4,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        );
                       },
                     ),
-                    onPageChanged: (index) {
-                      setState(() {
-                        _currentPage = index;
-                      });
-                      _loadCurrentSlideScript();
-                    },
-                    itemBuilder: (context, index) {
-                      String pageImagePath = _pages[index]['image_path'] ?? "";
-                      String imageUrl =
-                          "$cleanBaseUrl/api/get-image?path=$pageImagePath";
-
-                      return Stack(
-                        alignment: Alignment.bottomCenter,
-                        children: [
-                          Image.network(
-                            imageUrl,
-                            headers: const {
-                              "ngrok-skip-browser-warning": "69420",
-                            },
-                            fit: BoxFit.contain,
-                            width: double.infinity,
-                            errorBuilder: (c, o, s) => const Icon(
-                              Icons.broken_image,
-                              color: Colors.white,
-                              size: 50,
-                            ),
-                          ),
-                          if (combinedText.isNotEmpty)
-                            Container(
-                              width: double.infinity,
-                              margin: const EdgeInsets.all(12),
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black.withOpacity(0.75),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: Colors.amberAccent.withOpacity(0.5),
-                                ),
-                              ),
-                              child: Text(
-                                combinedText,
-                                textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                        ],
-                      );
-                    },
                   ),
                 ),
 
-                // 4. BOTTOM EDITING CONTROLS FOR MULTIPLE TEXT SEGMENTS & STORY TYPE
-                Expanded(
-                  flex: 3,
-                  child: Container(
-                    padding: const EdgeInsets.all(16.0),
-                    color: Colors.black,
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // STORY TYPE SELECTOR
-                          _storyTypeSelector(),
-                          const SizedBox(height: 16),
+                const SizedBox(height: 16),
 
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                "SCRIPTS / TEXTS FOR SLIDE ${_currentPage + 1}:",
-                                style: const TextStyle(
-                                  color: Colors.amberAccent,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Row(
-                                children: [
-                                  IconButton(
-                                    tooltip: "Extract Text from Image",
-                                    icon: const Icon(
-                                      Icons.document_scanner,
-                                      color: Colors.blueAccent,
-                                    ),
-                                    onPressed: _scanTextFromImage,
-                                  ),
-                                  IconButton(
-                                    tooltip: "Add Text Segment",
-                                    icon: const Icon(
-                                      Icons.add_circle,
-                                      color: Colors.greenAccent,
-                                    ),
-                                    onPressed: _addScriptSegment,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 8),
-
-                          // DYNAMIC LIST OF SCRIPT TEXTFIELDS
-                          ListView.builder(
-                            shrinkWrap: true,
-                            physics: const NeverScrollableScrollPhysics(),
-                            itemCount: _scriptControllers.length,
-                            itemBuilder: (context, idx) {
-                              return Padding(
-                                padding: const EdgeInsets.only(bottom: 8.0),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: TextField(
-                                        controller: _scriptControllers[idx],
-                                        maxLines: null,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                        ),
-                                        decoration: InputDecoration(
-                                          hintText:
-                                              "Text Segment ${idx + 1}...",
-                                          hintStyle: const TextStyle(
-                                            color: Colors.white30,
-                                          ),
-                                          filled: true,
-                                          fillColor: Colors.grey[800],
-                                          border: OutlineInputBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            borderSide: BorderSide.none,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    if (_scriptControllers.length > 1)
-                                      IconButton(
-                                        icon: const Icon(
-                                          Icons.delete_outline,
-                                          color: Colors.redAccent,
-                                        ),
-                                        onPressed: () =>
-                                            _removeScriptSegment(idx),
-                                      ),
-                                  ],
-                                ),
-                              );
-                            },
-                          ),
-                          const SizedBox(height: 12),
-
-                          // PLAYBACK PREVIEW BUTTON
-                          ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _isPlayingAudio
-                                  ? Colors.orange[800]
-                                  : Colors.teal[700],
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 12),
-                            ),
-                            icon: Icon(
-                              _isPlayingAudio ? Icons.pause : Icons.play_arrow,
-                            ),
-                            label: Text(
-                              _isPlayingAudio
-                                  ? "Pause Audio"
-                                  : "Play Voice Preview",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            onPressed: _isSaving || _isGeneratingVoice
-                                ? null
-                                : _toggleAudioPlayback,
-                          ),
-                          const SizedBox(height: 8),
-
-                          // SAVE & CREATE VOICE BUTTONS
-                          Row(
-                            children: [
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.amber[700],
-                                    foregroundColor: Colors.black,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                  icon: _isSaving
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.black,
-                                          ),
-                                        )
-                                      : const Icon(Icons.save),
-                                  label: Text(
-                                    _isSaving ? "Saving..." : "Save Texts",
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  onPressed: _isSaving || _isGeneratingVoice
-                                      ? null
-                                      : _saveSlideScript,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: ElevatedButton.icon(
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: Colors.blue[700],
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                    ),
-                                  ),
-                                  icon: _isGeneratingVoice
-                                      ? const SizedBox(
-                                          width: 18,
-                                          height: 18,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            color: Colors.white,
-                                          ),
-                                        )
-                                      : const Icon(Icons.record_voice_over),
-                                  label: Text(
-                                    _isGeneratingVoice
-                                        ? "Creating..."
-                                        : "Create Voices",
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  onPressed: _isSaving || _isGeneratingVoice
-                                      ? null
-                                      : _generateAiVoice,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
+                // 3. PREVIOUS / NEXT SLIDE NAVIGATION BAR
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF222222),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white10),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed:
+                            _currentPage > 0 ? _goToPreviousSlide : null,
+                        icon: const Icon(Icons.arrow_back_ios, size: 14),
+                        label: const Text("Previous"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey[800],
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.grey[900],
+                        ),
                       ),
-                    ),
+                      Text(
+                        "Slide ${_currentPage + 1} of ${_pages.length}",
+                        style: const TextStyle(
+                          color: Colors.amberAccent,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                      ElevatedButton.icon(
+                        onPressed: _currentPage < _pages.length - 1
+                            ? _goToNextSlide
+                            : null,
+                        icon: const Icon(Icons.arrow_forward_ios, size: 14),
+                        label: const Text("Next"),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.grey[800],
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: Colors.grey[900],
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+
+        // DIVIDER
+        Container(width: 1, color: Colors.grey[800]),
+
+        // RIGHT COLUMN: EDITING & CONTROL PANEL (50% WIDTH)
+        Expanded(
+          flex: 5,
+          child: Container(
+            color: const Color(0xFF1E1E1E),
+            padding: const EdgeInsets.all(24.0),
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // SECTION TITLE
+                  Row(
+                    children: [
+                      const Icon(
+                        Icons.edit_note_rounded,
+                        color: Colors.amberAccent,
+                        size: 28,
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Slide ${_currentPage + 1} Editor",
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // STORY TYPE SELECTOR CARD
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF282828),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: _storyTypeSelector(),
+                  ),
+
+                  const SizedBox(height: 20),
+
+                  // SCRIPT & TEXT EDITING CARD
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF282828),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white10),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Text(
+                              "SCRIPTS / TEXT SEGMENTS",
+                              style: TextStyle(
+                                color: Colors.amberAccent,
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 0.8,
+                              ),
+                            ),
+                            Row(
+                              children: [
+                                IconButton(
+                                  tooltip: "Extract Text from Image (OCR)",
+                                  icon: const Icon(
+                                    Icons.document_scanner,
+                                    color: Colors.blueAccent,
+                                  ),
+                                  onPressed: _scanTextFromImage,
+                                ),
+                                IconButton(
+                                  tooltip: "Add Text Segment",
+                                  icon: const Icon(
+                                    Icons.add_circle,
+                                    color: Colors.greenAccent,
+                                  ),
+                                  onPressed: _addScriptSegment,
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // DYNAMIC SCRIPT FIELDS LIST
+                        ListView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _scriptControllers.length,
+                          itemBuilder: (context, idx) {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 12.0),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF1E1E1E),
+                                borderRadius: BorderRadius.circular(10),
+                                border: Border.all(color: Colors.white12),
+                              ),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Text(
+                                        "Segment #${idx + 1}",
+                                        style: TextStyle(
+                                          color: Colors.grey[400],
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                      if (_scriptControllers.length > 1)
+                                        GestureDetector(
+                                          onTap: () =>
+                                              _removeScriptSegment(idx),
+                                          child: const Icon(
+                                            Icons.delete_outline,
+                                            color: Colors.redAccent,
+                                            size: 18,
+                                          ),
+                                        ),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 6),
+                                  TextField(
+                                    controller: _scriptControllers[idx],
+                                    maxLines: null,
+                                    minLines: 2,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 14,
+                                    ),
+                                    decoration: const InputDecoration(
+                                      hintText: "Enter story text here...",
+                                      hintStyle: TextStyle(
+                                        color: Colors.white30,
+                                      ),
+                                      border: InputBorder.none,
+                                      isDense: true,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+
+                  // ACTIONS CARD (PLAY / SAVE / CREATE VOICE)
+                  Column(
+                    children: [
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: _isPlayingAudio
+                                ? Colors.orange[800]
+                                : Colors.teal[700],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                          ),
+                          icon: Icon(
+                            _isPlayingAudio ? Icons.pause : Icons.play_arrow,
+                          ),
+                          label: Text(
+                            _isPlayingAudio
+                                ? "Pause Audio Preview"
+                                : "Play Voice Preview",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 15,
+                            ),
+                          ),
+                          onPressed: _isSaving || _isGeneratingVoice
+                              ? null
+                              : _toggleAudioPlayback,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.amber[700],
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              icon: _isSaving
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.black,
+                                      ),
+                                    )
+                                  : const Icon(Icons.save),
+                              label: Text(
+                                _isSaving ? "Saving..." : "Save Texts",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              onPressed: _isSaving || _isGeneratingVoice
+                                  ? null
+                                  : _saveSlideScript,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.blue[700],
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                              icon: _isGeneratingVoice
+                                  ? const SizedBox(
+                                      width: 18,
+                                      height: 18,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    )
+                                  : const Icon(Icons.record_voice_over),
+                              label: Text(
+                                _isGeneratingVoice
+                                    ? "Creating..."
+                                    : "Create Voices",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              onPressed: _isSaving || _isGeneratingVoice
+                                  ? null
+                                  : _generateAiVoice,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // MOBILE LAYOUT (SINGLE COLUMN FALLBACK FOR SMALL SCREENS)
+  // ---------------------------------------------------------------------------
+  Widget _buildMobileLayout(String cleanBaseUrl, String combinedText) {
+    return Column(
+      children: [
+        // 1. TOP SLIDE NAVIGATION CONTROLS
+        Container(
+          color: Colors.black,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                onPressed: _currentPage > 0 ? _goToPreviousSlide : null,
+                icon: const Icon(Icons.arrow_back_ios),
+                color:
+                    _currentPage > 0 ? Colors.amberAccent : Colors.grey[700],
+              ),
+              Text(
+                "Editing Slide ${_currentPage + 1} of ${_pages.length}",
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                ),
+              ),
+              IconButton(
+                onPressed:
+                    _currentPage < _pages.length - 1 ? _goToNextSlide : null,
+                icon: const Icon(Icons.arrow_forward_ios),
+                color: _currentPage < _pages.length - 1
+                    ? Colors.amberAccent
+                    : Colors.grey[700],
+              ),
+            ],
+          ),
+        ),
+
+        // 2. QUICK JUMP SLIDE CHIPS
+        Container(
+          height: 48,
+          color: Colors.grey[850],
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _pages.length,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            itemBuilder: (context, idx) {
+              bool isSelected = idx == _currentPage;
+              return Padding(
+                padding: const EdgeInsets.only(right: 8.0),
+                child: ChoiceChip(
+                  label: Text("Slide ${idx + 1}"),
+                  selected: isSelected,
+                  selectedColor: Colors.amber[700],
+                  backgroundColor: Colors.grey[800],
+                  labelStyle: TextStyle(
+                    color: isSelected ? Colors.black : Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  onSelected: (selected) {
+                    if (selected) {
+                      _pageController.animateToPage(
+                        idx,
+                        duration: const Duration(milliseconds: 300),
+                        curve: Curves.easeInOut,
+                      );
+                    }
+                  },
+                ),
+              );
+            },
+          ),
+        ),
+
+        // 3. SLIDE IMAGE & SUBTITLE PREVIEW AREA
+        Expanded(
+          flex: 2,
+          child: PageView.builder(
+            controller: _pageController,
+            itemCount: _pages.length,
+            scrollBehavior: const MaterialScrollBehavior().copyWith(
+              dragDevices: {
+                PointerDeviceKind.mouse,
+                PointerDeviceKind.touch,
+                PointerDeviceKind.trackpad,
+                PointerDeviceKind.stylus,
+              },
+            ),
+            onPageChanged: (index) {
+              setState(() {
+                _currentPage = index;
+              });
+              _loadCurrentSlideScript();
+            },
+            itemBuilder: (context, index) {
+              String pageImagePath = _pages[index]['image_path'] ?? "";
+              String imageUrl =
+                  "$cleanBaseUrl/api/get-image?path=$pageImagePath";
+
+              return Stack(
+                alignment: Alignment.bottomCenter,
+                children: [
+                  Image.network(
+                    imageUrl,
+                    headers: const {
+                      "ngrok-skip-browser-warning": "69420",
+                    },
+                    fit: BoxFit.contain,
+                    width: double.infinity,
+                    errorBuilder: (c, o, s) => const Icon(
+                      Icons.broken_image,
+                      color: Colors.white,
+                      size: 50,
+                    ),
+                  ),
+                  if (combinedText.isNotEmpty)
+                    Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.all(12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withOpacity(0.75),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: Colors.amberAccent.withOpacity(0.5),
+                        ),
+                      ),
+                      child: Text(
+                        combinedText,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        ),
+
+        // 4. BOTTOM EDITING CONTROLS
+        Expanded(
+          flex: 3,
+          child: Container(
+            padding: const EdgeInsets.all(16.0),
+            color: Colors.black,
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _storyTypeSelector(),
+                  const SizedBox(height: 16),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        "SCRIPTS / TEXTS FOR SLIDE ${_currentPage + 1}:",
+                        style: const TextStyle(
+                          color: Colors.amberAccent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      Row(
+                        children: [
+                          IconButton(
+                            tooltip: "Extract Text from Image",
+                            icon: const Icon(
+                              Icons.document_scanner,
+                              color: Colors.blueAccent,
+                            ),
+                            onPressed: _scanTextFromImage,
+                          ),
+                          IconButton(
+                            tooltip: "Add Text Segment",
+                            icon: const Icon(
+                              Icons.add_circle,
+                              color: Colors.greenAccent,
+                            ),
+                            onPressed: _addScriptSegment,
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: _scriptControllers.length,
+                    itemBuilder: (context, idx) {
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8.0),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: _scriptControllers[idx],
+                                maxLines: null,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                ),
+                                decoration: InputDecoration(
+                                  hintText: "Text Segment ${idx + 1}...",
+                                  hintStyle: const TextStyle(
+                                    color: Colors.white30,
+                                  ),
+                                  filled: true,
+                                  fillColor: Colors.grey[800],
+                                  border: OutlineInputBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                    borderSide: BorderSide.none,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            if (_scriptControllers.length > 1)
+                              IconButton(
+                                icon: const Icon(
+                                  Icons.delete_outline,
+                                  color: Colors.redAccent,
+                                ),
+                                onPressed: () => _removeScriptSegment(idx),
+                              ),
+                          ],
+                        ),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+
+                  ElevatedButton.icon(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _isPlayingAudio
+                          ? Colors.orange[800]
+                          : Colors.teal[700],
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                    ),
+                    icon: Icon(
+                      _isPlayingAudio ? Icons.pause : Icons.play_arrow,
+                    ),
+                    label: Text(
+                      _isPlayingAudio ? "Pause Audio" : "Play Voice Preview",
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    onPressed: _isSaving || _isGeneratingVoice
+                        ? null
+                        : _toggleAudioPlayback,
+                  ),
+                  const SizedBox(height: 8),
+
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.amber[700],
+                            foregroundColor: Colors.black,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          icon: _isSaving
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.black,
+                                  ),
+                                )
+                              : const Icon(Icons.save),
+                          label: Text(
+                            _isSaving ? "Saving..." : "Save Texts",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onPressed: _isSaving || _isGeneratingVoice
+                              ? null
+                              : _saveSlideScript,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blue[700],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          icon: _isGeneratingVoice
+                              ? const SizedBox(
+                                  width: 18,
+                                  height: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                    color: Colors.white,
+                                  ),
+                                )
+                              : const Icon(Icons.record_voice_over),
+                          label: Text(
+                            _isGeneratingVoice ? "Creating..." : "Create Voices",
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          onPressed: _isSaving || _isGeneratingVoice
+                              ? null
+                              : _generateAiVoice,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    String cleanBaseUrl = widget.baseUrl.endsWith('/api')
+        ? widget.baseUrl.substring(0, widget.baseUrl.length - 4)
+        : widget.baseUrl;
+
+    String combinedText = _scriptControllers
+        .map((c) => c.text.trim())
+        .where((t) => t.isNotEmpty)
+        .join("\n\n");
+
+    return Scaffold(
+      backgroundColor: const Color(0xFF121212),
+      appBar: AppBar(
+        title: Text(
+          "Edit: ${widget.story['title'] ?? 'Story'}",
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        backgroundColor: const Color(0xFF1A1A1A),
+        foregroundColor: Colors.white,
+        elevation: 2,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pop(context, true);
+          },
+        ),
+      ),
+      body: _pages.isEmpty
+          ? const Center(
+              child: Text(
+                "No slides to edit.",
+                style: TextStyle(color: Colors.white),
+              ),
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                // Pinapagana ang side-by-side layout kapag nasa laptop/desktop width (850px at pataas)
+                if (constraints.maxWidth >= 850) {
+                  return _buildDesktopLayout(cleanBaseUrl, combinedText);
+                } else {
+                  return _buildMobileLayout(cleanBaseUrl, combinedText);
+                }
+              },
             ),
     );
   }
