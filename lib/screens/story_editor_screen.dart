@@ -427,6 +427,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
       // slide, we call it once per segment rather than sending them all
       // in a single request.
       int failedCount = 0;
+      String? firstErrorDetail;
       for (int i = 0; i < scripts.length; i++) {
         final response = await http.post(
           url,
@@ -442,6 +443,12 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         );
         if (response.statusCode != 200) {
           failedCount++;
+          // Keep the first failure's actual status + response body so we
+          // can see the real server-side reason (validation error,
+          // GoogleService/Cloudinary failure, etc.) instead of just a
+          // generic count.
+          firstErrorDetail ??=
+              "${response.statusCode}: ${response.body}".trim();
         }
       }
 
@@ -457,8 +464,10 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
           ),
         );
       } else {
+        String detail = firstErrorDetail ?? "unknown error";
+        if (detail.length > 300) detail = "${detail.substring(0, 300)}...";
         throw Exception(
-          "$failedCount of ${scripts.length} script segment(s) failed to generate voice.",
+          "$failedCount of ${scripts.length} script segment(s) failed to generate voice.\n$detail",
         );
       }
     } catch (e) {
@@ -467,6 +476,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
           SnackBar(
             content: Text("Error generating voice: $e"),
             backgroundColor: Colors.redAccent,
+            duration: const Duration(seconds: 8),
           ),
         );
       }
