@@ -275,21 +275,26 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
             ? widget.baseUrl.substring(0, widget.baseUrl.length - 4)
             : widget.baseUrl;
 
-        dynamic slideIdentifier = _currentPage;
-        if (_pages.isNotEmpty && _currentPage < _pages.length) {
-          slideIdentifier = _pages[_currentPage]['id'] ?? _currentPage;
-        }
-
-        String audioUrl =
-            "$cleanBaseUrl/api/stories/${widget.story['id']}/slides/$slideIdentifier/audio";
+        // Fixed: /api/stories/{id}/slides/{slideId}/audio doesn't exist on
+        // the backend at all (see api.php) -- the real endpoint is
+        // GET /api/get-audio, taking story_id/page_index/script_index as
+        // query params. page_index must be the slide's 0-based position
+        // (the backend does ->skip($pageIndex)->first()), not the page's
+        // database id.
+        final audioUri = Uri.parse("$cleanBaseUrl/api/get-audio").replace(
+          queryParameters: {
+            "story_id": widget.story['id'].toString(),
+            "page_index": _currentPage.toString(),
+            "script_index": "0",
+          },
+        );
 
         setState(() {
           _isPlayingAudio = true;
         });
 
-        // 🛠️ FIX: Changed from http.get to http.post
-        final response = await http.post(
-          Uri.parse(audioUrl),
+        final response = await http.get(
+          audioUri,
           headers: const {"ngrok-skip-browser-warning": "69420"},
         );
 
@@ -329,19 +334,22 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     });
 
     try {
-      dynamic slideIdentifier = _currentPage;
-      if (_pages.isNotEmpty && _currentPage < _pages.length) {
-        slideIdentifier = _pages[_currentPage]['id'] ?? _currentPage;
-      }
+      // The backend resolves the slide by 0-based position within the
+      // story (Page::orderBy('id')->skip($slideIndex)), not by the
+      // page's own database id -- so we must always send _currentPage
+      // here, never pages[...]['id'].
+      final int slideIndex = _currentPage;
 
       final scripts = _getScriptsList();
 
       final url = Uri.parse(
-        "${widget.baseUrl}/api/stories/${widget.story['id']}/slides/$slideIdentifier/update-script",
+        "${widget.baseUrl}/api/stories/${widget.story['id']}/slides/$slideIndex/update-script",
       );
 
-      // 🛠️ FIX: Changed from http.put to http.post
-      final response = await http.post(
+      // Reverted: this must be PUT (updating an existing slide's
+      // script), not POST. Laravel's "update-script" route is only
+      // registered for PUT, so POST here returns 405 Method Not Allowed.
+      final response = await http.put(
         url,
         headers: {
           "Content-Type": "application/json",
@@ -405,27 +413,41 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     });
 
     try {
-      dynamic slideIdentifier = _currentPage;
-      if (_pages.isNotEmpty && _currentPage < _pages.length) {
-        slideIdentifier = _pages[_currentPage]['id'] ?? _currentPage;
-      }
+      // Same fix as save/play: use the 0-based slide position, not the
+      // page's database id.
+      final int slideIndex = _currentPage;
 
       final url = Uri.parse(
-        "${widget.baseUrl}/api/stories/${widget.story['id']}/slides/$slideIdentifier/generate-tts",
+        "${widget.baseUrl}/api/stories/${widget.story['id']}/slides/$slideIndex/generate-tts",
       );
 
-      final response = await http.post(
-        url,
-        headers: {
-          "Content-Type": "application/json",
-          "ngrok-skip-browser-warning": "69420",
-        },
-        body: jsonEncode({"scripts": scripts, "lang": "tl"}),
-      );
+      // Backend's generate-tts endpoint generates ONE script segment per
+      // call (it validates a single "text" string + "script_index" int,
+      // not a "scripts" array) -- so with multiple script boxes on this
+      // slide, we call it once per segment rather than sending them all
+      // in a single request.
+      int failedCount = 0;
+      for (int i = 0; i < scripts.length; i++) {
+        final response = await http.post(
+          url,
+          headers: {
+            "Content-Type": "application/json",
+            "ngrok-skip-browser-warning": "69420",
+          },
+          body: jsonEncode({
+            "text": scripts[i],
+            "script_index": i,
+            "lang": "tl",
+          }),
+        );
+        if (response.statusCode != 200) {
+          failedCount++;
+        }
+      }
 
       if (!mounted) return;
 
-      if (response.statusCode == 200) {
+      if (failedCount == 0) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
@@ -436,7 +458,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         );
       } else {
         throw Exception(
-          "Failed to generate voice. Status: ${response.statusCode}",
+          "$failedCount of ${scripts.length} script segment(s) failed to generate voice.",
         );
       }
     } catch (e) {

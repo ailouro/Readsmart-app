@@ -122,9 +122,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.black, width: 3),
-        boxShadow: const [
-          BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-        ],
+        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
