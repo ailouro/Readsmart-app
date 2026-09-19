@@ -28,6 +28,9 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
 
   int _currentPage = 0;
 
+  // Uri ng kuwento ('pre_test' o 'post_test')
+  String _storyType = 'pre_test';
+
   // Managed list of text editing controllers for separate script segments
   final List<TextEditingController> _scriptControllers = [];
   bool _isSaving = false;
@@ -39,6 +42,15 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   void initState() {
     super.initState();
     _pages = List.from(widget.story['pages'] ?? []);
+
+    // Kunan ang story_type mula sa na-pass na story object, default sa 'pre_test' kapag wala
+    final rawType = widget.story['story_type']?.toString();
+    if (rawType != null && rawType.isNotEmpty) {
+      _storyType = rawType;
+    } else {
+      _storyType = 'pre_test';
+    }
+
     _loadCurrentSlideScript();
 
     _audioPlayer.onPlayerComplete.listen((event) {
@@ -76,7 +88,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
       }
     }
 
-    // Always ensure at least one active controller field exists
     if (_scriptControllers.isEmpty) {
       final controller = TextEditingController();
       controller.addListener(_onScriptChanged);
@@ -124,6 +135,52 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         setState(() {
           _isPlayingAudio = false;
         });
+      }
+    }
+  }
+
+  // Function para i-update ang story_type sa backend
+  Future<void> _updateStoryType(String newType) async {
+    if (_storyType == newType) return;
+
+    setState(() {
+      _storyType = newType;
+    });
+
+    try {
+      final url = Uri.parse("${widget.baseUrl}/api/stories/${widget.story['id']}");
+      final response = await http.put(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420",
+        },
+        body: jsonEncode({"story_type": newType}),
+      );
+
+      if (response.statusCode == 200) {
+        widget.story['story_type'] = newType;
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                "Na-update ang Story Type sa ${newType == 'post_test' ? 'Post Test' : 'Pre Test'}! 🎯",
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        throw Exception("Failed to update story type. Status: ${response.statusCode}");
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error sa pag-update ng Story Type: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
       }
     }
   }
@@ -275,12 +332,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
             ? widget.baseUrl.substring(0, widget.baseUrl.length - 4)
             : widget.baseUrl;
 
-        // Fixed: /api/stories/{id}/slides/{slideId}/audio doesn't exist on
-        // the backend at all (see api.php) -- the real endpoint is
-        // GET /api/get-audio, taking story_id/page_index/script_index as
-        // query params. page_index must be the slide's 0-based position
-        // (the backend does ->skip($pageIndex)->first()), not the page's
-        // database id.
         final audioUri = Uri.parse("$cleanBaseUrl/api/get-audio").replace(
           queryParameters: {
             "story_id": widget.story['id'].toString(),
@@ -334,21 +385,13 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     });
 
     try {
-      // The backend resolves the slide by 0-based position within the
-      // story (Page::orderBy('id')->skip($slideIndex)), not by the
-      // page's own database id -- so we must always send _currentPage
-      // here, never pages[...]['id'].
       final int slideIndex = _currentPage;
-
       final scripts = _getScriptsList();
 
       final url = Uri.parse(
         "${widget.baseUrl}/api/stories/${widget.story['id']}/slides/$slideIndex/update-script",
       );
 
-      // Reverted: this must be PUT (updating an existing slide's
-      // script), not POST. Laravel's "update-script" route is only
-      // registered for PUT, so POST here returns 405 Method Not Allowed.
       final response = await http.put(
         url,
         headers: {
@@ -413,19 +456,12 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     });
 
     try {
-      // Same fix as save/play: use the 0-based slide position, not the
-      // page's database id.
       final int slideIndex = _currentPage;
 
       final url = Uri.parse(
         "${widget.baseUrl}/api/stories/${widget.story['id']}/slides/$slideIndex/generate-tts",
       );
 
-      // Backend's generate-tts endpoint generates ONE script segment per
-      // call (it validates a single "text" string + "script_index" int,
-      // not a "scripts" array) -- so with multiple script boxes on this
-      // slide, we call it once per segment rather than sending them all
-      // in a single request.
       int failedCount = 0;
       String? firstErrorDetail;
       for (int i = 0; i < scripts.length; i++) {
@@ -443,10 +479,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         );
         if (response.statusCode != 200) {
           failedCount++;
-          // Keep the first failure's actual status + response body so we
-          // can see the real server-side reason (validation error,
-          // GoogleService/Cloudinary failure, etc.) instead of just a
-          // generic count.
           firstErrorDetail ??=
               "${response.statusCode}: ${response.body}".trim();
         }
@@ -487,6 +519,70 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         });
       }
     }
+  }
+
+  // Widget para sa Story Type selection
+  Widget _storyTypeSelector() {
+    Widget buildOption(String value, String label, IconData icon) {
+      final bool selected = _storyType == value;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => _updateStoryType(value),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFFFDE047) : Colors.grey[800],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected ? Colors.amberAccent : Colors.grey[600]!,
+                width: 2,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  color: selected ? Colors.black : Colors.white70,
+                  size: 20,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                    color: selected ? Colors.black : Colors.white70,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "STORY TYPE:",
+          style: TextStyle(
+            color: Colors.amberAccent,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            buildOption('pre_test', "Pre Test", Icons.edit_note_rounded),
+            const SizedBox(width: 10),
+            buildOption('post_test', "Post Test", Icons.fact_check_rounded),
+          ],
+        ),
+      ],
+    );
   }
 
   @override
@@ -677,7 +773,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                   ),
                 ),
 
-                // 4. BOTTOM EDITING CONTROLS FOR MULTIPLE TEXT SEGMENTS
+                // 4. BOTTOM EDITING CONTROLS FOR MULTIPLE TEXT SEGMENTS & STORY TYPE
                 Expanded(
                   flex: 3,
                   child: Container(
@@ -687,6 +783,10 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
+                          // STORY TYPE SELECTOR
+                          _storyTypeSelector(),
+                          const SizedBox(height: 16),
+
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
