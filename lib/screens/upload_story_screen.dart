@@ -76,6 +76,10 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
 
+  // Which library shelf this story belongs to -- shown to the teacher as
+  // two separate sections ("Pre Test" / "Post Test") in the Library tab.
+  String _storyType = 'pre_test';
+
   bool _isUploading = false;
   String _uploadStatus = "";
 
@@ -255,6 +259,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
 
       request.fields['title'] = _titleController.text.trim();
       request.fields['description'] = _descController.text.trim();
+      request.fields['story_type'] = _storyType;
 
       List<List<String>> allScripts = _slides
           .map((s) => s.scriptsList)
@@ -449,6 +454,8 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
       children: [
         _titleField(),
         const SizedBox(height: 15),
+        _storyTypeSelector(),
+        const SizedBox(height: 15),
         _descriptionField(),
         const SizedBox(height: 25),
         _coverImageSection(),
@@ -478,6 +485,8 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
                 children: [
                   _titleField(),
                   const SizedBox(height: 15),
+                  _storyTypeSelector(),
+                  const SizedBox(height: 15),
                   _descriptionField(),
                   const SizedBox(height: 25),
                   _coverImageSection(),
@@ -506,6 +515,63 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
       controller: _titleController,
       style: const TextStyle(fontWeight: FontWeight.bold),
       decoration: _comicInputDecoration("Story Title *"),
+    );
+  }
+
+  // Two-button toggle for choosing which shelf this story is filed under.
+  // Defaults to Pre Test.
+  Widget _storyTypeSelector() {
+    Widget buildOption(String value, String label, IconData icon) {
+      final bool selected = _storyType == value;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => setState(() => _storyType = value),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFFFDE047) : Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.black, width: 2.5),
+              boxShadow: selected
+                  ? const [BoxShadow(color: Colors.black, offset: Offset(3, 3))]
+                  : null,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icon, color: Colors.black, size: 22),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 13,
+                    color: Colors.black,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionLabel("Story Type *"),
+        Row(
+          children: [
+            buildOption('pre_test', "Pre Test", Icons.edit_note_rounded),
+            const SizedBox(width: 12),
+            buildOption(
+              'post_test',
+              "Post Test",
+              Icons.fact_check_rounded,
+            ),
+          ],
+        ),
+      ],
     );
   }
 
