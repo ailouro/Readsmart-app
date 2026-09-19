@@ -1429,47 +1429,39 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
 
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: SizedBox(
-                    width: double.infinity,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black, offset: Offset(3, 3)),
-                        ],
-                      ),
-                      child: ElevatedButton.icon(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: isThisServerPlaying
-                              ? Colors.amber[800]
-                              : const Color(0xFF9B0505),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          padding: const EdgeInsets.symmetric(vertical: 10),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: const BorderSide(
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
                               color: Colors.black,
-                              width: 2.5,
+                              offset: Offset(2, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          style: IconButton.styleFrom(
+                            backgroundColor: isThisServerPlaying
+                                ? Colors.amber[800]
+                                : Colors.blueAccent,
+                            foregroundColor: Colors.white,
+                            shape: const CircleBorder(
+                              side: BorderSide(color: Colors.black, width: 2.5),
                             ),
                           ),
-                        ),
-                        icon: Icon(
-                          isThisServerPlaying ? Icons.stop : Icons.volume_up,
-                          size: 18,
-                        ),
-                        label: Text(
-                          isThisServerPlaying ? "Stop" : "Listen",
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w900,
+                          icon: Icon(
+                            isThisServerPlaying ? Icons.stop : Icons.volume_up,
+                            size: 20,
                           ),
+                          onPressed: _isGenerating
+                              ? null
+                              : () => _playServerAudio(sIndex, cleanBaseUrl),
                         ),
-                        onPressed: _isGenerating
-                            ? null
-                            : () => _playServerAudio(sIndex, cleanBaseUrl),
                       ),
-                    ),
+                    ],
                   ),
                 );
               }).toList(),
