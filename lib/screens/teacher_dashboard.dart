@@ -120,19 +120,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   _StudentsTab(teacherId: widget.teacherId),
                   _AlertsTab(teacherId: widget.teacherId),
                   TeacherProfileScreen(userName: widget.userName),
-                  _buildDesktopNavItem(
-                    icon: Icons.lock_reset,
-                    label: 'Change Password',
-                    isActive: false,
-                    onTap: () {
-                      final tId =
-                          int.tryParse(widget.teacherId.toString()) ?? 0;
-                      showDialog(
-                        context: context,
-                        builder: (_) => ChangePasswordDialog(userId: tId),
-                      );
-                    },
-                  ),
                 ],
               ),
             ),
@@ -1146,83 +1133,116 @@ class _LibraryTabState extends State<_LibraryTab> {
                 ),
               ),
               const SizedBox(height: 30),
-              const ComicBadgeHeader(title: "YOUR LIBRARY"),
-              const SizedBox(height: 10),
-              if (_isLoading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(50.0),
-                    child: CircularProgressIndicator(color: maroonTheme),
-                  ),
-                )
-              else if (_stories.isEmpty)
-                Center(
-                  child: Container(
-                    padding: const EdgeInsets.all(24),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: Colors.black, width: 3),
-                      boxShadow: const [
-                        BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-                      ],
-                    ),
-                    child: const Column(
-                      children: [
-                        Icon(
-                          Icons.auto_stories,
-                          size: 70,
-                          color: Colors.black54,
-                        ),
-                        SizedBox(height: 10),
-                        Text(
-                          "No stories published yet.",
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.w900,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                GridView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _stories.length,
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 350,
-                    crossAxisSpacing: 15,
-                    mainAxisSpacing: 15,
-                    childAspectRatio: 0.72,
-                  ),
-                  itemBuilder: (context, index) {
-                    final story = _stories[index];
-                    List pages = story['pages'] is List ? story['pages'] : [];
+              _buildLibrarySection(
+                title: "📝 PRE-TEST STORIES",
+                stories: _stories
+                    .where((s) => _safeString(s['story_type'], 'pre_test') != 'post_test')
+                    .toList(),
+                emptyMessage: "No pre-test stories published yet.",
+              ),
+              const SizedBox(height: 30),
+              _buildLibrarySection(
+                title: "✅ POST-TEST STORIES",
+                stories: _stories
+                    .where((s) => _safeString(s['story_type']) == 'post_test')
+                    .toList(),
+                emptyMessage: "No post-test stories published yet.",
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 
-                    // 🛠️ FIXED COVER URL LOGIC HERE
-                    String rawCoverPath = _safeString(story['cover_image']);
-                    String coverUrl = "";
-                    if (rawCoverPath.isNotEmpty) {
-                      if (rawCoverPath.startsWith('http')) {
-                        coverUrl = rawCoverPath;
-                      } else {
-                        if (rawCoverPath.startsWith('public/')) {
-                          rawCoverPath = rawCoverPath.replaceFirst(
-                            'public/',
-                            '',
-                          );
-                        }
-                        String cleanBaseUrl = baseUrl.endsWith('/api')
-                            ? baseUrl.substring(0, baseUrl.length - 4)
-                            : baseUrl;
-                        coverUrl =
-                            "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
-                      }
-                    }
+  Widget _buildLibrarySection({
+    required String title,
+    required List<Map<String, dynamic>> stories,
+    required String emptyMessage,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ComicBadgeHeader(title: title),
+        const SizedBox(height: 10),
+        if (_isLoading)
+          const Center(
+            child: Padding(
+              padding: EdgeInsets.all(50.0),
+              child: CircularProgressIndicator(color: maroonTheme),
+            ),
+          )
+        else if (stories.isEmpty)
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.black, width: 3),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black, offset: Offset(4, 4)),
+                ],
+              ),
+              child: Column(
+                children: [
+                  const Icon(
+                    Icons.auto_stories,
+                    size: 70,
+                    color: Colors.black54,
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    emptyMessage,
+                    style: const TextStyle(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: stories.length,
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 350,
+              crossAxisSpacing: 15,
+              mainAxisSpacing: 15,
+              childAspectRatio: 0.72,
+            ),
+            itemBuilder: (context, index) {
+              return _buildStoryCard(stories[index]);
+            },
+          ),
+      ],
+    );
+  }
 
-                    return Stack(
+  Widget _buildStoryCard(Map<String, dynamic> story) {
+    List pages = story['pages'] is List ? story['pages'] : [];
+
+    // 🛠️ FIXED COVER URL LOGIC HERE
+    String rawCoverPath = _safeString(story['cover_image']);
+    String coverUrl = "";
+    if (rawCoverPath.isNotEmpty) {
+      if (rawCoverPath.startsWith('http')) {
+        coverUrl = rawCoverPath;
+      } else {
+        if (rawCoverPath.startsWith('public/')) {
+          rawCoverPath = rawCoverPath.replaceFirst('public/', '');
+        }
+        String cleanBaseUrl = baseUrl.endsWith('/api')
+            ? baseUrl.substring(0, baseUrl.length - 4)
+            : baseUrl;
+        coverUrl = "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
+      }
+    }
+
+    return Stack(
                       children: [
                         BouncyTap(
                           onTap: () {
@@ -1424,165 +1444,6 @@ class _LibraryTabState extends State<_LibraryTab> {
                         ),
                       ],
                     );
-                  },
-                ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class ChangePasswordDialog extends StatefulWidget {
-  final int userId;
-
-  const ChangePasswordDialog({super.key, required this.userId});
-
-  @override
-  State<ChangePasswordDialog> createState() => _ChangePasswordDialogState();
-}
-
-class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
-  final _oldPasswordController = TextEditingController();
-  final _newPasswordController = TextEditingController();
-  final _confirmPasswordController = TextEditingController();
-  bool _isLoading = false;
-
-  Future<void> _changePassword() async {
-    final oldPassword = _oldPasswordController.text.trim();
-    final newPassword = _newPasswordController.text.trim();
-    final confirmPassword = _confirmPasswordController.text.trim();
-
-    if (oldPassword.isEmpty || newPassword.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Please fill in all fields.")),
-      );
-      return;
-    }
-
-    if (newPassword != confirmPassword) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("New passwords do not match.")),
-      );
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final response = await http.post(
-        Uri.parse("$baseUrl/api/user/change-password"),
-        headers: {...networkHeaders, 'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'user_id': widget.userId,
-          'current_password': oldPassword,
-          'new_password': newPassword,
-        }),
-      );
-
-      final decoded = jsonDecode(response.body);
-
-      if ((response.statusCode == 200 || response.statusCode == 201) &&
-          mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("Password updated successfully!"),
-            backgroundColor: Colors.green,
-          ),
-        );
-      } else {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(decoded['message'] ?? "Failed to change password."),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Error: $e"), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: Colors.black, width: 3.5),
-      ),
-      title: const Text(
-        "Change Password 🔑",
-        style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF9B0505)),
-      ),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: _oldPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: "Current Password",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _newPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: "New Password",
-                border: OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: _confirmPasswordController,
-              obscureText: true,
-              decoration: const InputDecoration(
-                labelText: "Confirm New Password",
-                border: OutlineInputBorder(),
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text("Cancel", style: TextStyle(color: Colors.grey)),
-        ),
-        ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF9B0505),
-          ),
-          onPressed: _isLoading ? null : _changePassword,
-          child: _isLoading
-              ? const SizedBox(
-                  width: 16,
-                  height: 16,
-                  child: CircularProgressIndicator(
-                    color: Colors.white,
-                    strokeWidth: 2,
-                  ),
-                )
-              : const Text(
-                  "Update Password",
-                  style: TextStyle(color: Colors.white),
-                ),
-        ),
-      ],
-    );
   }
 }
 
@@ -2740,7 +2601,8 @@ class _StudentsTabState extends State<_StudentsTab> {
                   itemCount: _classes.length,
                   itemBuilder: (context, index) {
                     final cls = _classes[index];
-                    final classId = cls['id'] ?? cls['_id'] ?? cls['class_id'];
+                    final classId =
+                        cls['id'] ?? cls['_id'] ?? cls['class_id'];
                     final className = _safeString(
                       cls['name'] ?? cls['class_name'],
                       'Unnamed Class',
@@ -2755,7 +2617,9 @@ class _StudentsTabState extends State<_StudentsTab> {
                         className,
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: gradeLevel.isNotEmpty ? Text(gradeLevel) : null,
+                      subtitle: gradeLevel.isNotEmpty
+                          ? Text(gradeLevel)
+                          : null,
                       onTap: () {
                         Navigator.pop(ctx);
                         _assignStudentToClass(student, classId);
