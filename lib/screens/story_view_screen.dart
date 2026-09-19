@@ -1424,93 +1424,52 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             Column(
               children: currentScripts.asMap().entries.map((entry) {
                 int sIndex = entry.key;
-                String currentText = entry.value;
-                bool isThisTtsPlaying =
-                    _isPlayingTts && _playingIndex == sIndex;
                 bool isThisServerPlaying =
                     _isPlayingServerAudio && _playingIndex == sIndex;
 
                 return Padding(
                   padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: Container(
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black, offset: Offset(3, 3)),
+                        ],
+                      ),
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: isThisServerPlaying
+                              ? Colors.amber[800]
+                              : const Color(0xFF9B0505),
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
+                          shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Colors.black,
-                                offset: Offset(3, 3),
-                              ),
-                            ],
-                          ),
-                          child: ElevatedButton.icon(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: isThisTtsPlaying
-                                  ? Colors.redAccent
-                                  : const Color(0xFF9B0505),
-                              foregroundColor: Colors.white,
-                              elevation: 0,
-                              padding: const EdgeInsets.symmetric(vertical: 10),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: const BorderSide(
-                                  color: Colors.black,
-                                  width: 2.5,
-                                ),
-                              ),
-                            ),
-                            icon: Icon(
-                              isThisTtsPlaying
-                                  ? Icons.stop
-                                  : Icons.record_voice_over,
-                              size: 18,
-                            ),
-                            label: Text(
-                              isThisTtsPlaying ? "Stop TTS" : "Listen",
-                              style: const TextStyle(
-                                fontSize: 13,
-                                fontWeight: FontWeight.w900,
-                              ),
-                            ),
-                            onPressed: _isGenerating
-                                ? null
-                                : () => _speakWebSpeech(sIndex, currentText),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Container(
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
+                            side: const BorderSide(
                               color: Colors.black,
-                              offset: Offset(2, 2),
-                            ),
-                          ],
-                        ),
-                        child: IconButton(
-                          style: IconButton.styleFrom(
-                            backgroundColor: isThisServerPlaying
-                                ? Colors.amber[800]
-                                : Colors.blueAccent,
-                            foregroundColor: Colors.white,
-                            shape: const CircleBorder(
-                              side: BorderSide(color: Colors.black, width: 2.5),
+                              width: 2.5,
                             ),
                           ),
-                          icon: Icon(
-                            isThisServerPlaying ? Icons.stop : Icons.volume_up,
-                            size: 20,
-                          ),
-                          onPressed: _isGenerating
-                              ? null
-                              : () => _playServerAudio(sIndex, cleanBaseUrl),
                         ),
+                        icon: Icon(
+                          isThisServerPlaying ? Icons.stop : Icons.volume_up,
+                          size: 18,
+                        ),
+                        label: Text(
+                          isThisServerPlaying ? "Stop" : "Listen",
+                          style: const TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                        onPressed: _isGenerating
+                            ? null
+                            : () => _playServerAudio(sIndex, cleanBaseUrl),
                       ),
-                    ],
+                    ),
                   ),
                 );
               }).toList(),
