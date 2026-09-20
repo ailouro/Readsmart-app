@@ -1242,6 +1242,8 @@ class _LibraryTabState extends State<_LibraryTab> {
       }
     }
 
+    final String gradeLabel = _safeString(story['grade_level']);
+
     return Stack(
                       children: [
                         BouncyTap(
@@ -1356,8 +1358,11 @@ class _LibraryTabState extends State<_LibraryTab> {
                         Positioned(
                           top: 5,
                           left: 5,
-                          child: (story['quiz'] != null)
-                              ? Container(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (story['quiz'] != null)
+                                Container(
                                   padding: const EdgeInsets.symmetric(
                                     horizontal: 6,
                                     vertical: 4,
@@ -1378,8 +1383,34 @@ class _LibraryTabState extends State<_LibraryTab> {
                                       fontSize: 10,
                                     ),
                                   ),
-                                )
-                              : const SizedBox.shrink(),
+                                ),
+                              if (story['quiz'] != null && gradeLabel.isNotEmpty)
+                                const SizedBox(height: 4),
+                              if (gradeLabel.isNotEmpty)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 6,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF940D0D),
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: Colors.black,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: Text(
+                                    gradeLabel,
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 10,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
                         ),
                         Positioned(
                           top: 5,
