@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:confetti/confetti.dart';
 import '../services/config.dart';
 import '../widgets/responsive_layout.dart';
 import 'story_view_screen.dart';
@@ -57,9 +58,22 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
   // 'all' | 'pre_test' | 'post_test' | 'completed'
   String _missionFilter = 'all';
 
+  // Post-test missions stay locked until every pre-test mission is fully
+  // done (reading + quiz if it has one). The unlock celebration should only
+  // fire once, the moment it actually flips from locked to unlocked — not
+  // every time the student reopens a class that was already unlocked.
+  late ConfettiController _confettiController;
+  bool _hasCheckedUnlockOnLoad = false;
+
+  String get _postTestUnlockedPrefsKey =>
+      'class_${widget.classId}_student_${widget.studentId}_post_test_unlocked_celebrated';
+
   @override
   void initState() {
     super.initState();
+    _confettiController = ConfettiController(
+      duration: const Duration(seconds: 3),
+    );
     _fetchClassDetails();
     _studentSearchController.addListener(() {
       setState(() {
@@ -81,6 +95,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
   void dispose() {
     _studentSearchController.dispose();
     _missionSearchController.dispose();
+    _confettiController.dispose();
     super.dispose();
   }
 
@@ -107,6 +122,123 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
         prefs?.getBool('story_${story['id']}_${tType}_reading_completed') ??
         false;
     return isReadingCompleted || isLocallyReadingCompleted;
+  }
+
+  // A mission counts as fully done for unlock-gating purposes once reading
+  // is finished AND, if it has a quiz attached, the quiz has been taken too
+  // — matching what the card's own "Quiz Score" / "Read Completed" badge
+  // already shows, so the gate never disagrees with what the student sees.
+  bool _isMissionFullyDone(
+    dynamic story,
+    String tType,
+    SharedPreferences? prefs,
+  ) {
+    final bool readingDone = _isMissionReadingDone(story, tType, prefs);
+    if (!readingDone) return false;
+
+    final bool hasQuiz = story['quiz'] != null;
+    if (!hasQuiz) return true;
+
+    final progress = story['student_progress'];
+    final bool hasQuizScore = progress != null && progress['quiz_score'] != null;
+    final bool hasLocalQuizScore =
+        prefs?.getInt('story_${story['id']}_${tType}_quiz_score') != null;
+    return hasQuizScore || hasLocalQuizScore;
+  }
+
+  /// Checks (once per build where prefs are available) whether Post-Test
+  /// missions just became unlocked, and if so — and only the first time —
+  /// shows the celebration popup with confetti and remembers that it's been
+  /// shown so it never repeats on later visits.
+  Future<void> _maybeCelebratePostTestUnlock(
+    bool allPreTestDone,
+    SharedPreferences? prefs,
+  ) async {
+    if (!allPreTestDone || prefs == null || _hasCheckedUnlockOnLoad) return;
+    _hasCheckedUnlockOnLoad = true;
+
+    final bool alreadyCelebrated =
+        prefs.getBool(_postTestUnlockedPrefsKey) ?? false;
+    if (alreadyCelebrated) return;
+
+    await prefs.setBool(_postTestUnlockedPrefsKey, true);
+    if (!mounted) return;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _confettiController.play();
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) {
+          return Stack(
+            alignment: Alignment.topCenter,
+            children: [
+              AlertDialog(
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: const BorderSide(color: Colors.black, width: 3.5),
+                ),
+                backgroundColor: accentTheme,
+                title: const Text(
+                  "Post-Test Unlocked! 🚀",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: Colors.black,
+                  ),
+                ),
+                content: const Text(
+                  "Great job finishing all the Pre-Test missions! The "
+                  "Post-Test missions are now open for you to play.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontWeight: FontWeight.bold),
+                ),
+                actions: [
+                  Center(
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: maroonTheme,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(
+                            color: Colors.black,
+                            width: 2.5,
+                          ),
+                        ),
+                      ),
+                      onPressed: () => Navigator.pop(dialogContext),
+                      child: const Text(
+                        "Let's Go!",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              ConfettiWidget(
+                confettiController: _confettiController,
+                blastDirectionality: BlastDirectionality.explosive,
+                emissionFrequency: 0.05,
+                numberOfParticles: 25,
+                maxBlastForce: 25,
+                minBlastForce: 5,
+                colors: const [
+                  Colors.green,
+                  Colors.blue,
+                  Colors.pink,
+                  Colors.orange,
+                  Colors.purple,
+                ],
+              ),
+            ],
+          );
+        },
+      );
+    });
   }
 
   List<dynamic> get _filteredStudents {
@@ -437,7 +569,13 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
           ) {
             final tType = _missionTestType(story);
             final readingDone = _isMissionReadingDone(story, tType, prefs);
-            return {'story': story, 'tType': tType, 'readingDone': readingDone};
+            final fullyDone = _isMissionFullyDone(story, tType, prefs);
+            return {
+              'story': story,
+              'tType': tType,
+              'readingDone': readingDone,
+              'fullyDone': fullyDone,
+            };
           }).toList();
 
           final int completedCount = enriched
@@ -445,29 +583,40 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
               .length;
           final int totalCount = enriched.length;
 
-          final List<Map<String, dynamic>> filteredEntries = enriched.where((
-            entry,
-          ) {
+          final List<Map<String, dynamic>> preEntries = enriched
+              .where((e) => e['tType'] == 'pre_test')
+              .toList();
+          final List<Map<String, dynamic>> postEntries = enriched
+              .where((e) => e['tType'] == 'post_test')
+              .toList();
+
+          // Post-Test stays locked until every Pre-Test mission is fully
+          // done. If there are no Pre-Test missions at all, there is
+          // nothing to gate on, so Post-Test opens right away.
+          final bool allPreTestDone =
+              preEntries.isEmpty ||
+              preEntries.every((e) => e['fullyDone'] == true);
+
+          _maybeCelebratePostTestUnlock(allPreTestDone, prefs);
+
+          bool passesSearchAndFilter(Map<String, dynamic> entry) {
             final story = entry['story'];
             final title = (story['title'] ?? '').toString().toLowerCase();
             if (_missionSearchQuery.isNotEmpty &&
                 !title.contains(_missionSearchQuery)) {
               return false;
             }
-            switch (_missionFilter) {
-              case 'pre_test':
-                return entry['tType'] == 'pre_test';
-              case 'post_test':
-                return entry['tType'] == 'post_test';
-              case 'completed':
-                return entry['readingDone'] == true;
-              default:
-                return true;
+            if (_missionFilter == 'completed') {
+              return entry['readingDone'] == true;
             }
-          }).toList();
+            return true;
+          }
 
-          final List<dynamic> filteredStories = filteredEntries
-              .map((e) => e['story'])
+          final List<Map<String, dynamic>> filteredPreEntries = preEntries
+              .where(passesSearchAndFilter)
+              .toList();
+          final List<Map<String, dynamic>> filteredPostEntries = postEntries
+              .where(passesSearchAndFilter)
               .toList();
 
           return Column(
@@ -533,10 +682,6 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                         children: [
                           _buildMissionFilterChip('all', 'All'),
                           const SizedBox(width: 8),
-                          _buildMissionFilterChip('pre_test', 'Pre-test'),
-                          const SizedBox(width: 8),
-                          _buildMissionFilterChip('post_test', 'Post-test'),
-                          const SizedBox(width: 8),
                           _buildMissionFilterChip('completed', 'Completed'),
                         ],
                       ),
@@ -594,7 +739,8 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                 ),
               ),
               Expanded(
-                child: filteredStories.isEmpty
+                child: (filteredPreEntries.isEmpty &&
+                        filteredPostEntries.isEmpty)
                     ? Center(
                         child: Text(
                           _missionSearchQuery.isNotEmpty ||
@@ -607,331 +753,55 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                           ),
                         ),
                       )
-                    : GridView.builder(
-                        padding: const EdgeInsets.all(16),
-                        gridDelegate:
-                            const SliverGridDelegateWithMaxCrossAxisExtent(
-                              maxCrossAxisExtent: 350,
-                              crossAxisSpacing: 16,
-                              mainAxisSpacing: 16,
-                              childAspectRatio: 0.75,
-                            ),
-                        itemCount: filteredStories.length,
-                        itemBuilder: (context, index) {
-                          final story = filteredStories[index];
-                          final title = story['title'] ?? 'Untitled Mission';
-                          final pagesCount =
-                              (story['pages'] as List?)?.length ?? 0;
-
-                          // 🛠️ FIXED COVER URL LOGIC HERE
-                          String rawCoverPath = _safeString(
-                            story['cover_image'] ?? story['thumbnail'],
-                          );
-                          String coverUrl = "";
-                          if (rawCoverPath.isNotEmpty) {
-                            if (rawCoverPath.startsWith('http')) {
-                              coverUrl = rawCoverPath;
-                            } else {
-                              if (rawCoverPath.startsWith('public/')) {
-                                rawCoverPath = rawCoverPath.replaceFirst(
-                                  'public/',
-                                  '',
-                                );
-                              }
-                              String cleanBaseUrl = baseUrl.endsWith('/api')
-                                  ? baseUrl.substring(0, baseUrl.length - 4)
-                                  : baseUrl;
-                              coverUrl =
-                                  "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
-                            }
-                          }
-
-                          // The test_type this story is assigned as in THIS class
-                          // (pre_test or post_test) — a story can be assigned as both,
-                          // so every local cache key and the reading screen itself must
-                          // be scoped to this specific test_type, not just the story id.
-                          String tType = "post_test";
-                          if (story['pivot'] != null &&
-                              story['pivot']['test_type'] != null) {
-                            tType = story['pivot']['test_type'];
-                          }
-
-                          return GestureDetector(
-                            onTap: () async {
-                              BgmService().stopBgm();
-                              await Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) {
-                                    return StoryViewerScreen(
-                                      story: story,
-                                      baseUrl: baseUrl,
-                                      studentId: widget.studentId,
-                                      testType: tType,
-                                    );
-                                  },
-                                ),
-                              );
-                              _fetchClassDetails();
-                              BgmService().startBgm();
-                            },
-                            child: Container(
+                    : ListView(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        children: [
+                          _buildMissionSection(
+                            "📝 PRE-TEST MISSIONS",
+                            filteredPreEntries,
+                            prefs,
+                            locked: false,
+                          ),
+                          const SizedBox(height: 28),
+                          if (!allPreTestDone)
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 12,
+                              ),
+                              margin: const EdgeInsets.only(bottom: 14),
                               decoration: BoxDecoration(
-                                color: Colors.white,
-                                borderRadius: BorderRadius.circular(15),
+                                color: Colors.grey.shade200,
+                                borderRadius: BorderRadius.circular(12),
                                 border: Border.all(
                                   color: Colors.black,
-                                  width: 3.5,
+                                  width: 2.5,
                                 ),
-                                boxShadow: const [
-                                  BoxShadow(
-                                    color: Colors.black,
-                                    offset: Offset(5, 5),
-                                  ),
-                                ],
                               ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
+                              child: Row(
+                                children: const [
+                                  Icon(Icons.lock_rounded, color: Colors.black54),
+                                  SizedBox(width: 10),
                                   Expanded(
-                                    flex: 3,
-                                    child: Container(
-                                      decoration: BoxDecoration(
-                                        color: Colors.grey.shade200,
-                                        borderRadius: const BorderRadius.only(
-                                          topLeft: Radius.circular(11),
-                                          topRight: Radius.circular(11),
-                                        ),
-                                        border: const Border(
-                                          bottom: BorderSide(
-                                            color: Colors.black,
-                                            width: 2.5,
-                                          ),
-                                        ),
-                                        image: coverUrl.isNotEmpty
-                                            ? DecorationImage(
-                                                image: NetworkImage(coverUrl),
-                                                fit: BoxFit.cover,
-                                              )
-                                            : null,
+                                    child: Text(
+                                      "Finish all Pre-Test missions to unlock Post-Test!",
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.black54,
+                                        fontSize: 12,
                                       ),
-                                      child: Stack(
-                                        children: [
-                                          if (coverUrl.isEmpty)
-                                            const Center(
-                                              child: Icon(
-                                                Icons.image,
-                                                size: 50,
-                                                color: Colors.grey,
-                                              ),
-                                            ),
-                                          // Test-type ribbon: a story can be assigned to
-                                          // this class twice (once as pre_test, once as
-                                          // post_test), which otherwise look identical —
-                                          // same cover, same title. Always show which
-                                          // one this tile is, before the student taps it.
-                                          Align(
-                                            alignment: Alignment.topLeft,
-                                            child: Container(
-                                              margin: const EdgeInsets.all(8),
-                                              padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 10,
-                                                    vertical: 5,
-                                                  ),
-                                              decoration: BoxDecoration(
-                                                color: tType == 'pre_test'
-                                                    ? maroonTheme
-                                                    : const Color(0xFF287A7A),
-                                                borderRadius:
-                                                    BorderRadius.circular(12),
-                                                border: Border.all(
-                                                  color: Colors.black,
-                                                  width: 2,
-                                                ),
-                                              ),
-                                              child: Text(
-                                                tType == 'pre_test'
-                                                    ? 'PRE-TEST'
-                                                    : 'POST-TEST',
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w900,
-                                                  fontSize: 10,
-                                                  letterSpacing: 0.5,
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                          Builder(
-                                            builder: (context) {
-                                              final progress =
-                                                  story['student_progress'];
-                                              final bool isReadingCompleted =
-                                                  progress != null &&
-                                                  (progress['is_reading_completed'] ==
-                                                          1 ||
-                                                      progress['is_reading_completed'] ==
-                                                          true);
-                                              final bool hasQuizScore =
-                                                  progress != null &&
-                                                  progress['quiz_score'] !=
-                                                      null;
-                                              final bool hasQuiz =
-                                                  story['quiz'] != null;
-
-                                              bool isLocallyReadingCompleted =
-                                                  prefs?.getBool(
-                                                    'story_${story['id']}_${tType}_reading_completed',
-                                                  ) ??
-                                                  false;
-                                              int?
-                                              localQuizScore = prefs?.getInt(
-                                                'story_${story['id']}_${tType}_quiz_score',
-                                              );
-                                              int?
-                                              localQuizTotal = prefs?.getInt(
-                                                'story_${story['id']}_${tType}_quiz_total',
-                                              );
-
-                                              bool readingDone =
-                                                  isReadingCompleted ||
-                                                  isLocallyReadingCompleted;
-                                              bool quizDone =
-                                                  hasQuizScore ||
-                                                  localQuizScore != null;
-
-                                              String label = "";
-                                              Color badgeColor = Colors.green;
-
-                                              if (quizDone) {
-                                                final score =
-                                                    localQuizScore ??
-                                                    progress?['quiz_score'] ??
-                                                    0;
-                                                final total =
-                                                    localQuizTotal ??
-                                                    progress?['total_questions'] ??
-                                                    (story['quiz'] is List
-                                                        ? (story['quiz']
-                                                                  as List)
-                                                              .length
-                                                        : '?');
-                                                label =
-                                                    "Quiz Score: $score/$total";
-                                                badgeColor = cyanAccent;
-                                              } else if (readingDone) {
-                                                label = "Read Completed";
-                                                badgeColor = accentTheme;
-                                              } else if (hasQuiz) {
-                                                label = "Contains Quiz";
-                                                badgeColor =
-                                                    Colors.lightGreenAccent;
-                                              }
-
-                                              if (label.isEmpty) {
-                                                return const SizedBox.shrink();
-                                              }
-
-                                              return Align(
-                                                alignment: Alignment.topRight,
-                                                child: Container(
-                                                  margin: const EdgeInsets.all(
-                                                    8,
-                                                  ),
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 10,
-                                                        vertical: 6,
-                                                      ),
-                                                  decoration: BoxDecoration(
-                                                    color: badgeColor,
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                          12,
-                                                        ),
-                                                    border: Border.all(
-                                                      color: Colors.black,
-                                                      width: 2,
-                                                    ),
-                                                  ),
-                                                  child: Text(
-                                                    label,
-                                                    style: const TextStyle(
-                                                      color: Colors.black,
-                                                      fontWeight:
-                                                          FontWeight.w900,
-                                                      fontSize: 10,
-                                                    ),
-                                                  ),
-                                                ),
-                                              );
-                                            },
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                  // Text Section
-                                  Padding(
-                                    padding: const EdgeInsets.all(12),
-                                    child: Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                title,
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.w900,
-                                                  fontSize: 16,
-                                                  color: Colors.black,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                "$pagesCount Pages",
-                                                style: const TextStyle(
-                                                  fontWeight: FontWeight.bold,
-                                                  fontSize: 12,
-                                                  color: Colors.black54,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        Container(
-                                          padding: const EdgeInsets.all(6),
-                                          decoration: BoxDecoration(
-                                            color: maroonTheme,
-                                            borderRadius: BorderRadius.circular(
-                                              8,
-                                            ),
-                                            border: Border.all(
-                                              color: Colors.black,
-                                              width: 1.5,
-                                            ),
-                                          ),
-                                          child: const Icon(
-                                            Icons.play_arrow_rounded,
-                                            color: Colors.white,
-                                            size: 20,
-                                          ),
-                                        ),
-                                      ],
                                     ),
                                   ),
                                 ],
                               ),
                             ),
-                          );
-                        },
+                          _buildMissionSection(
+                            "✅ POST-TEST MISSIONS",
+                            filteredPostEntries,
+                            prefs,
+                            locked: !allPreTestDone,
+                          ),
+                        ],
                       ),
               ),
             ],
@@ -939,6 +809,360 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
         },
       ),
     );
+  }
+
+
+  Widget _buildMissionSection(
+    String title,
+    List<Map<String, dynamic>> entries,
+    SharedPreferences? prefs, {
+    required bool locked,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: locked ? Colors.grey.shade300 : Colors.white,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: Colors.black, width: 2.5),
+            boxShadow: const [
+              BoxShadow(color: Colors.black, offset: Offset(3, 3)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 15,
+                  color: locked ? Colors.black45 : Colors.black,
+                ),
+              ),
+              if (locked) ...[
+                const SizedBox(width: 8),
+                const Icon(Icons.lock_rounded, size: 16, color: Colors.black45),
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (entries.isEmpty)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Colors.black, width: 2.5),
+            ),
+            child: const Center(
+              child: Text(
+                "No missions here yet.",
+                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+              ),
+            ),
+          )
+        else
+          GridView.builder(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: 350,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 0.75,
+            ),
+            itemCount: entries.length,
+            itemBuilder: (context, index) {
+              final entry = entries[index];
+              return _buildMissionCard(
+                entry['story'],
+                entry['tType'] as String,
+                prefs,
+                locked: locked,
+              );
+            },
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMissionCard(
+    dynamic story,
+    String tType,
+    SharedPreferences? prefs, {
+    required bool locked,
+  }) {
+    final pagesCount = (story['pages'] as List?)?.length ?? 0;
+
+    // 🛠️ FIXED COVER URL LOGIC HERE
+    String rawCoverPath = _safeString(story['cover_image'] ?? story['thumbnail']);
+    String coverUrl = "";
+    if (rawCoverPath.isNotEmpty) {
+      if (rawCoverPath.startsWith('http')) {
+        coverUrl = rawCoverPath;
+      } else {
+        if (rawCoverPath.startsWith('public/')) {
+          rawCoverPath = rawCoverPath.replaceFirst('public/', '');
+        }
+        String cleanBaseUrl = baseUrl.endsWith('/api')
+            ? baseUrl.substring(0, baseUrl.length - 4)
+            : baseUrl;
+        coverUrl = "$cleanBaseUrl/api/get-image?path=$rawCoverPath";
+      }
+    }
+
+    Widget card = GestureDetector(
+      onTap: locked
+          ? () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    "Finish all Pre-Test missions first to unlock this! 🔒",
+                  ),
+                  backgroundColor: Colors.black87,
+                ),
+              );
+            }
+          : () async {
+              BgmService().stopBgm();
+              await Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) {
+                    return StoryViewerScreen(
+                      story: story,
+                      baseUrl: baseUrl,
+                      studentId: widget.studentId,
+                      testType: tType,
+                    );
+                  },
+                ),
+              );
+              _fetchClassDetails();
+              BgmService().startBgm();
+            },
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.black, width: 3.5),
+          boxShadow: const [
+            BoxShadow(color: Colors.black, offset: Offset(5, 5)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 3,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: const BorderRadius.only(
+                    topLeft: Radius.circular(11),
+                    topRight: Radius.circular(11),
+                  ),
+                  border: const Border(
+                    bottom: BorderSide(color: Colors.black, width: 2.5),
+                  ),
+                  image: coverUrl.isNotEmpty
+                      ? DecorationImage(
+                          image: NetworkImage(coverUrl),
+                          fit: BoxFit.cover,
+                          colorFilter: locked
+                              ? ColorFilter.mode(
+                                  Colors.white.withOpacity(0.55),
+                                  BlendMode.lighten,
+                                )
+                              : null,
+                        )
+                      : null,
+                ),
+                child: Stack(
+                  children: [
+                    if (coverUrl.isEmpty)
+                      const Center(
+                        child: Icon(Icons.image, size: 50, color: Colors.grey),
+                      ),
+                    // Test-type ribbon: a story can be assigned to this class
+                    // twice (once as pre_test, once as post_test), which
+                    // otherwise look identical — same cover, same title.
+                    // Always show which one this tile is before tapping.
+                    Align(
+                      alignment: Alignment.topLeft,
+                      child: Container(
+                        margin: const EdgeInsets.all(8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        decoration: BoxDecoration(
+                          color: tType == 'pre_test'
+                              ? maroonTheme
+                              : const Color(0xFF287A7A),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: Colors.black, width: 2),
+                        ),
+                        child: Text(
+                          tType == 'pre_test' ? 'PRE-TEST' : 'POST-TEST',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 10,
+                            letterSpacing: 0.5,
+                          ),
+                        ),
+                      ),
+                    ),
+                    if (locked)
+                      const Center(
+                        child: Icon(
+                          Icons.lock_rounded,
+                          size: 42,
+                          color: Colors.black54,
+                        ),
+                      )
+                    else
+                      Builder(
+                        builder: (context) {
+                          final progress = story['student_progress'];
+                          final bool isReadingCompleted =
+                              progress != null &&
+                              (progress['is_reading_completed'] == 1 ||
+                                  progress['is_reading_completed'] == true);
+                          final bool hasQuizScore =
+                              progress != null && progress['quiz_score'] != null;
+                          final bool hasQuiz = story['quiz'] != null;
+
+                          bool isLocallyReadingCompleted =
+                              prefs?.getBool(
+                                'story_${story['id']}_${tType}_reading_completed',
+                              ) ??
+                              false;
+                          int? localQuizScore = prefs?.getInt(
+                            'story_${story['id']}_${tType}_quiz_score',
+                          );
+                          int? localQuizTotal = prefs?.getInt(
+                            'story_${story['id']}_${tType}_quiz_total',
+                          );
+
+                          bool readingDone =
+                              isReadingCompleted || isLocallyReadingCompleted;
+                          bool quizDone = hasQuizScore || localQuizScore != null;
+
+                          String label = "";
+                          Color badgeColor = Colors.green;
+
+                          if (quizDone) {
+                            final score =
+                                localQuizScore ?? progress?['quiz_score'] ?? 0;
+                            final total =
+                                localQuizTotal ??
+                                progress?['total_questions'] ??
+                                (story['quiz'] is List
+                                    ? (story['quiz'] as List).length
+                                    : '?');
+                            label = "Quiz Score: $score/$total";
+                            badgeColor = cyanAccent;
+                          } else if (readingDone) {
+                            label = "Read Completed";
+                            badgeColor = accentTheme;
+                          } else if (hasQuiz) {
+                            label = "Contains Quiz";
+                            badgeColor = Colors.lightGreenAccent;
+                          }
+
+                          if (label.isEmpty) return const SizedBox.shrink();
+
+                          return Align(
+                            alignment: Alignment.topRight,
+                            child: Container(
+                              margin: const EdgeInsets.all(8),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 6,
+                              ),
+                              decoration: BoxDecoration(
+                                color: badgeColor,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: Colors.black, width: 2),
+                              ),
+                              child: Text(
+                                label,
+                                style: const TextStyle(
+                                  color: Colors.black,
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            // Text Section
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          story['title'] ?? 'Untitled Mission',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                            color: locked ? Colors.black45 : Colors.black,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          "$pagesCount Pages",
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                            color: locked ? Colors.black38 : Colors.black54,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: locked ? Colors.grey.shade400 : maroonTheme,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.black, width: 1.5),
+                    ),
+                    child: Icon(
+                      locked ? Icons.lock_rounded : Icons.play_arrow_rounded,
+                      color: Colors.white,
+                      size: 20,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    // Locked cards render dimmed and never navigate anywhere -- the
+    // onTap above only shows the "finish pre-test first" reminder.
+    return locked ? Opacity(opacity: 0.55, child: card) : card;
   }
 
   Widget _buildMissionFilterChip(String value, String label) {
