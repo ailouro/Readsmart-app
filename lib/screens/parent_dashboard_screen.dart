@@ -249,6 +249,18 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   void initState() {
     super.initState();
     _fetchDashboard();
+    _loadEmail();
+  }
+
+  String? _email;
+
+  Future<void> _loadEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? found =
+        prefs.getString('email') ?? prefs.getString('user_email');
+    if (mounted && found != null && found.isNotEmpty) {
+      setState(() => _email = found);
+    }
   }
 
   Future<void> _fetchDashboard() async {
@@ -1078,21 +1090,36 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Row(
+                  Row(
                     children: [
-                      Icon(
+                      const Icon(
                         Icons.family_restroom,
                         color: Colors.white,
                         size: 28,
                       ),
-                      SizedBox(width: 10),
-                      Text(
-                        "PARENT PORTAL",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.white,
-                        ),
+                      const SizedBox(width: 10),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            "PARENT PORTAL",
+                            style: TextStyle(
+                              fontSize: 18,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                            ),
+                          ),
+                          if (_email != null)
+                            Text(
+                              _email!,
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                        ],
                       ),
                     ],
                   ),
@@ -1112,6 +1139,36 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           ],
                         ),
                         child: _buildNotificationBell(),
+                      ),
+                      Container(
+                        margin: const EdgeInsets.only(right: 10),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.black, width: 2),
+                          boxShadow: const [
+                            BoxShadow(
+                              color: Colors.black,
+                              offset: Offset(2, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          icon: const Icon(
+                            Icons.lock_reset_rounded,
+                            color: Colors.black,
+                            size: 20,
+                          ),
+                          tooltip: "Change Password",
+                          onPressed: () {
+                            final pid = int.tryParse(widget.parentId) ?? 0;
+                            showDialog(
+                              context: context,
+                              builder: (_) =>
+                                  ChangePasswordDialog(userId: pid),
+                            );
+                          },
+                        ),
                       ),
                       Container(
                         decoration: BoxDecoration(
@@ -1195,6 +1252,18 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       ),
                     ],
                   ),
+                  if (_email != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 6),
+                      child: Text(
+                        _email!,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white70,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
                   const SizedBox(height: 40),
                   const Padding(
                     padding: EdgeInsets.symmetric(horizontal: 24),
@@ -1206,6 +1275,17 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                     Icons.add_link_rounded,
                     "Join Class",
                     _showEnrollDialog,
+                  ),
+                  _buildNavItem(
+                    Icons.lock_reset_rounded,
+                    "Change Password",
+                    () {
+                      final pid = int.tryParse(widget.parentId) ?? 0;
+                      showDialog(
+                        context: context,
+                        builder: (_) => ChangePasswordDialog(userId: pid),
+                      );
+                    },
                   ),
                   const Spacer(),
                   const Padding(
