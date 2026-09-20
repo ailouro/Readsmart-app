@@ -34,6 +34,11 @@ class _StudentDashboardState extends State<StudentDashboard>
   List<dynamic> _myClasses = [];
   bool _isLoading = true;
   int _selectedClassIndex = 0;
+  // The student's own LRN, shown under their name so they (or a
+  // teacher looking over their shoulder) can see what to log in with.
+  // Read from whatever SharedPreferences key the login flow saved it
+  // under; shown only when found so nothing breaks if it isn't.
+  String? _lrn;
   // Tracks whether WE paused the bgm because the tab/app went out of
   // view, so we only resume it ourselves and don't fight with any
   // screen (e.g. a story) that intentionally stopped it for its own
@@ -45,7 +50,19 @@ class _StudentDashboardState extends State<StudentDashboard>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _fetchMyClasses();
+    _loadLrn();
     BgmService().startBgm();
+  }
+
+  Future<void> _loadLrn() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? found =
+        prefs.getString('lrn') ??
+        prefs.getString('username') ??
+        prefs.getString('user_lrn');
+    if (mounted && found != null && found.isNotEmpty) {
+      setState(() => _lrn = found);
+    }
   }
 
   @override
@@ -386,6 +403,15 @@ class _StudentDashboardState extends State<StudentDashboard>
                               color: Colors.white,
                             ),
                           ),
+                          if (_lrn != null)
+                            Text(
+                              "LRN: $_lrn",
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: Colors.white70,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
                         ],
                       ),
                     ],
@@ -639,6 +665,15 @@ class _StudentDashboardState extends State<StudentDashboard>
                       color: Colors.black,
                     ),
                   ),
+                  if (_lrn != null)
+                    Text(
+                      "LRN: $_lrn",
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black54,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                 ],
               ),
               Row(
@@ -762,6 +797,19 @@ class _StudentDashboardState extends State<StudentDashboard>
                 overflow: TextOverflow.ellipsis,
               ),
             ),
+            if (_lrn != null)
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Text(
+                  "LRN: $_lrn",
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Colors.white70,
+                    fontWeight: FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             const SizedBox(height: 20),
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 24),
