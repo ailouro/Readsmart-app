@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter_tts/flutter_tts.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:confetti/confetti.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -21,7 +22,11 @@ class WordStatus {
   String? audioPath;
   int totalAttempts;
   // True when this word looks like a character/place name (capitalized
-  // mid-sentence) rather than an actual vocabulary/decoding word.
+  // mid-sentence) rather than an actual vocabulary/decoding word. Words
+  // flagged this way are shown to the student like any other, but are
+  // excluded from the oral reading score — mispronouncing an unfamiliar
+  // proper noun isn't a fair test of reading skill, and in a short
+  // passage a single such miss can otherwise swing the whole score.
   bool isProperNoun;
 
   WordStatus({
@@ -78,10 +83,9 @@ String _numberToWords(int number) {
   ];
 
   if (number < 20) return units[number];
-  if (number < 100) {
+  if (number < 100)
     return tens[number ~/ 10] +
         ((number % 10 != 0) ? " ${units[number % 10]}" : "");
-  }
   if (number < 1000) {
     return "${units[number ~/ 100]} hundred${((number % 100 != 0) ? " ${_numberToWords(number % 100)}" : "")}";
   }
@@ -98,25 +102,30 @@ String _normalizeNumbers(String text) {
   });
 }
 
-// Smart comparison that forgives STT digit translation
+// 🧠 Smart comparison that forgives STT digit translation
 bool isWordMatch(String targetClean, String spokenClean) {
   if (targetClean == spokenClean) return true;
 
+  // If target is "15" but student said "fifteen" (o vice versa)
   if (int.tryParse(targetClean) != null) {
     String words = _normalizeNumbers(targetClean).replaceAll(' ', '');
     if (words == spokenClean.replaceAll(' ', '')) return true;
   }
 
+  // If STT heard "15" but target was "fifteen"
   if (int.tryParse(spokenClean) != null) {
     String words = _normalizeNumbers(spokenClean).replaceAll(' ', '');
     if (words == targetClean.replaceAll(' ', '')) return true;
   }
 
+  // 🧒 Be considerate of how a child actually sounds: forgive small STT
+  // mishears (one letter swapped/missing) instead of marking the word wrong.
   if (_isCloseEnoughForChild(targetClean, spokenClean)) return true;
 
   return false;
 }
 
+// Minimum edits (insert/delete/substitute) needed to turn [a] into [b].
 int _levenshteinDistance(String a, String b) {
   if (a == b) return 0;
   if (a.isEmpty) return b.length;
@@ -145,6 +154,10 @@ int _levenshteinDistance(String a, String b) {
   return previousRow[b.length];
 }
 
+// 🧒 Tolerance scales with word length so we forgive realistic mishears
+// ("frog" heard as "frag") without ever letting a genuinely different
+// word slip through as "correct" — short words stay strict since a single
+// letter often changes their meaning entirely.
 bool _isCloseEnoughForChild(String targetClean, String spokenClean) {
   if (targetClean.isEmpty || spokenClean.isEmpty) return false;
 
@@ -193,9 +206,19 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   bool _isPlayingServerAudio = false;
   bool _isPlayingTts = false;
   int? _playingIndex;
+  // Queue of remaining script_index values to auto-play in order when the
+  // student taps the single "Listen" button for a slide with multiple
+  // script segments -- so one tap reads the whole slide instead of the
+  // student having to press a separate button per segment.
+  List<int> _sequenceQueue = [];
   bool _isGenerating = false;
   DateTime? _readingStartTime;
+  int _totalWordsInStory = 0;
 
+  // 🎤 "Active Reading Time" tracking:
+  // Sum of all durations where the mic (Deepgram) was actively listening
+  // to the child, across all pages. This excludes time spent listening to
+  // TTS/narration, looking at illustrations, or idling between pages.
   Duration _activeReadingDuration = Duration.zero;
   DateTime? _activeSegmentStart;
 
@@ -204,6 +227,10 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   String _finalSpokenText = "";
   List<WordStatus> _targetWords = [];
 
+  // 📜 Auto-scroll ("teleprompter") support: one GlobalKey per word so we
+  // can find its on-screen position and ask the scroll view to keep it
+  // visible as reading progresses, instead of relying on the student to
+  // manually scroll while they're mid-sentence.
   final ScrollController _scriptScrollController = ScrollController();
   List<GlobalKey> _wordKeys = [];
 
@@ -218,6 +245,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   final Map<int, bool> _pageAssessmentPassed = {};
 
   final List<WordStatus> _allFailedWords = [];
+  final Map<int, Future<http.Response>> _imageFutures = {};
+
   bool _isStoryAlreadyRecorded = false;
 
   @override
@@ -229,15 +258,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     _initTtsEngine();
     _initAudioPlayerListeners();
     _loadSavedPage();
-    _setupInitialPageWords();
-  }
-
-  void _setupInitialPageWords() {
-    List<dynamic> pages = widget.story['pages'] ?? [];
-    if (pages.isNotEmpty && _currentPage < pages.length) {
-      String fullScriptText = _extractScriptText(pages[_currentPage]['audio_scripts']);
-      _setupTargetWords(fullScriptText);
-    }
   }
 
   Future<void> _checkIfStoryRecorded() async {
@@ -255,6 +275,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   Future<void> _loadSavedPage() async {
     final prefs = await SharedPreferences.getInstance();
 
+    // Restore persisted word highlight states for all pages
     final String? savedStates = prefs.getString(
       'story_${widget.story['id']}_word_states',
     );
@@ -267,12 +288,17 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           if (pageIdx == null ||
               pageIdx < 0 ||
               pageIdx >= pages.length ||
-              wordStatesRaw is! List) {
+              wordStatesRaw is! List)
             return;
-          }
 
           final pageData = pages[pageIdx];
-          String scriptText = _extractScriptText(pageData['audio_scripts']);
+          var rawScripts = pageData['audio_scripts'];
+          String scriptText = '';
+          if (rawScripts is List) {
+            scriptText = rawScripts.join(' ');
+          } else if (rawScripts is String) {
+            scriptText = rawScripts;
+          }
           if (scriptText.trim().isEmpty) return;
 
           final List<String> rawWords = scriptText
@@ -300,6 +326,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             );
           }
 
+          // Find how many words were completed
           int wordIdx = restored.length;
           for (int i = 0; i < restored.length; i++) {
             if (!restored[i].isCorrect && !restored[i].isFailed) {
@@ -312,15 +339,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           _pageCurrentWordIndex[pageIdx] = wordIdx;
           _pageAssessmentPassed[pageIdx] = wordIdx >= restored.length;
         });
-
-        if (_pageTargetWords.containsKey(_currentPage)) {
-          setState(() {
-            _targetWords = List.from(_pageTargetWords[_currentPage]!);
-            _wordKeys = List.generate(_targetWords.length, (_) => GlobalKey());
-            _currentWordIndex = _pageCurrentWordIndex[_currentPage] ?? 0;
-            _isAssessmentPassed = _pageAssessmentPassed[_currentPage] ?? false;
-          });
-        }
       } catch (_) {
         // Silently ignore corrupt cache
       }
@@ -339,6 +357,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     }
   }
 
+  /// Persists the current word-highlight states for a given page to SharedPreferences.
   Future<void> _savePageWordStates(int pageIdx, List<WordStatus> words) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -355,10 +374,17 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           .toList();
       await prefs.setString(key, jsonEncode(allStates));
     } catch (_) {
-      // Non-fatal
+      // Non-fatal — just skip saving
     }
   }
 
+  // Turns a page's raw `audio_scripts` field (which may be a List of
+  // sentence strings or a single String) into one clean, space-joined
+  // string. Using this everywhere `audio_scripts` is read keeps word
+  // counts/boundaries consistent between the first page (loaded in
+  // build()) and pages reached later via swipe (onPageChanged) -- those
+  // two paths used to parse the field differently, which could corrupt
+  // word boundaries and inflate the miscue count on swiped-to pages.
   String _extractScriptText(dynamic rawScripts) {
     if (rawScripts is List) {
       return rawScripts.map((e) => e.toString()).join(" ");
@@ -375,7 +401,13 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       return;
     }
     List<String> rawWords = fullScriptText.split(RegExp(r'\s+'));
-    bool prevEndedSentence = true;
+    // A word is treated as a likely proper noun (character/place name)
+    // when it starts with a capital letter but is NOT the first word of
+    // a sentence -- i.e. the word right before it doesn't end the
+    // previous sentence (. ! ?) and isn't the very start of the text.
+    // Such words get excluded from scoring further down (see
+    // _advanceToNextSlide / _finishSlideAssessment).
+    bool prevEndedSentence = true; // start of text counts as sentence-start
     _targetWords = rawWords.map((word) {
       String cleaned = word.toLowerCase().replaceAll(RegExp(r'[^\w\s]'), '');
       final bool startsUpper = RegExp(r'^[A-Z]').hasMatch(word);
@@ -395,6 +427,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     _spokenText = "";
   }
 
+  // Keeps the currently-active word scrolled into view inside the script
+  // box, the same way a teleprompter follows along -- called right after
+  // any setState that advances _currentWordIndex.
   void _scrollToActiveWord() {
     if (_currentWordIndex < 0 || _currentWordIndex >= _wordKeys.length) {
       return;
@@ -406,7 +441,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         ctx,
         duration: const Duration(milliseconds: 350),
         curve: Curves.easeOut,
-        alignment: 0.5,
+        alignment: 0.5, // keep the active word roughly centered
       );
     });
   }
@@ -416,7 +451,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     await _flutterTts.setSpeechRate(0.45);
     await _flutterTts.setVolume(1.0);
     await _flutterTts.setPitch(1.0);
-    await _flutterTts.awaitSpeakCompletion(true);
+    await _flutterTts.awaitSpeakCompletion(
+      true,
+    ); // VERY IMPORTANT: Wait for TTS to finish
     _flutterTts.setStartHandler(() {
       if (mounted) setState(() => _isPlayingTts = true);
     });
@@ -464,12 +501,28 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         });
       }
     });
+    // When one segment's clip finishes naturally, auto-advance to the
+    // next queued segment (see _playAllScripts / _playNextInQueue).
+    _audioPlayer.onPlayerComplete.listen((event) {
+      if (_sequenceQueue.isNotEmpty) {
+        _playNextInQueue();
+      } else if (mounted) {
+        setState(() => _playingIndex = null);
+      }
+    });
   }
 
+  String get _cleanBaseUrl => widget.baseUrl.endsWith('/api')
+      ? widget.baseUrl.substring(0, widget.baseUrl.length - 4)
+      : widget.baseUrl;
+
+  /// Call the moment Deepgram actually starts listening to the child.
   void _startActiveReadingSegment() {
     _activeSegmentStart = DateTime.now();
   }
 
+  /// Call the moment Deepgram stops listening (mic off). Adds the elapsed
+  /// segment duration into the running "Active Reading Time" total.
   void _endActiveReadingSegment() {
     if (_activeSegmentStart != null) {
       _activeReadingDuration += DateTime.now().difference(_activeSegmentStart!);
@@ -478,6 +531,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   Future<void> _stopAllAudio() async {
+    _sequenceQueue = [];
     await _flutterTts.stop();
     await _audioPlayer.stop();
     if (_isListening) {
@@ -514,7 +568,10 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     await _flutterTts.speak(text);
   }
 
-  Future<void> _playServerAudio(int sIndex, String cleanBaseUrl) async {
+  /// Entry point for the single "Listen" button: plays every script
+  /// segment for this slide in order, one after another. Tapping again
+  /// while it's playing stops the whole sequence.
+  Future<void> _playAllScripts(List<String> scripts) async {
     if (_isListening) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -524,14 +581,25 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       );
       return;
     }
-    if (_isPlayingServerAudio && _playingIndex == sIndex) {
+    if (_isPlayingServerAudio || _isPlayingTts) {
       await _stopAllAudio();
       return;
     }
     await _stopAllAudio();
-    setState(() => _playingIndex = sIndex);
+    _sequenceQueue = List.generate(scripts.length, (i) => i);
+    await _playNextInQueue();
+  }
+
+  Future<void> _playNextInQueue() async {
+    if (_sequenceQueue.isEmpty) {
+      if (mounted) setState(() => _playingIndex = null);
+      return;
+    }
+    final int sIndex = _sequenceQueue.removeAt(0);
+    if (mounted) setState(() => _playingIndex = sIndex);
+
     String audioUrl =
-        "$cleanBaseUrl/api/get-audio?story_id=${widget.story['id']}&page_index=$_currentPage&script_index=$sIndex";
+        "$_cleanBaseUrl/api/get-audio?story_id=${widget.story['id']}&page_index=$_currentPage&script_index=$sIndex";
     try {
       if (_audioCache.containsKey(audioUrl)) {
         await _audioPlayer.play(BytesSource(_audioCache[audioUrl]!));
@@ -549,12 +617,54 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         throw Exception("Audio not found");
       }
     } catch (e) {
+      // No AI audio generated yet for this segment -- fall back to
+      // on-device speech for just this one, then keep going with the
+      // rest of the queue once it's it done.
       if (!mounted) return;
-      setState(() => _playingIndex = null);
-      _speakWebSpeech(
-        sIndex,
-        widget.story['pages'][_currentPage]['audio_scripts'][sIndex],
+      final scripts = widget.story['pages'][_currentPage]['audio_scripts'];
+      final String fallbackText = (scripts is List && sIndex < scripts.length)
+          ? scripts[sIndex].toString()
+          : "";
+      await _speakWebSpeech(sIndex, fallbackText);
+      if (mounted) _playNextInQueue();
+    }
+  }
+
+  Future<void> _generateAIVoice(int sIndex, String text) async {
+    if (text.trim().isEmpty) return;
+    setState(() => _isGenerating = true);
+    try {
+      final url = Uri.parse(
+        "${widget.baseUrl}/api/stories/${widget.story['id']}/slides/$_currentPage/generate-tts",
       );
+      final response = await http.post(
+        url,
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420",
+        },
+        body: jsonEncode({"text": text, "script_index": sIndex, "lang": "en"}),
+      );
+      if (!mounted) return;
+      if (response.statusCode == 200 || response.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text("AI Voice Generated Successfully!"),
+            backgroundColor: Colors.green,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Error generating voice: $e"),
+            backgroundColor: Colors.redAccent,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isGenerating = false);
     }
   }
 
@@ -562,7 +672,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     if (_isPlayingTts || _isPlayingServerAudio) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Please wait for the speaker to finish before reading."),
+          content: Text(
+            "Please wait for the speaker to finish before reading.",
+          ),
           backgroundColor: Colors.orange,
         ),
       );
@@ -572,6 +684,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     await _stopAllAudio();
 
     if (_isListening) {
+      // Kung pinindot ulit para i-stop
       _endActiveReadingSegment();
       setState(() => _isListening = false);
       await _deepgramService.stopListening();
@@ -583,6 +696,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       return;
     }
 
+    // Kunin ang mga salita sa current slide para i-bias ang Deepgram AI
     List<String> keywords = _targetWords.map((w) => w.cleanWord).toList();
 
     setState(() {
@@ -602,10 +716,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             _finalSpokenText += " $transcript";
             _spokenText = _finalSpokenText;
           } else {
-            _spokenText = "$_finalSpokenText $transcript";
+            // For interim results, just append temporarily to what we already finalized
+            _spokenText = _finalSpokenText + " " + transcript;
           }
         });
 
+        // Gamitin ang luma mong evaluation logic dito
         _evaluateSpokenStream(_spokenText, isFinal: isFinal);
       },
     );
@@ -615,9 +731,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     String spoken, {
     bool isFinal = false,
   }) async {
-    if (spoken.trim().isEmpty || _currentWordIndex >= _targetWords.length) {
+    if (spoken.trim().isEmpty || _currentWordIndex >= _targetWords.length)
       return;
-    }
 
     List<String> spokenWordsList = spoken
         .toLowerCase()
@@ -670,7 +785,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         if (_currentWordAttempts >= _maxWordAttempts) {
           currentTarget.isFailed = true;
           currentTarget.isCorrect = false;
-          currentTarget.totalAttempts = _currentWordAttempts;
+          currentTarget.totalAttempts =
+              _currentWordAttempts; // <- Save attempts here
           _currentWordAttempts = 0;
           _currentWordIndex++;
           _savePageWordStates(_currentPage, _targetWords);
@@ -684,7 +800,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           currentTarget.cleanWord,
         );
         currentTarget.audioPath = savedPath;
-        _deepgramService.clearAudioBuffer();
+        _deepgramService.clearAudioBuffer(); // start fresh for the next word
       }
 
       _processedSpokenWordCount = spokenWordsList.length;
@@ -710,15 +826,13 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
 
     if (failedWords.isEmpty) {
       setState(() => _isAssessmentPassed = true);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text("🎉 Excellent! Moving to the next slide..."),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("🎉 Excellent! Moving to the next slide..."),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
       Future.delayed(const Duration(milliseconds: 1500), () {
         if (mounted) {
           _advanceToNextSlide();
@@ -729,6 +843,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     }
   }
 
+  /// Marks all not-yet-read words on the current slide as failed and
+  /// accumulates them into [_allFailedWords]. Called before any slide transition
+  /// so that skipped words are always included in the analytics.
   void _flushUnreadWordsAsFailed() {
     if (_targetWords.isEmpty) return;
     setState(() {
@@ -746,10 +863,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         }
       }
     }
+    // Persist the updated states for this slide
     _savePageWordStates(_currentPage, _targetWords);
   }
 
   void _advanceToNextSlide() async {
+    // Flush any remaining unread words on this slide as failed before moving on
     _flushUnreadWordsAsFailed();
 
     List<dynamic> pages = widget.story['pages'] ?? [];
@@ -778,11 +897,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         return;
       }
 
-      int activeSeconds = _activeReadingDuration.inSeconds;
-      if (activeSeconds <= 0 && _readingStartTime != null) {
-        activeSeconds = DateTime.now().difference(_readingStartTime!).inSeconds;
+      int elapsedSeconds = 120;
+      if (_readingStartTime != null) {
+        elapsedSeconds = DateTime.now()
+            .difference(_readingStartTime!)
+            .inSeconds;
       }
-      if (activeSeconds <= 0) activeSeconds = 1;
 
       _pageTargetWords[_currentPage] = List.from(_targetWords);
 
@@ -792,6 +912,11 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       List<dynamic> allPages = widget.story['pages'] ?? [];
       for (int i = 0; i < allPages.length; i++) {
         if (_pageTargetWords.containsKey(i)) {
+          // Character/place names (isProperNoun) are excluded from
+          // scoring entirely -- see _setupTargetWords for how they're
+          // detected. Mispronouncing an unfamiliar name isn't a fair
+          // test of decoding skill, and in a short passage a single
+          // such miss could otherwise swing the whole reading level.
           var list = _pageTargetWords[i]!.where((w) => !w.isProperNoun);
           totalWordsCount += list.length;
           failedWordsCount += list
@@ -799,7 +924,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               .length;
         } else {
           var rawScripts = allPages[i]['audio_scripts'];
-          String pageText = _extractScriptText(rawScripts);
+          String pageText = rawScripts is List
+              ? rawScripts.join(" ")
+              : (rawScripts is String ? rawScripts : "");
           if (pageText.trim().isNotEmpty) {
             totalWordsCount += pageText
                 .split(RegExp(r'\s+'))
@@ -809,6 +936,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         }
       }
 
+      // Compute correct words (BAGONG IDINAGDAG)
       int correctWordsCount = totalWordsCount - failedWordsCount;
       if (correctWordsCount < 0) correctWordsCount = 0;
 
@@ -823,6 +951,10 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       } else if (wrPct >= 90) {
         wrLevel = 'Instructional';
       } else if (totalWordsCount < 15 && failedWordsCount <= 1) {
+        // Short passages (common for early missions) swing wildly on a
+        // single miss -- a 6-word passage with 1 miss is already under
+        // 90%. Don't brand that as "Frustration"; treat one slip on a
+        // short passage as still within normal Instructional range.
         wrLevel = 'Instructional';
       } else {
         wrLevel = 'Frustration';
@@ -842,8 +974,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             "total_questions": 0,
             "oral_fluency_accuracy": wrPct,
             "total_words": totalWordsCount,
-            "correct_words": correctWordsCount,
-            "time_on_task": activeSeconds,
+            "correct_words":
+                correctWordsCount, // ⚠️ BAGONG IPAPASA SA BACKEND PARA SA TOOLTIP
+            "time_on_task": elapsedSeconds > 0 ? elapsedSeconds : 1,
             "struggled_words": _allFailedWords
                 .map((w) => w.cleanWord)
                 .join(", "),
@@ -865,38 +998,81 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       );
 
       if (!mounted) return;
-
-      // Show Phil-IRI results dialog before navigating to Quiz
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => _ReadingResultsDialog(
-          totalWordsCount: totalWordsCount,
-          failedWordsCount: failedWordsCount,
-          elapsedSeconds: activeSeconds,
-          wrPct: wrPct.toStringAsFixed(1),
-          wrLevel: wrLevel,
-          allFailedWords: _allFailedWords,
-          onFinish: () {
-            Navigator.pop(context);
-            Navigator.pushReplacement(
-              context,
-              MaterialPageRoute(
-                builder: (context) => QuizScreen(
-                  testType: widget.testType,
-                  storyId: widget.story['id'] ?? widget.story['_id'],
-                  studentId: widget.studentId,
-                  baseUrl: widget.baseUrl,
-                  oralAccuracy: wrPct,
-                  totalWords: totalWordsCount,
-                  readingTimeSeconds: activeSeconds,
-                ),
-              ),
-            );
-          },
+      // ... Ipagpatuloy ang pag-navigate papuntang QuizScreen ...
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QuizScreen(
+            testType: widget.testType,
+            storyId: widget.story['id'] ?? widget.story['_id'],
+            studentId: widget.studentId,
+            baseUrl: widget.baseUrl,
+            oralAccuracy: wrPct,
+            totalWords: totalWordsCount,
+            readingTimeSeconds: elapsedSeconds > 0 ? elapsedSeconds : 1,
+          ),
         ),
       );
     }
+  }
+
+  Widget _buildScoreRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required String sublabel,
+    required String level,
+  }) {
+    Color levelColor = level == 'Independent'
+        ? Colors.greenAccent
+        : level == 'Instructional'
+        ? Colors.amber
+        : Colors.redAccent;
+    return Row(
+      children: [
+        Icon(icon, color: levelColor, size: 28),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: const TextStyle(color: Colors.white70, fontSize: 12),
+              ),
+              Text(
+                value,
+                style: TextStyle(
+                  color: levelColor,
+                  fontSize: 22,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                sublabel,
+                style: const TextStyle(color: Colors.white54, fontSize: 11),
+              ),
+            ],
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: levelColor.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: levelColor, width: 1.5),
+          ),
+          child: Text(
+            level,
+            style: TextStyle(
+              color: levelColor,
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   void _triggerRemediationPopup(List<WordStatus> failedWords) {
@@ -907,10 +1083,13 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         return RemediationDialog(
           failedWords: failedWords,
           flutterTts: _flutterTts,
-          deepgramService: _deepgramService,
+          deepgramService:
+              _deepgramService, // <--- PALITAN ANG 'speech: _speech,' NITO
           onCompleted: (remainingUncorrectedWords) async {
             Navigator.of(context).pop();
             if (remainingUncorrectedWords.isNotEmpty) {
+              // Accumulate into _allFailedWords for a single submission at the
+              // end of the story — avoids double-submitting to the API.
               for (final w in remainingUncorrectedWords) {
                 if (!_allFailedWords.any(
                   (e) => e.originalWord == w.originalWord,
@@ -951,6 +1130,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       request.fields['story_id'] = (widget.story['id'] ?? widget.story['_id'])
           .toString();
 
+      // Update words_json to pass an array of objects including the attempt count
       List<Map<String, dynamic>> wordsData = failedWords
           .map(
             (w) => {
@@ -964,6 +1144,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       request.fields['words_json'] = jsonEncode(wordsData);
 
       for (int i = 0; i < failedWords.length; i++) {
+        // Pass attempts as a parallel array just in case your Laravel controller loops through files/arrays
         request.files.add(
           http.MultipartFile.fromString('words[]', failedWords[i].cleanWord),
         );
@@ -1129,6 +1310,10 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         currentScripts = [rawScripts];
       }
     }
+    String fullTargetText = currentScripts.join(" ");
+    if (_targetWords.isEmpty && fullTargetText.isNotEmpty) {
+      _setupTargetWords(fullTargetText);
+    }
 
     Widget controlsWidget = SingleChildScrollView(
       child: Container(
@@ -1270,52 +1455,51 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                 ),
               ),
               const SizedBox(height: 6),
+              // Word Status Chips removed, styling applied to _buildScriptBox
             ],
             const SizedBox(height: 12),
-            Column(
-              children: currentScripts.asMap().entries.map((entry) {
-                int sIndex = entry.key;
-                bool isThisServerPlaying =
-                    _isPlayingServerAudio && _playingIndex == sIndex;
-
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black,
-                              offset: Offset(2, 2),
-                            ),
-                          ],
-                        ),
-                        child: IconButton(
-                          style: IconButton.styleFrom(
-                            backgroundColor: isThisServerPlaying
-                                ? Colors.amber[800]
-                                : Colors.blueAccent,
-                            foregroundColor: Colors.white,
-                            shape: const CircleBorder(
-                              side: BorderSide(color: Colors.black, width: 2.5),
-                            ),
-                          ),
-                          icon: Icon(
-                            isThisServerPlaying ? Icons.stop : Icons.volume_up,
-                            size: 20,
-                          ),
-                          onPressed: _isGenerating
-                              ? null
-                              : () => _playServerAudio(sIndex, cleanBaseUrl),
-                        ),
-                      ),
-                    ],
+            SizedBox(
+              width: double.infinity,
+              child: Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black, offset: Offset(3, 3)),
+                  ],
+                ),
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _isPlayingServerAudio || _isPlayingTts
+                        ? Colors.amber[800]
+                        : Colors.blueAccent,
+                    foregroundColor: Colors.white,
+                    elevation: 0,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      side: const BorderSide(color: Colors.black, width: 2.5),
+                    ),
                   ),
-                );
-              }).toList(),
+                  icon: Icon(
+                    _isPlayingServerAudio || _isPlayingTts
+                        ? Icons.stop
+                        : Icons.volume_up,
+                    size: 20,
+                  ),
+                  label: Text(
+                    _isPlayingServerAudio || _isPlayingTts
+                        ? "Stop"
+                        : "Listen",
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  onPressed: _isGenerating || currentScripts.isEmpty
+                      ? null
+                      : () => _playAllScripts(currentScripts),
+                ),
+              ),
             ),
           ],
         ),
@@ -1376,6 +1560,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           _isListening = false;
         });
 
+        // New page -> new script box, start scrolled at the top.
         if (_scriptScrollController.hasClients) {
           _scriptScrollController.jumpTo(0);
         }
@@ -1385,8 +1570,10 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         }
         final prefs = await SharedPreferences.getInstance();
         prefs.setInt('story_${widget.story['id']}_page', index);
+        // Persist the leaving page's word states
         _savePageWordStates(leavingPage, leavingWords);
 
+        // SMART PRECACHE FIX
         String nextPath = "";
         if (index + 1 < pages.length) {
           nextPath =
@@ -1402,15 +1589,13 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             }
             nextUrl = "$cleanBaseUrl/api/get-image?path=$nextPath";
           }
-          if (mounted) {
-            precacheImage(
-              NetworkImage(
-                nextUrl,
-                headers: const {"ngrok-skip-browser-warning": "69420"},
-              ),
-              context,
-            );
-          }
+          precacheImage(
+            NetworkImage(
+              nextUrl,
+              headers: const {"ngrok-skip-browser-warning": "69420"},
+            ),
+            context,
+          );
         }
       },
       itemCount: pages.length,
@@ -1461,6 +1646,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                     ),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(12),
+                      // 🛠️ FIX: Pinalitan ang CachedNetworkImage ng standard Image.network
                       child: Image.network(
                         imageUrl,
                         fit: BoxFit.contain,
@@ -1606,20 +1792,19 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 }
 
-// ==============================================================
 // 🔊 REMEDIATION POPUP DIALOG COMPONENT
-// ==============================================================
+// 🔊 REMEDIATION POPUP DIALOG COMPONENT (UPDATED FOR DEEPGRAM)
 class RemediationDialog extends StatefulWidget {
   final List<WordStatus> failedWords;
   final FlutterTts flutterTts;
-  final DeepgramService deepgramService;
+  final DeepgramService deepgramService; // Updated from SpeechToText
   final Function(List<WordStatus> remainingUncorrected) onCompleted;
 
   const RemediationDialog({
     super.key,
     required this.failedWords,
     required this.flutterTts,
-    required this.deepgramService,
+    required this.deepgramService, // Updated
     required this.onCompleted,
   });
 
@@ -1683,6 +1868,7 @@ class _RemediationDialogState extends State<RemediationDialog> {
       _finalRemediationText = "";
     });
 
+    // 💡 Deepgram keyword biasing para sa nag-iisang practice word
     await widget.deepgramService.startListening(
       targetKeywords: [word.cleanWord],
       onResult: (transcript, isFinal) {
@@ -1693,7 +1879,7 @@ class _RemediationDialogState extends State<RemediationDialog> {
             _finalRemediationText += " $transcript";
             _remediationSpokenText = _finalRemediationText;
           } else {
-            _remediationSpokenText = "$_finalRemediationText $transcript";
+            _remediationSpokenText = _finalRemediationText + " " + transcript;
           }
         });
 
@@ -1702,6 +1888,7 @@ class _RemediationDialogState extends State<RemediationDialog> {
             .replaceAll(RegExp(r'[^\w\s]'), '')
             .split(RegExp(r'\s+'));
 
+        // Gumagamit pa rin ng isWordMatch logic mo
         bool isMatch = spokenWordsClean.any(
           (spokenWord) => isWordMatch(word.cleanWord, spokenWord),
         );
@@ -1755,156 +1942,154 @@ class _RemediationDialogState extends State<RemediationDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.amberAccent,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black, width: 4),
-          boxShadow: const [
-            BoxShadow(color: Colors.black, offset: Offset(6, 6)),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  _isListeningRemediation
-                      ? Icons.mic
-                      : Icons.record_voice_over,
-                  color: Colors.black,
-                  size: 28,
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  "Let's Practice!",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 22,
-                  ),
-                ),
+      child:
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.amberAccent,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.black, width: 4),
+              boxShadow: const [
+                BoxShadow(color: Colors.black, offset: Offset(6, 6)),
               ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              "Word ${_currentIndex + 1} of ${widget.failedWords.length}",
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 16,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.black, width: 3),
-                boxShadow: const [
-                  BoxShadow(color: Colors.black, offset: Offset(3, 3)),
-                ],
-              ),
-              child: Text(
-                currentWord.originalWord,
-                style: const TextStyle(
-                  color: Colors.redAccent,
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                if (_isListeningRemediation)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 8.0),
-                    child: Icon(
-                      Icons.mic,
-                      color: Colors.redAccent,
-                      size: 20,
+                Row(
+                  children: [
+                    Icon(
+                      _isListeningRemediation
+                          ? Icons.mic
+                          : Icons.record_voice_over,
+                      color: Colors.black,
+                      size: 28,
                     ),
-                  ),
-                Flexible(
-                  child: Text(
-                    _statusMessage,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: _isListeningRemediation
-                          ? Colors.redAccent
-                          : Colors.black,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                    const SizedBox(width: 12),
+                    const Text(
+                      "Let's Practice!",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-            if (_remediationSpokenText.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                "Heard: \"$_remediationSpokenText\"",
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontWeight: FontWeight.bold,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
-            if (!_isPlayingAudio)
-              Container(
-                width: double.infinity,
-                height: 50,
-                decoration: BoxDecoration(
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black, offset: Offset(3, 3)),
                   ],
-                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Colors.black, width: 3),
-                    ),
-                    elevation: 0,
+                const SizedBox(height: 16),
+                Text(
+                  "Word ${_currentIndex + 1} of ${widget.failedWords.length}",
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
                   ),
-                  onPressed: _skipToNextWord,
-                  child: const Text(
-                    "Next Word / Continue",
-                    style: TextStyle(
-                      fontSize: 16,
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.black, width: 3),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black, offset: Offset(3, 3)),
+                    ],
+                  ),
+                  child: Text(
+                    currentWord.originalWord,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 32,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),
-              ),
-          ],
-        ),
-      ).animate().slideY(
-        begin: 1,
-        end: 0,
-        duration: 400.ms,
-        curve: Curves.easeOutBack,
-      ),
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_isListeningRemediation)
+                      const Padding(
+                        padding: EdgeInsets.only(right: 8.0),
+                        child: Icon(
+                          Icons.mic,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
+                      ),
+                    Flexible(
+                      child: Text(
+                        _statusMessage,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _isListeningRemediation
+                              ? Colors.redAccent
+                              : Colors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_remediationSpokenText.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    "Heard: \"$_remediationSpokenText\"",
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.bold,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                if (!_isPlayingAudio)
+                  Container(
+                    width: double.infinity,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black, offset: Offset(3, 3)),
+                      ],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: Colors.black, width: 3),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: _skipToNextWord,
+                      child: const Text(
+                        "Next Word / Continue",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ).animate().slideY(
+            begin: 1,
+            end: 0,
+            duration: 400.ms,
+            curve: Curves.easeOutBack,
+          ),
     );
   }
 }
 
-// ==============================================================
-// 📊 PHIL-IRI RESULTS DIALOG COMPONENT
-// ==============================================================
 class _ReadingResultsDialog extends StatefulWidget {
   final int totalWordsCount;
   final int failedWordsCount;
@@ -2053,7 +2238,7 @@ class _ReadingResultsDialogState extends State<_ReadingResultsDialog> {
                 value:
                     "${widget.elapsedSeconds ~/ 60}m ${widget.elapsedSeconds % 60}s",
                 sublabel: "Active time spent reading aloud",
-                level: "Independent",
+                level: "Independent", // Just to make it green
               ),
               const Divider(color: Colors.white24, height: 24),
               if (widget.allFailedWords.isNotEmpty) ...[
@@ -2147,9 +2332,6 @@ class _ReadingResultsDialogState extends State<_ReadingResultsDialog> {
   }
 }
 
-// ==============================================================
-// 📖 DICTIONARY DEFINITION BOTTOM SHEET
-// ==============================================================
 class _DefinitionSheet extends StatefulWidget {
   final String originalWord;
   final String cleanWord;
