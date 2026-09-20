@@ -31,6 +31,9 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   // Uri ng kuwento ('pre_test' o 'post_test')
   String _storyType = 'pre_test';
 
+  // Grade level ng kuwento ('Grade 5' o 'Grade 6')
+  String _gradeLevel = 'Grade 5';
+
   // Managed list of text editing controllers for separate script segments
   final List<TextEditingController> _scriptControllers = [];
   bool _isSaving = false;
@@ -49,6 +52,14 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
       _storyType = rawType;
     } else {
       _storyType = 'pre_test';
+    }
+
+    // Kunan ang grade_level mula sa na-pass na story object, default sa 'Grade 5' kapag wala
+    final rawGrade = widget.story['grade_level']?.toString();
+    if (rawGrade != null && rawGrade.isNotEmpty) {
+      _gradeLevel = rawGrade;
+    } else {
+      _gradeLevel = 'Grade 5';
     }
 
     _loadCurrentSlideScript();
@@ -139,45 +150,70 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     }
   }
 
-  // Function para i-update ang story_type sa backend
-  Future<void> _updateStoryType(String newType) async {
-    if (_storyType == newType) return;
+  // Function para i-update ang story_type at/o grade_level sa backend.
+  // NOTE: dating tinatawagan nito ang `PUT /api/stories/{id}` na wala palang
+  // naka-register na route sa backend (405 error). Ginawa itong tumugma sa
+  // parehong convention ng `update-script` endpoint (na gumagana) --
+  // `/api/stories/{id}/update-meta` -- kaya kailangan itong idagdag din sa
+  // routes/api.php at StoryController.php sa backend.
+  Future<void> _updateStoryMeta({String? newType, String? newGrade}) async {
+    final String effectiveType = newType ?? _storyType;
+    final String effectiveGrade = newGrade ?? _gradeLevel;
+
+    if (effectiveType == _storyType && effectiveGrade == _gradeLevel) return;
+
+    final String previousType = _storyType;
+    final String previousGrade = _gradeLevel;
 
     setState(() {
-      _storyType = newType;
+      _storyType = effectiveType;
+      _gradeLevel = effectiveGrade;
     });
 
     try {
-      final url = Uri.parse("${widget.baseUrl}/api/stories/${widget.story['id']}");
+      final url = Uri.parse(
+        "${widget.baseUrl}/api/stories/${widget.story['id']}/update-meta",
+      );
       final response = await http.put(
         url,
         headers: {
           "Content-Type": "application/json",
           "ngrok-skip-browser-warning": "69420",
         },
-        body: jsonEncode({"story_type": newType}),
+        body: jsonEncode({
+          "story_type": effectiveType,
+          "grade_level": effectiveGrade,
+        }),
       );
 
       if (response.statusCode == 200) {
-        widget.story['story_type'] = newType;
+        widget.story['story_type'] = effectiveType;
+        widget.story['grade_level'] = effectiveGrade;
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                "Na-update ang Story Type sa ${newType == 'post_test' ? 'Post Test' : 'Pre Test'}! 🎯",
+                newType != null
+                    ? "Na-update ang Story Type sa ${effectiveType == 'post_test' ? 'Post Test' : 'Pre Test'}! 🎯"
+                    : "Na-update ang Grade Level sa $effectiveGrade! 🎯",
               ),
               backgroundColor: Colors.green,
             ),
           );
         }
       } else {
-        throw Exception("Failed to update story type. Status: ${response.statusCode}");
+        throw Exception("Failed to update story info. Status: ${response.statusCode}");
       }
     } catch (e) {
+      // I-revert ang UI kapag nabigo ang save sa backend
+      setState(() {
+        _storyType = previousType;
+        _gradeLevel = previousGrade;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Error sa pag-update ng Story Type: $e"),
+            content: Text("Error sa pag-update ng Story Info: $e"),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -527,7 +563,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
       final bool selected = _storyType == value;
       return Expanded(
         child: GestureDetector(
-          onTap: () => _updateStoryType(value),
+          onTap: () => _updateStoryMeta(newType: value),
           child: Container(
             padding: const EdgeInsets.symmetric(vertical: 12),
             decoration: BoxDecoration(
@@ -580,6 +616,61 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
             buildOption('pre_test', "Pre Test", Icons.edit_note_rounded),
             const SizedBox(width: 10),
             buildOption('post_test', "Post Test", Icons.fact_check_rounded),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Widget para sa Grade Level selection (Grade 5 / Grade 6) -- teachers
+  // label this themselves, shown as a badge on the library cover later.
+  Widget _gradeLevelSelector() {
+    Widget buildOption(String value) {
+      final bool selected = _gradeLevel == value;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => _updateStoryMeta(newGrade: value),
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            decoration: BoxDecoration(
+              color: selected ? const Color(0xFFFDE047) : Colors.grey[800],
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected ? Colors.amberAccent : Colors.grey[700]!,
+                width: 2,
+              ),
+            ),
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color: selected ? Colors.black : Colors.white70,
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "GRADE LEVEL:",
+          style: TextStyle(
+            color: Colors.amberAccent,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.8,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            buildOption('Grade 5'),
+            const SizedBox(width: 10),
+            buildOption('Grade 6'),
           ],
         ),
       ],
@@ -833,7 +924,14 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(color: Colors.white10),
                     ),
-                    child: _storyTypeSelector(),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _storyTypeSelector(),
+                        const SizedBox(height: 16),
+                        _gradeLevelSelector(),
+                      ],
+                    ),
                   ),
 
                   const SizedBox(height: 20),
@@ -1234,6 +1332,8 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _storyTypeSelector(),
+                  const SizedBox(height: 16),
+                  _gradeLevelSelector(),
                   const SizedBox(height: 16),
 
                   Row(
