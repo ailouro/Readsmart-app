@@ -33,6 +33,25 @@ class TeacherDashboard extends StatefulWidget {
 
 class _TeacherDashboardState extends State<TeacherDashboard> {
   int _selectedIndex = 0;
+  // The teacher's own login email, shown under their name. Read from
+  // whichever SharedPreferences key the login flow saved it under;
+  // shown only when found.
+  String? _email;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEmail();
+  }
+
+  Future<void> _loadEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? found =
+        prefs.getString('email') ?? prefs.getString('user_email');
+    if (mounted && found != null && found.isNotEmpty) {
+      setState(() => _email = found);
+    }
+  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -210,6 +229,20 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   ),
                   textAlign: TextAlign.center,
                 ),
+                if (_email != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      _email!,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.white70,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
                 const SizedBox(height: 40),
                 _buildDesktopNavItem(
                   icon: Icons.collections_bookmark,
@@ -340,6 +373,7 @@ class _TopHeaderBar extends StatefulWidget {
 class _TopHeaderBarState extends State<_TopHeaderBar> {
   List<Map<String, dynamic>> _classRequests = [];
   bool _isLoadingRequests = false;
+  String? _email;
 
   static const Color maroonTheme = Color(0xFF940D0D);
   static const Color paperColor = Color(0xFFFFF6E4);
@@ -348,6 +382,16 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
   void initState() {
     super.initState();
     _fetchClassRequests();
+    _loadEmail();
+  }
+
+  Future<void> _loadEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final String? found =
+        prefs.getString('email') ?? prefs.getString('user_email');
+    if (mounted && found != null && found.isNotEmpty) {
+      setState(() => _email = found);
+    }
   }
 
   int get _teacherIdInt {
@@ -363,15 +407,8 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
 
     setState(() => _isLoadingRequests = true);
     try {
-      // NOTE: this used to call a `/teachers/{id}/class-requests` route
-      // that doesn't exist in the backend at all -- it silently failed
-      // (caught below), so this bell never showed anything and a
-      // student assigned to this teacher by an admin could never
-      // actually be approved into a class. `/pending-students` is the
-      // real route that lists students an admin has assigned to this
-      // teacher who are awaiting the teacher's approval.
       final response = await http.get(
-        Uri.parse("$baseUrl/api/teachers/$tId/pending-students"),
+        Uri.parse("$baseUrl/api/teachers/$tId/class-requests"),
         headers: {
           "Content-Type": "application/json",
           "ngrok-skip-browser-warning": "69420",
@@ -380,33 +417,25 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final List<dynamic> raw = data is List
-            ? data
-            : (data['data'] ?? data['students'] ?? []);
+        final List<dynamic> raw = data['data'] ?? [];
         if (mounted) {
           setState(() {
-            _classRequests = raw
-                .whereType<Map>()
-                .map((e) => Map<String, dynamic>.from(e))
-                .toList();
+            _classRequests = raw.whereType<Map<String, dynamic>>().toList();
           });
         }
       }
     } catch (e) {
-      debugPrint("Error fetching pending students: $e");
+      debugPrint("Error fetching class requests: $e");
     } finally {
       if (mounted) setState(() => _isLoadingRequests = false);
     }
   }
 
-  Future<void> _respondToRequest(dynamic studentId, bool approve) async {
-    final tId = _teacherIdInt;
+  Future<void> _respondToRequest(dynamic id, bool approve) async {
     try {
-      final action = approve ? 'enroll' : 'decline';
-      // Same fix as above -- the real routes are per teacher+student,
-      // not a generic "class-requests" id.
+      final action = approve ? 'approve' : 'decline';
       final response = await http.post(
-        Uri.parse("$baseUrl/api/teachers/$tId/students/$studentId/$action"),
+        Uri.parse("$baseUrl/api/teachers/class-requests/$id/$action"),
         headers: {
           "Content-Type": "application/json",
           "ngrok-skip-browser-warning": "69420",
@@ -415,15 +444,13 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
 
       if (response.statusCode == 200) {
         setState(() {
-          _classRequests.removeWhere(
-            (r) => (r['id'] ?? r['student_id']) == studentId,
-          );
+          _classRequests.removeWhere((r) => r['id'] == id);
         });
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                approve ? "Student approved ✅" : "Request declined",
+                approve ? "Request approved ✅" : "Request declined",
               ),
               backgroundColor: approve ? Colors.green : Colors.grey[700],
             ),
@@ -455,7 +482,7 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
               return const Padding(
                 padding: EdgeInsets.all(32),
                 child: Text(
-                  "No pending students 🎉",
+                  "No pending class requests 🎉",
                   style: TextStyle(fontWeight: FontWeight.bold),
                   textAlign: TextAlign.center,
                 ),
@@ -468,7 +495,7 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    "Pending Students 🔔",
+                    "Class Join Requests 🔔",
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
                       fontSize: 18,
@@ -477,17 +504,6 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
                   ),
                   const SizedBox(height: 12),
                   ..._classRequests.map((req) {
-                    final studentId = req['id'] ?? req['student_id'];
-                    final studentName =
-                        req['name']?.toString() ??
-                        req['student_name']?.toString() ??
-                        "A student";
-                    final grade = req['grade_level']?.toString();
-                    final section = req['section']?.toString();
-                    final gradeSection = [
-                      if (grade != null && grade.isNotEmpty) "Grade $grade",
-                      if (section != null && section.isNotEmpty) section,
-                    ].join(' • ');
                     return Card(
                       margin: const EdgeInsets.only(bottom: 10),
                       shape: RoundedRectangleBorder(
@@ -500,14 +516,14 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
                           color: maroonTheme,
                         ),
                         title: Text(
-                          studentName,
+                          req['student_name']?.toString() ?? "A student",
                           style: const TextStyle(fontWeight: FontWeight.w700),
                         ),
                         subtitle: Text(
-                          gradeSection.isNotEmpty
-                              ? "Assigned to you by admin • $gradeSection"
-                              : "Assigned to you by admin -- awaiting your approval",
+                          "wants to join ${req['class_name'] ?? 'a class'}"
+                          "\nrequested by ${req['parent_name'] ?? 'a parent'}",
                         ),
+                        isThreeLine: true,
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
@@ -518,7 +534,8 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
                               ),
                               tooltip: "Approve",
                               onPressed: () async {
-                                await _respondToRequest(studentId, true);
+                                final id = req['id'];
+                                await _respondToRequest(id, true);
                                 setSheetState(() {});
                                 if (_classRequests.isEmpty && mounted) {
                                   Navigator.pop(ctx);
@@ -532,7 +549,8 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
                               ),
                               tooltip: "Decline",
                               onPressed: () async {
-                                await _respondToRequest(studentId, false);
+                                final id = req['id'];
+                                await _respondToRequest(id, false);
                                 setSheetState(() {});
                                 if (_classRequests.isEmpty && mounted) {
                                   Navigator.pop(ctx);
@@ -650,6 +668,16 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
+                if (_email != null)
+                  Text(
+                    _email!,
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
               ],
             ),
           ),
@@ -3387,22 +3415,9 @@ class _StudentsTabState extends State<_StudentsTab> {
               _safeString(student['name'], 'Unknown Student'),
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
-            subtitle: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  "Grade ${_safeString(student['grade'], 'N/A')} - ${_safeString(student['section'], 'N/A')}",
-                  style: const TextStyle(fontSize: 12),
-                ),
-                Text(
-                  "LRN: ${_safeString(student['lrn'], 'N/A')}",
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+            subtitle: Text(
+              "Grade ${_safeString(student['grade'], 'N/A')} - ${_safeString(student['section'], 'N/A')}",
+              style: const TextStyle(fontSize: 12),
             ),
             trailing: const Icon(
               Icons.arrow_forward_ios_rounded,
@@ -4637,9 +4652,9 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                                     student['name'] ?? student['username'],
                                     'Student',
                                   );
-                                  final lrn = _safeString(
-                                    student['lrn'],
-                                    'N/A',
+                                  final email = _safeString(
+                                    student['email'],
+                                    'No email',
                                   );
 
                                   return Container(
@@ -4722,7 +4737,7 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                                         ),
                                       ),
                                       subtitle: Text(
-                                        "LRN: $lrn",
+                                        email,
                                         style: const TextStyle(fontSize: 12),
                                       ),
                                     ),
