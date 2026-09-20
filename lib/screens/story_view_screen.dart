@@ -206,11 +206,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   bool _isPlayingServerAudio = false;
   bool _isPlayingTts = false;
   int? _playingIndex;
-  // Queue of remaining script_index values to auto-play in order when the
-  // student taps the single "Listen" button for a slide with multiple
-  // script segments -- so one tap reads the whole slide instead of the
-  // student having to press a separate button per segment.
-  List<int> _sequenceQueue = [];
   bool _isGenerating = false;
   DateTime? _readingStartTime;
   int _totalWordsInStory = 0;
@@ -378,16 +373,16 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     }
   }
 
-  // Turns a page's raw `audio_scripts` field (which may be a List of
-  // sentence strings or a single String) into one clean, space-joined
-  // string. Using this everywhere `audio_scripts` is read keeps word
-  // counts/boundaries consistent between the first page (loaded in
-  // build()) and pages reached later via swipe (onPageChanged) -- those
-  // two paths used to parse the field differently, which could corrupt
-  // word boundaries and inflate the miscue count on swiped-to pages.
-  String _extractScriptText(dynamic rawScripts) {
-    if (rawScripts is List) {
-      return rawScripts.map((e) => e.toString()).join(" ");
+  // Turns a page's raw `audio_scripts` field into just the text of its
+  // FIRST segment. Only this first segment is shown to the student as
+  // reading text and used for oral-reading scoring -- any additional
+  // segments are treated as narration-only audio (e.g. an extra voice
+  // line typed in during upload purely so it could be narrated) and are
+  // intentionally hidden from the story view screen; they are not
+  // something the child is asked to read or get scored on.
+  String _firstReadingScript(dynamic rawScripts) {
+    if (rawScripts is List && rawScripts.isNotEmpty) {
+      return rawScripts.first.toString();
     } else if (rawScripts is String) {
       return rawScripts;
     }
@@ -501,20 +496,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         });
       }
     });
-    // When one segment's clip finishes naturally, auto-advance to the
-    // next queued segment (see _playAllScripts / _playNextInQueue).
-    _audioPlayer.onPlayerComplete.listen((event) {
-      if (_sequenceQueue.isNotEmpty) {
-        _playNextInQueue();
-      } else if (mounted) {
-        setState(() => _playingIndex = null);
-      }
-    });
   }
-
-  String get _cleanBaseUrl => widget.baseUrl.endsWith('/api')
-      ? widget.baseUrl.substring(0, widget.baseUrl.length - 4)
-      : widget.baseUrl;
 
   /// Call the moment Deepgram actually starts listening to the child.
   void _startActiveReadingSegment() {
@@ -531,7 +513,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   Future<void> _stopAllAudio() async {
-    _sequenceQueue = [];
     await _flutterTts.stop();
     await _audioPlayer.stop();
     if (_isListening) {
@@ -568,10 +549,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     await _flutterTts.speak(text);
   }
 
-  /// Entry point for the single "Listen" button: plays every script
-  /// segment for this slide in order, one after another. Tapping again
-  /// while it's playing stops the whole sequence.
-  Future<void> _playAllScripts(List<String> scripts) async {
+  Future<void> _playServerAudio(int sIndex, String cleanBaseUrl) async {
     if (_isListening) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -581,25 +559,14 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       );
       return;
     }
-    if (_isPlayingServerAudio || _isPlayingTts) {
+    if (_isPlayingServerAudio && _playingIndex == sIndex) {
       await _stopAllAudio();
       return;
     }
     await _stopAllAudio();
-    _sequenceQueue = List.generate(scripts.length, (i) => i);
-    await _playNextInQueue();
-  }
-
-  Future<void> _playNextInQueue() async {
-    if (_sequenceQueue.isEmpty) {
-      if (mounted) setState(() => _playingIndex = null);
-      return;
-    }
-    final int sIndex = _sequenceQueue.removeAt(0);
-    if (mounted) setState(() => _playingIndex = sIndex);
-
+    setState(() => _playingIndex = sIndex);
     String audioUrl =
-        "$_cleanBaseUrl/api/get-audio?story_id=${widget.story['id']}&page_index=$_currentPage&script_index=$sIndex";
+        "$cleanBaseUrl/api/get-audio?story_id=${widget.story['id']}&page_index=$_currentPage&script_index=$sIndex";
     try {
       if (_audioCache.containsKey(audioUrl)) {
         await _audioPlayer.play(BytesSource(_audioCache[audioUrl]!));
@@ -617,16 +584,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         throw Exception("Audio not found");
       }
     } catch (e) {
-      // No AI audio generated yet for this segment -- fall back to
-      // on-device speech for just this one, then keep going with the
-      // rest of the queue once it's it done.
       if (!mounted) return;
-      final scripts = widget.story['pages'][_currentPage]['audio_scripts'];
-      final String fallbackText = (scripts is List && sIndex < scripts.length)
-          ? scripts[sIndex].toString()
-          : "";
-      await _speakWebSpeech(sIndex, fallbackText);
-      if (mounted) _playNextInQueue();
+      setState(() => _playingIndex = null);
+      _speakWebSpeech(
+        sIndex,
+        widget.story['pages'][_currentPage]['audio_scripts'][sIndex],
+      );
     }
   }
 
@@ -1310,7 +1273,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         currentScripts = [rawScripts];
       }
     }
-    String fullTargetText = currentScripts.join(" ");
+    String fullTargetText = currentScripts.isNotEmpty ? currentScripts[0] : "";
     if (_targetWords.isEmpty && fullTargetText.isNotEmpty) {
       _setupTargetWords(fullTargetText);
     }
@@ -1458,48 +1421,58 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               // Word Status Chips removed, styling applied to _buildScriptBox
             ],
             const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: Container(
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black, offset: Offset(3, 3)),
-                  ],
-                ),
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: _isPlayingServerAudio || _isPlayingTts
-                        ? Colors.amber[800]
-                        : Colors.blueAccent,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Colors.black, width: 2.5),
-                    ),
+            Builder(
+              builder: (context) {
+                // The AUDIO that plays for "Listen" is not necessarily the
+                // same segment as the TEXT shown above. Segment 0 is the
+                // actual page text the student reads and gets scored
+                // against; when a second segment exists, it's the
+                // AI-narration audio meant to be played back (not shown
+                // as text, not scored). Fall back to segment 0's own
+                // audio when there's only one segment.
+                final int narrationIndex = currentScripts.length > 1 ? 1 : 0;
+                final bool isThisServerPlaying =
+                    _isPlayingServerAudio && _playingIndex == narrationIndex;
+
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 4.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Container(
+                        decoration: const BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black,
+                              offset: Offset(2, 2),
+                            ),
+                          ],
+                        ),
+                        child: IconButton(
+                          style: IconButton.styleFrom(
+                            backgroundColor: isThisServerPlaying
+                                ? Colors.amber[800]
+                                : Colors.blueAccent,
+                            foregroundColor: Colors.white,
+                            shape: const CircleBorder(
+                              side: BorderSide(color: Colors.black, width: 2.5),
+                            ),
+                          ),
+                          icon: Icon(
+                            isThisServerPlaying ? Icons.stop : Icons.volume_up,
+                            size: 20,
+                          ),
+                          onPressed: _isGenerating
+                              ? null
+                              : () =>
+                                    _playServerAudio(narrationIndex, cleanBaseUrl),
+                        ),
+                      ),
+                    ],
                   ),
-                  icon: Icon(
-                    _isPlayingServerAudio || _isPlayingTts
-                        ? Icons.stop
-                        : Icons.volume_up,
-                    size: 20,
-                  ),
-                  label: Text(
-                    _isPlayingServerAudio || _isPlayingTts
-                        ? "Stop"
-                        : "Listen",
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                  onPressed: _isGenerating || currentScripts.isEmpty
-                      ? null
-                      : () => _playAllScripts(currentScripts),
-                ),
-              ),
+                );
+              },
             ),
           ],
         ),
@@ -1566,7 +1539,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         }
 
         if (!_pageTargetWords.containsKey(index)) {
-          _setupTargetWords(_extractScriptText(pages[index]['audio_scripts']));
+          _setupTargetWords(_firstReadingScript(pages[index]['audio_scripts']));
         }
         final prefs = await SharedPreferences.getInstance();
         prefs.setInt('story_${widget.story['id']}_page', index);
