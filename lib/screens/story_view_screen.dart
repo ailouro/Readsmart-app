@@ -222,6 +222,14 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   String _finalSpokenText = "";
   List<WordStatus> _targetWords = [];
 
+  // Mga slide/page kung saan talagang pinindot na ng bata ang "Start Oral
+  // Reading" nang kahit isang beses. Kailangan ito para malaman kung ang
+  // isang "Next"/"Skip to Next Slide" ay dapat mag-mark ng mga salita
+  // bilang mali: kung silent reading pa lang (hindi pa sinimulan ang oral
+  // reading sa slide na ito), ang pag-next ay HINDI dapat magmarka ng
+  // kahit anong salita bilang "failed".
+  final Set<int> _pagesWithOralReadingStarted = {};
+
   // 📜 Auto-scroll ("teleprompter") support: one GlobalKey per word so we
   // can find its on-screen position and ask the scroll view to keep it
   // visible as reading progresses, instead of relying on the student to
@@ -269,6 +277,21 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
 
   Future<void> _loadSavedPage() async {
     final prefs = await SharedPreferences.getInstance();
+
+    // Defensive safety net: if this story was already marked completed in
+    // an earlier attempt (retake, or the app being reopened), never resume
+    // from its old word_states -- that's stale data from a finished run
+    // and would show already-"failed" (red) words on slides the student
+    // hasn't attempted yet this time. Only an in-progress, unfinished
+    // attempt should ever be resumed.
+    final bool alreadyCompleted =
+        prefs.getBool(
+          'story_${widget.story['id'] ?? widget.story['_id']}_reading_completed',
+        ) ??
+        false;
+    if (alreadyCompleted) {
+      await _clearSavedStoryProgress();
+    }
 
     // Restore persisted word highlight states for all pages
     final String? savedStates = prefs.getString(
@@ -333,6 +356,13 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           _pageTargetWords[pageIdx] = restored;
           _pageCurrentWordIndex[pageIdx] = wordIdx;
           _pageAssessmentPassed[pageIdx] = wordIdx >= restored.length;
+          // Kung may kahit isang salita na dating na-mark bilang tama o
+          // mali, ibig sabihin talagang sinimulan na ang oral reading sa
+          // page na ito noon -- kaya dapat pa rin ma-flush ang mga
+          // natitirang salita kung mag-"Next" muli habang nagre-resume.
+          if (restored.any((w) => w.isCorrect || w.isFailed)) {
+            _pagesWithOralReadingStarted.add(pageIdx);
+          }
         });
       } catch (_) {
         // Silently ignore corrupt cache
@@ -667,6 +697,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       _spokenText = "";
       _finalSpokenText = "";
       _processedSpokenWordCount = 0;
+      _pagesWithOralReadingStarted.add(_currentPage);
     });
     _startActiveReadingSegment();
 
@@ -830,9 +861,38 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     _savePageWordStates(_currentPage, _targetWords);
   }
 
+  /// Kailangan itong tawagin sa tuwing tapos na ang isang reading attempt.
+  /// Ang per-word cache (`_word_states`) at ang saved page (`_page`) ay
+  /// permanenteng nakatago sa SharedPreferences at HINDI kailanman
+  /// nabubura -- kaya kapag binasa muli ang parehong kwento (ulit-uliting
+  /// pagsubok, o retake), ang mga salitang minarkahang "failed" (halimbawa
+  /// dahil na-"Skip to Next Slide" noon, o na-abandona ang basa) ay
+  /// bumabalik agad bilang pula/mali sa BAGONG session, bago pa man
+  /// magsalita ang bata. Ito ang sanhi ng "next slide shows words as
+  /// wrong before oral reading" na bug. Tinatawag ito sa sandaling
+  /// matapos ang isang buong reading attempt, para ang SUSUNOD na pagbukas
+  /// ng kwentong ito ay magsimula palaging malinis.
+  Future<void> _clearSavedStoryProgress() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final String storyId = (widget.story['id'] ?? widget.story['_id'])
+          .toString();
+      await prefs.remove('story_${storyId}_word_states');
+      await prefs.remove('story_${storyId}_page');
+    } catch (_) {
+      // Non-fatal — worst case the next attempt still resumes stale state
+    }
+  }
+
   void _advanceToNextSlide() async {
-    // Flush any remaining unread words on this slide as failed before moving on
-    _flushUnreadWordsAsFailed();
+    // Kung hindi pa sinimulan ang oral reading sa slide na ito (silent
+    // reading pa lang), hindi dapat magmarka ng kahit anong salita bilang
+    // "failed" kapag nag-next -- ang pagmarka bilang mali ay applicable
+    // lamang KAPAG na-tap na ang "Start Oral Reading" sa slide na ito.
+    if (_pagesWithOralReadingStarted.contains(_currentPage)) {
+      // Flush any remaining unread words on this slide as failed before moving on
+      _flushUnreadWordsAsFailed();
+    }
 
     List<dynamic> pages = widget.story['pages'] ?? [];
     if (_currentPage < pages.length - 1) {
@@ -959,6 +1019,10 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         'story_${widget.story['id'] ?? widget.story['_id']}_reading_completed',
         true,
       );
+      // Wipe the resume cache now that this attempt is fully done, so a
+      // future re-read of this story (retake, or the child opening it
+      // again) never inherits stale word states from this finished run.
+      await _clearSavedStoryProgress();
 
       if (!mounted) return;
       // ... Ipagpatuloy ang pag-navigate papuntang QuizScreen ...
