@@ -1204,12 +1204,91 @@ class _LibraryTabState extends State<_LibraryTab> {
             ),
           )
         else
+          _buildGradeSplitGrid(stories),
+      ],
+    );
+  }
+
+  // Hinihiwalay ang mga kwento sa dalawang column: Grade 5 sa kaliwa,
+  // Grade 6 sa kanan, magkatabi nang pahalang. Ang mga kwentong wala pang
+  // itinakdang grade level ay ipinapakita sa isang hiwalay na seksyon sa
+  // ibaba, para walang kwentong nawawala sa view habang naghihintay pa ng
+  // grade assignment mula sa guro.
+  Widget _buildGradeSplitGrid(List<Map<String, dynamic>> stories) {
+    final List<Map<String, dynamic>> grade5 = stories
+        .where((s) => _safeString(s['grade_level']) == 'Grade 5')
+        .toList();
+    final List<Map<String, dynamic>> grade6 = stories
+        .where((s) => _safeString(s['grade_level']) == 'Grade 6')
+        .toList();
+    final List<Map<String, dynamic>> unassigned = stories
+        .where((s) => _safeString(s['grade_level']).isEmpty)
+        .toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _buildGradeColumn("🟩 GRADE 5", grade5)),
+            const SizedBox(width: 20),
+            Expanded(child: _buildGradeColumn("🟨 GRADE 6", grade6)),
+          ],
+        ),
+        if (unassigned.isNotEmpty) ...[
+          const SizedBox(height: 24),
+          _buildGradeColumn("❔ NO GRADE LEVEL YET", unassigned, fullWidth: true),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildGradeColumn(
+    String label,
+    List<Map<String, dynamic>> stories, {
+    bool fullWidth = false,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.black, width: 2),
+          ),
+          child: Text(
+            label,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 12,
+              letterSpacing: 0.5,
+            ),
+          ),
+        ),
+        const SizedBox(height: 10),
+        if (stories.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white70,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.black26, width: 2),
+            ),
+            child: const Text(
+              "Wala pang kwento dito.",
+              style: TextStyle(color: Colors.black54, fontWeight: FontWeight.bold),
+            ),
+          )
+        else
           GridView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
             itemCount: stories.length,
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 350,
+            gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
+              maxCrossAxisExtent: fullWidth ? 350 : 230,
               crossAxisSpacing: 15,
               mainAxisSpacing: 15,
               childAspectRatio: 0.72,
