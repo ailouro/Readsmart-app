@@ -31,8 +31,9 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   // Uri ng kuwento ('pre_test' o 'post_test')
   String _storyType = 'pre_test';
 
-  // Grade level ng kuwento ('Grade 5' o 'Grade 6')
-  String _gradeLevel = 'Grade 5';
+  // Grade level ng kuwento ('Grade 5' o 'Grade 6') -- null hanggang piliin
+  // mismo ng guro; hindi ito dapat basta-basta i-default sa 'Grade 5'.
+  String? _gradeLevel;
 
   // Managed list of text editing controllers for separate script segments
   final List<TextEditingController> _scriptControllers = [];
@@ -54,13 +55,11 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
       _storyType = 'pre_test';
     }
 
-    // Kunan ang grade_level mula sa na-pass na story object, default sa 'Grade 5' kapag wala
+    // Kunan ang grade_level mula sa na-pass na story object -- iwanang
+    // null (walang naka-select na pill) kapag wala pang itinakda ang guro,
+    // sa halip na basta i-assume na 'Grade 5'.
     final rawGrade = widget.story['grade_level']?.toString();
-    if (rawGrade != null && rawGrade.isNotEmpty) {
-      _gradeLevel = rawGrade;
-    } else {
-      _gradeLevel = 'Grade 5';
-    }
+    _gradeLevel = (rawGrade != null && rawGrade.isNotEmpty) ? rawGrade : null;
 
     _loadCurrentSlideScript();
 
@@ -158,12 +157,12 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   // routes/api.php at StoryController.php sa backend.
   Future<void> _updateStoryMeta({String? newType, String? newGrade}) async {
     final String effectiveType = newType ?? _storyType;
-    final String effectiveGrade = newGrade ?? _gradeLevel;
+    final String? effectiveGrade = newGrade ?? _gradeLevel;
 
     if (effectiveType == _storyType && effectiveGrade == _gradeLevel) return;
 
     final String previousType = _storyType;
-    final String previousGrade = _gradeLevel;
+    final String? previousGrade = _gradeLevel;
 
     setState(() {
       _storyType = effectiveType;
