@@ -7,6 +7,8 @@ import 'package:confetti/confetti.dart';
 import '../services/config.dart';
 import '../widgets/responsive_layout.dart';
 import 'story_view_screen.dart';
+import 'assessment_flow_screen.dart';
+import '../services/stage2_session.dart';
 import '../services/bgm_service.dart';
 
 String _safeString(dynamic value, [String fallback = ""]) {
@@ -47,6 +49,10 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
   Map<String, dynamic>? _classDetails;
   List<dynamic> _students = [];
   List<dynamic> _assignedStories = [];
+
+  // Phil-IRI reading assessments assigned to this student in this class.
+  // Each one replaces the individual story missions of its test type.
+  List<Map<String, dynamic>> _assessments = [];
 
   final TextEditingController _studentSearchController =
       TextEditingController();
@@ -300,7 +306,241 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
       debugPrint("Error fetching stories: $e");
     }
 
+    try {
+      // 3. Phil-IRI assessments for this student. Optional: if the endpoint
+      // is missing or returns nothing, the class works exactly as before.
+      final resAssessments = await http.get(
+        Uri.parse(
+          "$baseUrl/api/classes/${widget.classId}/assessments?student_id=${widget.studentId}",
+        ),
+        headers: networkHeaders,
+      );
+
+      if (resAssessments.statusCode == 200 && mounted) {
+        final decoded = jsonDecode(resAssessments.body);
+        final list = decoded is List
+            ? decoded
+            : (decoded['assessments'] ?? decoded['data'] ?? []);
+        setState(() {
+          _assessments = (list as List)
+              .whereType<Map>()
+              .map((a) => Map<String, dynamic>.from(a))
+              .toList();
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching assessments: $e");
+    }
+
     if (mounted) setState(() => _isLoading = false);
+  }
+
+  // ---------------------------------------------------------------------
+  // Phil-IRI assessment helpers
+  // ---------------------------------------------------------------------
+
+  int? _toInt(dynamic value) =>
+      value == null ? null : int.tryParse(value.toString());
+
+  Map<String, dynamic>? _assessmentFor(String testType) {
+    for (final a in _assessments) {
+      if (_safeString(a['test_type']) == testType) return a;
+    }
+    return null;
+  }
+
+  // Respects the search box and the Completed filter, like story missions do.
+  Map<String, dynamic>? _visibleAssessment(
+    String testType,
+    SharedPreferences? prefs,
+  ) {
+    final a = _assessmentFor(testType);
+    if (a == null) return null;
+    if (_missionSearchQuery.isNotEmpty &&
+        !'reading test'.contains(_missionSearchQuery)) {
+      return null;
+    }
+    if (_missionFilter == 'completed' &&
+        !_assessmentIsDone(_assessmentStatus(a, prefs))) {
+      return null;
+    }
+    return a;
+  }
+
+  // Same key AssessmentFlowScreen saves its session under.
+  String _assessmentPrefsKey(Map<String, dynamic> a) =>
+      'stage2_${widget.studentId}_${_safeString(a['test_type'])}_${_safeString(a['set_letter'])}';
+
+  /// 'not_started' | 'in_progress' | 'complete' | 'not_needed'.
+  /// The server is the source of truth; the locally saved session fills the
+  /// gap when a save failed or the student is offline.
+  String _assessmentStatus(Map<String, dynamic> a, SharedPreferences? prefs) {
+    final String server = _safeString(a['status'], 'not_started');
+    if (server == 'complete' || server == 'not_needed') return server;
+
+    final String? saved = prefs?.getString(_assessmentPrefsKey(a));
+    if (saved != null) {
+      try {
+        final session = Stage2Session.fromJson(
+          Map<String, dynamic>.from(jsonDecode(saved) as Map),
+        );
+        if (session.isComplete) return 'complete';
+        if (session.history.isNotEmpty) return 'in_progress';
+      } catch (_) {}
+    }
+    return server == 'in_progress' ? 'in_progress' : 'not_started';
+  }
+
+  bool _assessmentIsDone(String status) =>
+      status == 'complete' || status == 'not_needed';
+
+  Future<void> _openAssessment(Map<String, dynamic> a) async {
+    final int? studentGrade =
+        _toInt(a['student_grade']) ??
+        _toInt(
+          RegExp(
+            r'\d+',
+          ).firstMatch(_safeString(_classDetails?['grade_level']))?.group(0),
+        );
+    if (studentGrade == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Your grade level is missing. Please tell your teacher."),
+          backgroundColor: Colors.black87,
+        ),
+      );
+      return;
+    }
+
+    BgmService().stopBgm();
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AssessmentFlowScreen(
+          baseUrl: baseUrl,
+          studentId: widget.studentId,
+          studentGrade: studentGrade,
+          testType: _safeString(a['test_type']),
+          setLetter: _safeString(a['set_letter']),
+          gstRaw: _toInt(a['gst_raw']),
+          postTestStartGrade: _toInt(a['start_grade']),
+        ),
+      ),
+    );
+    if (mounted) _fetchClassDetails();
+    BgmService().startBgm();
+  }
+
+  Widget _buildAssessmentCard(
+    Map<String, dynamic> a,
+    SharedPreferences? prefs, {
+    required bool locked,
+  }) {
+    final String status = _assessmentStatus(a, prefs);
+    final bool done = _assessmentIsDone(status);
+
+    final String subtitle = locked
+        ? "Finish the Pre-Test first"
+        : status == 'complete'
+        ? "Completed"
+        : status == 'not_needed'
+        ? "You don't need this one"
+        : status == 'in_progress'
+        ? "Tap to continue"
+        : "Tap to start";
+
+    final IconData trailingIcon = locked
+        ? Icons.lock_rounded
+        : done
+        ? Icons.check_circle_rounded
+        : Icons.play_circle_fill_rounded;
+
+    return GestureDetector(
+      onTap: () {
+        if (locked) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "Finish all Pre-Test missions first to unlock this! 🔒",
+              ),
+              backgroundColor: Colors.black87,
+            ),
+          );
+        } else if (done) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("You already finished this reading test! 🌟"),
+              backgroundColor: Colors.black87,
+            ),
+          );
+        } else {
+          _openAssessment(a);
+        }
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: locked ? Colors.grey.shade200 : Colors.white,
+          borderRadius: BorderRadius.circular(15),
+          border: Border.all(color: Colors.black, width: 3.5),
+          boxShadow: const [
+            BoxShadow(color: Colors.black, offset: Offset(5, 5)),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: cyanAccent,
+                shape: BoxShape.circle,
+                border: Border.all(color: Colors.black, width: 2.5),
+              ),
+              child: const Icon(
+                Icons.menu_book_rounded,
+                size: 30,
+                color: Colors.black,
+              ),
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    "Reading Test",
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 18,
+                      color: Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: done ? Colors.green.shade800 : Colors.black54,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            Icon(
+              trailingIcon,
+              size: 34,
+              color: locked
+                  ? Colors.black38
+                  : done
+                  ? Colors.green.shade700
+                  : maroonTheme,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _copyClassCode(String code) {
@@ -506,7 +746,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
   }
 
   Widget _buildStoriesTab() {
-    if (_assignedStories.isEmpty) {
+    if (_assignedStories.isEmpty && _assessments.isEmpty) {
       return RefreshIndicator(
         onRefresh: _fetchClassDetails,
         color: maroonTheme,
@@ -564,6 +804,10 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
           // Tag each story with its test_type + completion so search, the
           // filter chips, and the progress summary all agree with what
           // each card badge shows.
+          final Set<String> assessedTypes = _assessments
+              .map((a) => _safeString(a['test_type']))
+              .toSet();
+
           final List<Map<String, dynamic>> enriched = _assignedStories.map((
             story,
           ) {
@@ -576,12 +820,14 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
               'readingDone': readingDone,
               'fullyDone': fullyDone,
             };
-          }).toList();
+          }).where((e) => !assessedTypes.contains(e['tType'])).toList();
 
-          final int completedCount = enriched
-              .where((e) => e['readingDone'] == true)
-              .length;
-          final int totalCount = enriched.length;
+          final int completedCount =
+              enriched.where((e) => e['readingDone'] == true).length +
+              _assessments
+                  .where((a) => _assessmentIsDone(_assessmentStatus(a, prefs)))
+                  .length;
+          final int totalCount = enriched.length + _assessments.length;
 
           final List<Map<String, dynamic>> preEntries = enriched
               .where((e) => e['tType'] == 'pre_test')
@@ -593,9 +839,13 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
           // Post-Test stays locked until every Pre-Test mission is fully
           // done. If there are no Pre-Test missions at all, there is
           // nothing to gate on, so Post-Test opens right away.
+          final bool preAssessmentsDone = _assessments
+              .where((a) => _safeString(a['test_type']) == 'pre_test')
+              .every((a) => _assessmentIsDone(_assessmentStatus(a, prefs)));
           final bool allPreTestDone =
-              preEntries.isEmpty ||
-              preEntries.every((e) => e['fullyDone'] == true);
+              (preEntries.isEmpty ||
+                  preEntries.every((e) => e['fullyDone'] == true)) &&
+              preAssessmentsDone;
 
           _maybeCelebratePostTestUnlock(allPreTestDone, prefs);
 
@@ -740,7 +990,8 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
               ),
               Expanded(
                 child: (filteredPreEntries.isEmpty &&
-                        filteredPostEntries.isEmpty)
+                        filteredPostEntries.isEmpty &&
+                        _assessments.isEmpty)
                     ? Center(
                         child: Text(
                           _missionSearchQuery.isNotEmpty ||
@@ -761,6 +1012,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                             filteredPreEntries,
                             prefs,
                             locked: false,
+                            assessment: _visibleAssessment('pre_test', prefs),
                           ),
                           const SizedBox(height: 28),
                           if (!allPreTestDone)
@@ -800,6 +1052,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                             filteredPostEntries,
                             prefs,
                             locked: !allPreTestDone,
+                            assessment: _visibleAssessment('post_test', prefs),
                           ),
                         ],
                       ),
@@ -817,6 +1070,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
     List<Map<String, dynamic>> entries,
     SharedPreferences? prefs, {
     required bool locked,
+    Map<String, dynamic>? assessment,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -849,7 +1103,9 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
           ),
         ),
         const SizedBox(height: 10),
-        if (entries.isEmpty)
+        if (assessment != null)
+          _buildAssessmentCard(assessment, prefs, locked: locked)
+        else if (entries.isEmpty)
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(18),
