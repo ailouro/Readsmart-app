@@ -36,7 +36,24 @@ class _AlertsTabViewState extends State<AlertsTabView> {
 
         final alerts = snapshot.data!;
 
-        return ListView.builder(
+        return Column(
+          children: [
+            Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.shade200),
+          ),
+          child: const Text(
+            "These students are reading at the Frustration level and may need extra help.",
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ),
+            Expanded(
+              child: ListView.builder(
           itemCount: alerts.length,
           itemBuilder: (context, index) {
             final alert = alerts[index];
@@ -62,6 +79,9 @@ class _AlertsTabViewState extends State<AlertsTabView> {
               ),
             );
           },
+              ),
+            ),
+          ],
         );
       },
     );
