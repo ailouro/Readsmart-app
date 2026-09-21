@@ -1,51 +1,52 @@
-import 'dart:convert';
+// lib/screens/assessment_flow_screen.dart
 
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-
 import '../services/assessment_score.dart';
-import '../services/phil_iri_rules.dart';
-import '../services/stage2_session.dart';
 import 'story_view_screen.dart';
 
-enum _Phase { loading, ready, fetching, notNeeded, error, complete }
+class _AssessmentAttempt {
+  final int gradeLevel;
+  final PassageScore score;
+  _AssessmentAttempt({required this.gradeLevel, required this.score});
+}
 
-/// Runs the Phil-IRI Stage 2 flowchart for one student.
+/// Drives the Phil-IRI Stage 2 branching search for one student:
+/// serve a passage at the current grade level, score it, move up or
+/// down per the classification, and repeat until both an
+/// instructional and a frustration boundary are found (or the grade
+/// range floor/ceiling is hit).
 ///
-/// The student never picks a story. This screen asks [Stage2Session] which
-/// grade comes next, loads that grade's passage from the chosen set, runs
-/// StoryViewerScreen (oral reading) and QuizScreen (comprehension) in
-/// assessment mode, scores the result, and repeats until all three reading
-/// levels are found.
-///
-/// Pops with `true` when the test is finished so the caller can refresh.
+/// This screen owns the loop; StoryViewerScreen and QuizScreen stay
+/// exactly as they are (single-passage components run in
+/// assessmentMode: true).
 class AssessmentFlowScreen extends StatefulWidget {
-  final String baseUrl;
   final int studentId;
-  final int studentGrade;
+  final String baseUrl;
 
-  /// 'pre_test' or 'post_test'.
-  final String testType;
+  /// Grade level to start at. Compute this with
+  /// GstPlacement.startingGradeLevel(...) from the student's GST score
+  /// before pushing this screen; pass the student's current grade if
+  /// you are skipping the GST step.
+  final int startingGradeLevel;
 
-  /// 'A' to 'D'. Chosen by the teacher.
-  final String setLetter;
+  /// Floor and ceiling for the passage library. Scoped to Grades 2-6
+  /// by default per the Grade 5-6 deployment cohort (a Grade 5/6
+  /// student can be sent up to 3 levels down, per Table 3).
+  final int minGradeLevel;
+  final int maxGradeLevel;
 
-  /// English GST raw score (0-20). Needed for the pre-test.
-  final int? gstRaw;
-
-  /// Starting grade for the post-test (the manual does not set one).
-  final int? postTestStartGrade;
+  final String testType; // "pre_test" | "post_test"
 
   const AssessmentFlowScreen({
     super.key,
-    required this.baseUrl,
     required this.studentId,
-    required this.studentGrade,
-    required this.testType,
-    required this.setLetter,
-    this.gstRaw,
-    this.postTestStartGrade,
+    required this.baseUrl,
+    required this.startingGradeLevel,
+    this.minGradeLevel = 2,
+    this.maxGradeLevel = 6,
+    this.testType = "pre_test",
   });
 
   @override
@@ -53,152 +54,87 @@ class AssessmentFlowScreen extends StatefulWidget {
 }
 
 class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
-  static const Color _maroon = Color(0xFF9B0505);
-  static const Color _yellow = Color(0xFFFDE047);
-  static const Color _background = Color(0xFFFAF6F6);
+  final List<_AssessmentAttempt> _attempts = [];
+  int? _independentLevel;
+  int? _instructionalLevel;
+  int? _frustrationLevel;
 
-  Stage2Session? _session;
-  _Phase _phase = _Phase.loading;
-  String _error = '';
-  bool _saveWarning = false;
-
-  String get _prefsKey =>
-      'stage2_${widget.studentId}_${widget.testType}_${widget.setLetter}';
+  bool _isLoadingPassage = true;
+  bool _isComplete = false;
+  String? _errorMessage;
 
   @override
   void initState() {
     super.initState();
-    _init();
+    _runNextPassage(widget.startingGradeLevel);
   }
 
-  Future<void> _init() async {
-    setState(() => _phase = _Phase.loading);
-    final prefs = await SharedPreferences.getInstance();
-
-    // Resume an unfinished (or finished) test instead of starting over.
-    final saved = prefs.getString(_prefsKey);
-    if (saved != null) {
-      try {
-        _session = Stage2Session.fromJson(
-          Map<String, dynamic>.from(jsonDecode(saved) as Map),
-        );
-      } catch (_) {
-        _session = null;
-      }
-    }
-
-    if (_session == null) {
-      if (widget.testType == 'pre_test') {
-        final gst = widget.gstRaw;
-        if (gst == null) {
-          _fail(
-            'The teacher has not entered your screening score yet. '
-            'Please tell your teacher.',
-          );
-          return;
-        }
-        _session = Stage2Session.forPreTest(
-          studentId: widget.studentId,
-          studentGrade: widget.studentGrade,
-          gstRaw: gst,
-          setLetter: widget.setLetter,
-        );
-        if (_session == null) {
-          if (mounted) setState(() => _phase = _Phase.notNeeded);
-          return;
-        }
-      } else {
-        final start = widget.postTestStartGrade;
-        if (start == null) {
-          _fail('This test is not ready yet. Please tell your teacher.');
-          return;
-        }
-        _session = Stage2Session.forPostTest(
-          studentId: widget.studentId,
-          studentGrade: widget.studentGrade,
-          setLetter: widget.setLetter,
-          startGrade: start,
-        );
-      }
-      await _saveSession();
-    }
-
-    if (!mounted) return;
-    setState(() {
-      _phase = _session!.isComplete ? _Phase.complete : _Phase.ready;
-    });
-  }
-
-  void _fail(String message) {
-    if (!mounted) return;
-    setState(() {
-      _error = message;
-      _phase = _Phase.error;
-    });
-  }
-
-  Future<void> _saveSession() async {
-    final session = _session;
-    if (session == null) return;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefsKey, jsonEncode(session.toJson()));
-  }
-
-  Future<dynamic> _fetchPassage(int grade) async {
+  /// Fetches one assessment-tagged passage at [gradeLevel].
+  ///
+  /// ASSUMPTION TO VERIFY: this assumes a Laravel route like
+  /// GET /api/stories?grade=X&type=assessment&test_type=pre_test
+  /// returning {"stories": [...]}. Adjust the endpoint/query params
+  /// and response parsing to match your actual API — this is the one
+  /// piece that has to match your backend exactly.
+  Future<Map<String, dynamic>?> _fetchPassageForGrade(int gradeLevel) async {
     try {
-      final response = await http.get(
-        Uri.parse(
-          '${widget.baseUrl}/api/assessment-passage'
-          '?test_type=${widget.testType}'
-          '&set_letter=${widget.setLetter}'
-          '&grade=$grade',
-        ),
-        headers: const {'ngrok-skip-browser-warning': '69420'},
+      final uri = Uri.parse(
+        "${widget.baseUrl}/api/stories"
+        "?grade=$gradeLevel&type=assessment&test_type=${widget.testType}",
       );
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        final story = data['story'];
-        final pages = story == null ? null : story['pages'];
-        if (pages is List && pages.isNotEmpty) return story;
-      }
-      _error =
-          'We could not find the Grade $grade story for Set ${widget.setLetter}. '
-          'Please tell your teacher.';
+      final response = await http.get(
+        uri,
+        headers: const {"ngrok-skip-browser-warning": "69420"},
+      );
+      if (response.statusCode != 200) return null;
+
+      final data = jsonDecode(response.body);
+      final List<dynamic> stories = data['stories'] ?? data['data'] ?? [];
+      if (stories.isEmpty) return null;
+
+      // TODO: once you have parallel sets (A-D), exclude passages
+      // already used this session (track _attempts) so a student never
+      // repeats a passage within one assessment run. For now this
+      // takes whatever the backend returns first.
+      return Map<String, dynamic>.from(stories.first);
     } catch (e) {
-      debugPrint('Assessment passage error: $e');
-      _error = 'No connection. Check your internet and try again.';
+      debugPrint("Error fetching passage for grade $gradeLevel: $e");
+      return null;
     }
-    return null;
   }
 
-  /// Reads one passage (oral reading + quiz), scores it and moves the
-  /// flowchart along. One passage per tap, so students get a short break
-  /// between stories.
-  Future<void> _readNextPassage() async {
-    final session = _session;
-    if (session == null) {
-      await _init();
-      return;
-    }
-    final grade = session.nextGrade;
-    if (grade == null) {
-      await _finish();
+  Future<void> _runNextPassage(int gradeLevel) async {
+    final bool hitFloor = gradeLevel < widget.minGradeLevel;
+    final bool hitCeiling = gradeLevel > widget.maxGradeLevel;
+    final int clampedGrade = gradeLevel.clamp(
+      widget.minGradeLevel,
+      widget.maxGradeLevel,
+    );
+
+    setState(() {
+      _isLoadingPassage = true;
+      _errorMessage = null;
+    });
+
+    final passage = await _fetchPassageForGrade(clampedGrade);
+    if (!mounted) return;
+
+    if (passage == null) {
+      setState(() {
+        _isLoadingPassage = false;
+        _errorMessage =
+            "No assessment passage available for Grade $clampedGrade.";
+      });
       return;
     }
 
-    setState(() => _phase = _Phase.fetching);
-    final story = await _fetchPassage(grade);
-    if (!mounted) return;
-    if (story == null) {
-      setState(() => _phase = _Phase.error);
-      return;
-    }
+    setState(() => _isLoadingPassage = false);
 
     final score = await Navigator.push<PassageScore>(
       context,
       MaterialPageRoute(
-        builder: (_) => StoryViewerScreen(
-          story: story,
+        builder: (context) => StoryViewerScreen(
+          story: passage,
           baseUrl: widget.baseUrl,
           studentId: widget.studentId,
           testType: widget.testType,
@@ -206,287 +142,180 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
         ),
       ),
     );
-    if (!mounted) return;
 
-    // The student left before finishing. Nothing is recorded, and the same
-    // passage is offered again when they come back.
-    if (score == null) {
-      setState(() => _phase = _Phase.ready);
+    if (!mounted || score == null) return;
+
+    _attempts.add(_AssessmentAttempt(gradeLevel: clampedGrade, score: score));
+    _recordBoundary(clampedGrade, score);
+
+    if (_bothBoundariesFound() || hitFloor || hitCeiling) {
+      await _finishAssessment();
       return;
     }
 
-    final result = PassageResult.score(
-      grade: grade,
-      storyId: story['id'] ?? story['_id'],
-      wrPct: score.wrPct,
-      compCorrect: score.compCorrect,
-      compTotal: score.compTotal,
-      // A passage with no quiz can only be judged on word reading.
-      rule: score.compTotal == 0 ? LevelRule.wordReadingOnly : session.rule,
-    );
-    session.record(result);
-    await _saveSession();
-    await _postPassage(story, result, score);
+    final nextGrade = clampedGrade + score.nextGradeLevelOffset;
+    _runNextPassage(nextGrade);
+  }
 
-    if (!mounted) return;
-    if (session.nextGrade == null) {
-      await _finish();
-    } else {
-      setState(() => _phase = _Phase.ready);
+  void _recordBoundary(int gradeLevel, PassageScore score) {
+    switch (score.overallLevel) {
+      case ReadingLevel.independent:
+        // Highest grade level at which the student still reads
+        // independently.
+        if (_independentLevel == null || gradeLevel > _independentLevel!) {
+          _independentLevel = gradeLevel;
+        }
+        break;
+      case ReadingLevel.instructional:
+        _instructionalLevel = gradeLevel;
+        break;
+      case ReadingLevel.frustration:
+        // Lowest grade level at which the student is still frustrated
+        // (the downward search stops once this is confirmed).
+        if (_frustrationLevel == null || gradeLevel < _frustrationLevel!) {
+          _frustrationLevel = gradeLevel;
+        }
+        break;
     }
   }
 
-  /// Same endpoint and fields the app already uses, plus the assessment
-  /// details, so existing progress screens keep working.
-  Future<void> _postPassage(
-    dynamic story,
-    PassageResult result,
-    PassageScore score,
-  ) async {
+  bool _bothBoundariesFound() {
+    return _instructionalLevel != null && _frustrationLevel != null;
+  }
+
+  /// ASSUMPTION TO VERIFY: POSTs the final result to
+  /// /api/student/reading-levels. Adjust to your actual endpoint —
+  /// this mirrors the shape of the /api/student/progress calls already
+  /// used in story_view_screen.dart and quiz_screen.dart.
+  Future<void> _finishAssessment() async {
+    setState(() => _isComplete = true);
+
     try {
-      final response = await http.post(
-        Uri.parse('${widget.baseUrl}/api/student/progress'),
-        headers: const {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': '69420',
+      await http.post(
+        Uri.parse("${widget.baseUrl}/api/student/reading-levels"),
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420",
         },
         body: jsonEncode({
-          'student_id': widget.studentId,
-          'user_id': widget.studentId,
-          'story_id': story['id'] ?? story['_id'],
-          'quiz_score': score.compCorrect,
-          'total_questions': score.compTotal,
-          'oral_fluency_accuracy': score.wrPct,
-          'total_words': score.totalWords,
-          'correct_words': score.correctWords,
-          'time_on_task': score.readingSeconds > 0 ? score.readingSeconds : 1,
-          'wpm': double.parse(score.wordsPerMinute.toStringAsFixed(2)),
-          'struggled_words': score.struggledWords.join(', '),
-          'test_type': widget.testType,
-          'set_letter': widget.setLetter,
-          'assessment_grade': result.grade,
-          'wr_level': result.wrLevel.name,
-          'comp_level': result.compLevel.name,
-          'passage_level': result.level.name,
+          "student_id": widget.studentId,
+          "test_type": widget.testType,
+          "independent_level": _independentLevel,
+          "instructional_level": _instructionalLevel,
+          "frustration_level": _frustrationLevel,
+          "attempts": _attempts
+              .map(
+                (a) => {
+                  "grade_level": a.gradeLevel,
+                  "word_reading_pct": a.score.wrPct,
+                  "comprehension_pct": a.score.compPct,
+                  "classification": a.score.levelLabel,
+                },
+              )
+              .toList(),
         }),
       );
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        _saveWarning = true;
-      }
     } catch (e) {
-      debugPrint('Assessment progress save error: $e');
-      _saveWarning = true;
-    }
-  }
-
-  Future<void> _finish() async {
-    final session = _session!;
-    final outcome = session.outcome;
-    try {
-      final response = await http.post(
-        Uri.parse('${widget.baseUrl}/api/student/assessment-outcome'),
-        headers: const {
-          'Content-Type': 'application/json',
-          'ngrok-skip-browser-warning': '69420',
-        },
-        body: jsonEncode({
-          'student_id': widget.studentId,
-          'test_type': widget.testType,
-          'set_letter': widget.setLetter,
-          'start_grade': session.startGrade,
-          'independent_grade': outcome.independentGrade,
-          'instructional_grade': outcome.instructionalGrade,
-          'frustration_grade': outcome.frustrationGrade,
-          'below_range': outcome.belowRange,
-          'above_range': outcome.aboveRange,
-          // Full record as a backup in case any single save above failed.
-          'session': session.toJson(),
-        }),
-      );
-      if (response.statusCode != 200 && response.statusCode != 201) {
-        _saveWarning = true;
-      }
-    } catch (e) {
-      debugPrint('Assessment outcome save error: $e');
-      _saveWarning = true;
-    }
-    if (!mounted) return;
-    setState(() => _phase = _Phase.complete);
-  }
-
-  // ---------------------------------------------------------------- UI
-
-  Widget _card({required List<Widget> children}) {
-    return Container(
-      width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 480),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black, width: 3.5),
-        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(5, 5))],
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, children: children),
-    );
-  }
-
-  Widget _button(String label, VoidCallback onPressed) {
-    return SizedBox(
-      width: double.infinity,
-      height: 50,
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: _yellow,
-          foregroundColor: Colors.black,
-          elevation: 4,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: Colors.black, width: 2.5),
-          ),
-        ),
-        onPressed: onPressed,
-        child: Text(
-          label,
-          style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-        ),
-      ),
-    );
-  }
-
-  Widget _title(String emoji, String text) {
-    return Column(
-      children: [
-        Text(emoji, style: const TextStyle(fontSize: 44)),
-        const SizedBox(height: 10),
-        Text(
-          text,
-          textAlign: TextAlign.center,
-          style: const TextStyle(
-            fontSize: 22,
-            fontWeight: FontWeight.w900,
-            color: Color(0xFF6A3B43),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _body(String text) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 14),
-      child: Text(
-        text,
-        textAlign: TextAlign.center,
-        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-
-  Widget _content() {
-    switch (_phase) {
-      case _Phase.loading:
-      case _Phase.fetching:
-        return _card(
-          children: [
-            const CircularProgressIndicator(color: _maroon),
-            const SizedBox(height: 16),
-            Text(
-              _phase == _Phase.fetching
-                  ? 'Getting your story ready...'
-                  : 'Loading...',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-          ],
-        );
-
-      case _Phase.ready:
-        final number = (_session?.history.length ?? 0) + 1;
-        final first = number == 1;
-        return _card(
-          children: [
-            _title(
-              first ? '📚' : '👏',
-              first ? "Let's start your reading test!" : 'Nice work! Ready for the next story?',
-            ),
-            _body(
-              'Story $number\n\n'
-              'Read the words out loud. Then answer the questions about the story.',
-            ),
-            _button(first ? 'Start' : 'Next Story', _readNextPassage),
-          ],
-        );
-
-      case _Phase.notNeeded:
-        return _card(
-          children: [
-            _title('🌟', "You don't need this test right now"),
-            _body('Your screening score shows you are doing well. Keep reading!'),
-            _button('Back', () => Navigator.pop(context, false)),
-          ],
-        );
-
-      case _Phase.error:
-        return _card(
-          children: [
-            _title('😕', 'Oops!'),
-            _body(_error),
-            _button('Try Again', _readNextPassage),
-            const SizedBox(height: 10),
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('Back'),
-            ),
-          ],
-        );
-
-      case _Phase.complete:
-        return _card(
-          children: [
-            _title('🎉', 'All done!'),
-            _body(
-              'You finished your reading test. '
-              'Your teacher will go over your results with you.',
-            ),
-            if (_saveWarning)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 12),
-                child: Text(
-                  "⚠️ We couldn't save everything. Please tell your teacher.",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 13,
-                    color: Color(0xFF940D0D),
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-            _button('Finish', () => Navigator.pop(context, true)),
-          ],
-        );
+      debugPrint("Error saving reading levels: $e");
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: _background,
-      appBar: AppBar(
-        title: const Text(
-          'Reading Test',
-          style: TextStyle(fontWeight: FontWeight.w900),
-        ),
-        backgroundColor: _maroon,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-      ),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: _content(),
+    if (_isComplete) return _buildResultsScreen();
+
+    if (_errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(title: const Text("Reading Assessment")),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(_errorMessage!, textAlign: TextAlign.center),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: _finishAssessment,
+                  child: const Text("Finish with results so far"),
+                ),
+              ],
+            ),
           ),
         ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(title: const Text("Reading Assessment")),
+      body: Center(
+        child: _isLoadingPassage
+            ? const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 16),
+                  Text("Preparing the next passage..."),
+                ],
+              )
+            : const SizedBox.shrink(),
+      ),
+    );
+  }
+
+  Widget _buildResultsScreen() {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Reading Levels")),
+      body: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _levelTile("Independent", _independentLevel),
+            _levelTile("Instructional", _instructionalLevel),
+            _levelTile("Frustration", _frustrationLevel),
+            const SizedBox(height: 24),
+            const Text(
+              "Attempt history",
+              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _attempts.length,
+                itemBuilder: (context, i) {
+                  final a = _attempts[i];
+                  return ListTile(
+                    title: Text(
+                      "Grade ${a.gradeLevel} — ${a.score.levelLabel}",
+                    ),
+                    subtitle: Text(
+                      "WR: ${a.score.wrPct.toStringAsFixed(1)}%  •  "
+                      "Comp: ${a.score.compPct.toStringAsFixed(1)}%",
+                    ),
+                  );
+                },
+              ),
+            ),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text("Done"),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _levelTile(String label, int? gradeLevel) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Text(
+        "$label: ${gradeLevel != null ? 'Grade $gradeLevel' : 'Not determined'}",
+        style: const TextStyle(fontSize: 16),
       ),
     );
   }
