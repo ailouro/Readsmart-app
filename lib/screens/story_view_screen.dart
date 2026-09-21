@@ -21,13 +21,8 @@ class WordStatus {
   bool isFailed;
   String? audioPath;
   int totalAttempts;
-  // True when this word looks like a character/place name (capitalized
-  // mid-sentence) rather than an actual vocabulary/decoding word. Words
-  // flagged this way are shown to the student like any other, but are
-  // excluded from the oral reading score — mispronouncing an unfamiliar
-  // proper noun isn't a fair test of reading skill, and in a short
-  // passage a single such miss can otherwise swing the whole score.
   bool isProperNoun;
+  String miscueType; 
 
   WordStatus({
     required this.originalWord,
@@ -37,12 +32,10 @@ class WordStatus {
     this.audioPath,
     this.totalAttempts = 0,
     this.isProperNoun = false,
+    this.miscueType = 'none',
   });
 }
 
-// ==============================================================
-// 🛠️ NUMBER NORMALIZATION HELPERS TO FIX AI STT ISSUES
-// ==============================================================
 String _numberToWords(int number) {
   if (number == 0) return "zero";
   if (number < 0) return number.toString();
