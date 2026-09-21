@@ -1246,14 +1246,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
         // DYNAMIC BOTTOM TEXT — differs per portal:
         //  - Student: "Request Account" dialog (existing flow, unchanged)
-        //  - Teacher: teachers self-register, so "Sign Up" -> RegisterScreen
-        //  - Parent: nothing in the backend lets a parent self-register —
-        //    AdminWebController only ever creates parent accounts via admin
-        //    bulk-import, or approveStudentRequest() which explicitly
-        //    REQUIRES an existing parent account to already exist. So no
-        //    "Sign Up" button is shown here; if RegisterScreen actually does
-        //    support a parent role (I haven't seen that file to confirm),
-        //    swap this back to the Sign Up button.
+        //  - Teacher / Parent: both can self-register via RegisterScreen
+        //    (its role dropdown offers Teacher and Parent; the new account
+        //    then has to be verified by email), so both get "Sign Up"
         switch (_loginRole) {
           'student' => Column(
             children: [
@@ -1291,7 +1286,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ],
           ),
-          'teacher' => Row(
+          'teacher' || 'parent' => Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               const Text(
@@ -1331,16 +1326,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
             ],
           ),
-          _ => const Text(
-            "Don't have an account? Ask your child's teacher or the\n"
-            "school admin to set one up for you.",
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.black54,
-              fontWeight: FontWeight.bold,
-              fontSize: 12.5,
-            ),
-          ),
+          _ => const SizedBox.shrink(),
         },
         const SizedBox(height: 50),
       ],
