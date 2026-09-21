@@ -1248,7 +1248,7 @@ class _LoginScreenState extends State<LoginScreen> {
         //  - Student: "Request Account" dialog (existing flow, unchanged)
         //  - Teacher / Parent: both can self-register via RegisterScreen
         //    (its role dropdown offers Teacher and Parent; the new account
-        //    then has to be verified by email), so both get "Sign Up"
+        //    then waits for admin approval), so both get "Sign Up"
         switch (_loginRole) {
           'student' => Column(
             children: [
