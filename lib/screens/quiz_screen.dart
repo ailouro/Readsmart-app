@@ -3,6 +3,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:http/http.dart' as http;
+import '../services/assessment_score.dart';
 
 class QuizScreen extends StatefulWidget {
   final int storyId;
@@ -14,6 +15,10 @@ class QuizScreen extends StatefulWidget {
   final List<String> struggledWords;
   final String testType;
 
+  /// Phil-IRI assessment mode: skip saving and the results dialog, and pop
+  /// with a [PassageScore] so the assessment flow can score the passage.
+  final bool assessmentMode;
+
   const QuizScreen({
     super.key,
     required this.storyId,
@@ -24,6 +29,7 @@ class QuizScreen extends StatefulWidget {
     this.totalWords = 0,
     this.readingTimeSeconds = 120,
     this.struggledWords = const [],
+    this.assessmentMode = false,
   });
 
   @override
@@ -71,6 +77,27 @@ class _QuizScreenState extends State<QuizScreen> {
       debugPrint("Error fetching quiz: $e");
       setState(() => _isLoading = false);
     }
+
+    // Assessment mode: a passage without a quiz is scored on word reading
+    // only, so hand the result back instead of leaving the student stuck.
+    if (widget.assessmentMode && mounted && _questions.isEmpty) {
+      _finishAssessmentPassage();
+    }
+  }
+
+  void _finishAssessmentPassage() {
+    if (!mounted) return;
+    Navigator.pop(
+      context,
+      PassageScore(
+        wrPct: widget.oralAccuracy,
+        totalWords: widget.totalWords,
+        readingSeconds: widget.readingTimeSeconds,
+        struggledWords: widget.struggledWords,
+        compCorrect: _correctCount,
+        compTotal: _questions.length,
+      ),
+    );
   }
 
   void _handleAnswer(int idx, String selectedString, String correctString) {
@@ -97,6 +124,11 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Future<void> _submitQuizData() async {
+    if (widget.assessmentMode) {
+      _finishAssessmentPassage();
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
