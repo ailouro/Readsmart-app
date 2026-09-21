@@ -313,6 +313,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
   Widget _buildFormFields() {
     return Column(
       children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.black, width: 2.5),
+          ),
+          child: const Text(
+            "Fill in your details and choose Teacher or Parent. Use an email you "
+            "can open: we will send a verification link to it, and you must verify "
+            "it before logging in.",
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+          ),
+        ),
+        const SizedBox(height: 20),
+
         _buildComicTextField(
           controller: _firstNameController,
           hintText: "First Name",
