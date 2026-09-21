@@ -22,7 +22,7 @@ class WordStatus {
   String? audioPath;
   int totalAttempts;
   bool isProperNoun;
-  String miscueType; // 'none', 'mispronunciation', or 'omission'[cite: 13]
+  String miscueType; 
 
   WordStatus({
     required this.originalWord,
@@ -32,7 +32,7 @@ class WordStatus {
     this.audioPath,
     this.totalAttempts = 0,
     this.isProperNoun = false,
-    this.miscueType = 'none', //[cite: 13]
+    this.miscueType = 'none', 
   });
 }
 
@@ -306,7 +306,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                 cleanWord: cleaned,
                 isCorrect: state['isCorrect'] == true,
                 isFailed: state['isFailed'] == true,
-                miscueType: state['miscueType'] ?? 'none',[cite: 13]
+                miscueType: state['miscueType'] ?? 'none',
               ),
             );
           }
@@ -357,7 +357,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           .map((w) => {
                 'isCorrect': w.isCorrect,
                 'isFailed': w.isFailed,
-                'miscueType': w.miscueType,[cite: 13]
+                'miscueType': w.miscueType,
               })
           .toList();
       await prefs.setString(key, jsonEncode(allStates));
