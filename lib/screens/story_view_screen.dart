@@ -13,6 +13,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../widgets/story_comic_background.dart';
 import 'package:theapp/screens/quiz_screen.dart';
 import '../services/deepgram_service.dart';
+import '../services/assessment_score.dart';
 
 class WordStatus {
   final String originalWord;
@@ -169,12 +170,18 @@ class StoryViewerScreen extends StatefulWidget {
   final int studentId;
   final String testType;
 
+  /// Phil-IRI assessment mode. The screen does not save progress or mark the
+  /// story as recorded. It pops with a [PassageScore] after the quiz so
+  /// AssessmentFlowScreen can score the passage.
+  final bool assessmentMode;
+
   const StoryViewerScreen({
     super.key,
     required this.story,
     required this.baseUrl,
     this.studentId = 1,
     this.testType = "post_test",
+    this.assessmentMode = false,
   });
 
   @override
@@ -236,6 +243,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   Future<void> _checkIfStoryRecorded() async {
+    if (widget.assessmentMode) return;
     final prefs = await SharedPreferences.getInstance();
     bool recorded =
         prefs.getBool(
@@ -828,7 +836,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           var list = _pageTargetWords[i]!.where((w) => !w.isProperNoun);
           totalWordsCount += list.length;
           failedWordsCount += list
-              .where((w) => w.isFailed && !w.isCorrect)
+              .where(
+                (w) =>
+                    (w.isFailed && !w.isCorrect) ||
+                    // Assessment: a word that was never read is an omission.
+                    (widget.assessmentMode && !w.isCorrect && !w.isFailed),
+              )
               .length;
         } else {
           var rawScripts = allPages[i]['audio_scripts'];
@@ -836,10 +849,13 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               ? rawScripts.join(" ")
               : (rawScripts is String ? rawScripts : "");
           if (pageText.trim().isNotEmpty) {
-            totalWordsCount += pageText
+            final int unseenWords = pageText
                 .split(RegExp(r'\s+'))
                 .where((w) => w.isNotEmpty)
                 .length;
+            totalWordsCount += unseenWords;
+            // Assessment: a page that was skipped entirely was not read.
+            if (widget.assessmentMode) failedWordsCount += unseenWords;
           }
         }
       }
@@ -863,45 +879,74 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         wrLevel = 'Frustration';
       }
 
-      try {
-        await http.post(
-          Uri.parse("${widget.baseUrl}/api/student/progress"),
-          headers: {
-            "Content-Type": "application/json",
-            "ngrok-skip-browser-warning": "69420",
-          },
-          body: jsonEncode({
-            "student_id": widget.studentId,
-            "user_id": widget.studentId,
-            "story_id": widget.story['id'] ?? widget.story['_id'],
-            "quiz_score": 0,
-            "total_questions": 0,
-            "oral_fluency_accuracy": wrPct,
-            "total_words": totalWordsCount,
-            "correct_words": correctWordsCount,
-            "time_on_task": elapsedSeconds > 0 ? elapsedSeconds : 1,
-            "struggled_words": _allFailedWords
-                .map((w) => w.cleanWord)
-                .join(", "),
-            "test_type": widget.testType,
-          }),
-        );
-      } catch (e) {
-        debugPrint("Progress save error: $e");
+      if (!widget.assessmentMode) {
+        try {
+          await http.post(
+            Uri.parse("${widget.baseUrl}/api/student/progress"),
+            headers: {
+              "Content-Type": "application/json",
+              "ngrok-skip-browser-warning": "69420",
+            },
+            body: jsonEncode({
+              "student_id": widget.studentId,
+              "user_id": widget.studentId,
+              "story_id": widget.story['id'] ?? widget.story['_id'],
+              "quiz_score": 0,
+              "total_questions": 0,
+              "oral_fluency_accuracy": wrPct,
+              "total_words": totalWordsCount,
+              "correct_words": correctWordsCount,
+              "time_on_task": elapsedSeconds > 0 ? elapsedSeconds : 1,
+              "struggled_words": _allFailedWords
+                  .map((w) => w.cleanWord)
+                  .join(", "),
+              "test_type": widget.testType,
+            }),
+          );
+        } catch (e) {
+          debugPrint("Progress save error: $e");
+        }
       }
 
       if (_allFailedWords.isNotEmpty) {
         await _notifyTeacherOfFailedWords(_allFailedWords);
       }
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(
-        'story_${widget.story['id'] ?? widget.story['_id']}_reading_completed',
-        true,
-      );
+      if (!widget.assessmentMode) {
+        final prefs = await SharedPreferences.getInstance();
+        await prefs.setBool(
+          'story_${widget.story['id'] ?? widget.story['_id']}_reading_completed',
+          true,
+        );
+      }
       await _clearSavedStoryProgress();
 
       if (!mounted) return;
+
+      // Assessment mode: run the quiz, then hand both scores back to the
+      // assessment flow instead of replacing this screen.
+      if (widget.assessmentMode) {
+        final score = await Navigator.push<PassageScore>(
+          context,
+          MaterialPageRoute(
+            builder: (context) => QuizScreen(
+              testType: widget.testType,
+              storyId: widget.story['id'] ?? widget.story['_id'],
+              studentId: widget.studentId,
+              baseUrl: widget.baseUrl,
+              oralAccuracy: wrPct,
+              totalWords: totalWordsCount,
+              readingTimeSeconds: elapsedSeconds > 0 ? elapsedSeconds : 1,
+              struggledWords: _allFailedWords.map((w) => w.cleanWord).toList(),
+              assessmentMode: true,
+            ),
+          ),
+        );
+        if (!mounted) return;
+        Navigator.pop(context, score);
+        return;
+      }
+
       Navigator.pushReplacement(
         context,
         MaterialPageRoute(
