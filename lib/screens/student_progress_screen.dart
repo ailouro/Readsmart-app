@@ -1,4 +1,4 @@
-﻿import 'dart:convert';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
@@ -154,7 +154,16 @@ class _StudentProgressScreenState extends State<StudentProgressScreen>
               ),
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 8),
+          const Text(
+            "Each bar is one story. Tap a bar to see its score.",
+            style: TextStyle(
+              color: inkSubtext,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 12),
           Expanded(
             child: BarChart(
               BarChartData(
