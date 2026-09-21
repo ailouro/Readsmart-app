@@ -121,7 +121,11 @@ class _LoginScreenState extends State<LoginScreen> {
 
   bool _isLoading = false;
   bool _rememberMe = false;
-  bool _isStudentLogin = true;
+  // Which portal is selected: 'student', 'teacher', or 'parent'. Replaces
+  // the old two-way _isStudentLogin bool now that Teacher and Parent have
+  // their own separate login boxes instead of sharing one "Teacher / Parent"
+  // tab.
+  String _loginRole = 'student';
 
   // --- VARIABLES PARA SA REQUEST ACCOUNT FORM ---
   final _reqFirstNameController = TextEditingController();
@@ -350,30 +354,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 .trim()
                 .toLowerCase();
 
-        // HARANGIN KUNG STUDENT ANG PINILI PERO TEACHER/PARENT ANG ACCOUNT, AND VICE VERSA
-        if (_isStudentLogin && role != 'student') {
+        // Account mismatch: the account's real role must match whichever
+        // portal box (Student / Teacher / Parent) was used to log in.
+        if (role != _loginRole) {
           setState(() => _isLoading = false);
+          const roleLabels = {
+            'student': 'Student',
+            'teacher': 'Teacher',
+            'parent': 'Parent',
+          };
+          final actualLabel = roleLabels[role] ?? 'a different';
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                "Account mismatch! Please use the Teacher/Parent tab.",
+                "Account mismatch! This is a $actualLabel account — please use the $actualLabel tab.",
               ),
-              backgroundColor: Colors.green,
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(30),
-              ),
-              margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
-              duration: const Duration(seconds: 2),
-            ),
-          );
-
-          return;
-        } else if (!_isStudentLogin && role == 'student') {
-          setState(() => _isLoading = false);
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text("Account mismatch! Please use the Student tab."),
               backgroundColor: Colors.green,
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
@@ -980,11 +975,49 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  Widget _buildRoleTab({
+    required String role,
+    required String emoji,
+    required String label,
+    required Color activeColor,
+    required Color activeTextColor,
+  }) {
+    final bool isActive = _loginRole == role;
+    return Expanded(
+      child: GestureDetector(
+        onTap: () {
+          setState(() {
+            _loginRole = role;
+            _loginController.clear();
+            _passwordController.clear();
+          });
+        },
+        child: Container(
+          decoration: BoxDecoration(
+            color: isActive ? activeColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(25),
+          ),
+          child: Center(
+            child: Text(
+              "$emoji $label",
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 13,
+                color: isActive ? activeTextColor : Colors.grey[600],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildFormContent() {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // TABS: Student vs Teacher/Parent
+        // TABS: Student / Teacher / Parent — three separate login boxes,
+        // each routing to the matching backend role check above.
         Container(
           height: 55,
           decoration: BoxDecoration(
@@ -997,67 +1030,26 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
           child: Row(
             children: [
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _isStudentLogin = true;
-                      _loginController.clear();
-                      _passwordController.clear();
-                    });
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: _isStudentLogin
-                          ? const Color(0xFFFDE047)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                    child: Center(
-                      child: Text(
-                        "👨‍🎓 Student",
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                          color: _isStudentLogin
-                              ? Colors.black
-                              : Colors.grey[600],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              _buildRoleTab(
+                role: 'student',
+                emoji: '👨\u200d🎓',
+                label: 'Student',
+                activeColor: const Color(0xFFFDE047),
+                activeTextColor: Colors.black,
               ),
-              Expanded(
-                child: GestureDetector(
-                  onTap: () {
-                    setState(() {
-                      _isStudentLogin = false;
-                      _loginController.clear();
-                      _passwordController.clear();
-                    });
-                  },
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: !_isStudentLogin
-                          ? const Color(0xFF9B0505)
-                          : Colors.transparent,
-                      borderRadius: BorderRadius.circular(25),
-                    ),
-                    child: Center(
-                      child: Text(
-                        "👩‍🏫 Teacher / Parent",
-                        style: TextStyle(
-                          fontWeight: FontWeight.w900,
-                          fontSize: 14,
-                          color: !_isStudentLogin
-                              ? Colors.white
-                              : Colors.grey[600],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
+              _buildRoleTab(
+                role: 'teacher',
+                emoji: '👩\u200d🏫',
+                label: 'Teacher',
+                activeColor: const Color(0xFF9B0505),
+                activeTextColor: Colors.white,
+              ),
+              _buildRoleTab(
+                role: 'parent',
+                emoji: '👪',
+                label: 'Parent',
+                activeColor: const Color(0xFF0F766E),
+                activeTextColor: Colors.white,
               ),
             ],
           ),
@@ -1079,7 +1071,11 @@ class _LoginScreenState extends State<LoginScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _isStudentLogin ? "Student Portal" : "Faculty & Parent Portal",
+                switch (_loginRole) {
+                  'teacher' => "Teacher Portal",
+                  'parent' => "Parent Portal",
+                  _ => "Student Portal",
+                },
                 style: const TextStyle(
                   fontWeight: FontWeight.w900,
                   fontSize: 18,
@@ -1090,7 +1086,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 controller: _loginController,
                 textInputAction: TextInputAction.next,
                 decoration: InputDecoration(
-                  labelText: _isStudentLogin
+                  labelText: _loginRole == 'student'
                       ? "Enter your LRN"
                       : "Email Address",
                   labelStyle: const TextStyle(
@@ -1098,7 +1094,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     color: Colors.black,
                   ),
                   prefixIcon: Icon(
-                    _isStudentLogin
+                    _loginRole == 'student'
                         ? Icons.badge_outlined
                         : Icons.email_outlined,
                     color: const Color(0xFF9B0505),
@@ -1160,34 +1156,54 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
               const SizedBox(height: 12),
-              GestureDetector(
-                onTap: () {
-                  setState(() => _rememberMe = !_rememberMe);
-                },
-                child: Row(
-                  children: [
-                    SizedBox(
-                      height: 24,
-                      width: 24,
-                      child: Checkbox(
-                        activeColor: const Color(0xFF9B0505),
-                        value: _rememberMe,
-                        onChanged: (value) {
-                          setState(() => _rememberMe = value ?? false);
-                        },
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      setState(() => _rememberMe = !_rememberMe);
+                    },
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          height: 24,
+                          width: 24,
+                          child: Checkbox(
+                            activeColor: const Color(0xFF9B0505),
+                            value: _rememberMe,
+                            onChanged: (value) {
+                              setState(() => _rememberMe = value ?? false);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        const Text(
+                          "Remember me",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontSize: 13,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => showForgotPasswordDialog(context),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 4),
+                      child: Text(
+                        "Forgot password?",
+                        style: TextStyle(
+                          color: Color(0xFF9B0505),
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 8),
-                    const Text(
-                      "Remember me",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1228,84 +1244,104 @@ class _LoginScreenState extends State<LoginScreen> {
               ),
         const SizedBox(height: 20),
 
-        // DYNAMIC BOTTOM TEXT (Request Account or Sign up)
-        _isStudentLogin
-            ? Column(
-                children: [
-                  const Text(
-                    "Don't have an account?",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  GestureDetector(
-                    onTap: _showRequestAccountDialog,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFDE047),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: Colors.black, width: 2),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black, offset: Offset(2, 2)),
-                        ],
-                      ),
-                      child: const Text(
-                        "Request Account",
-                        style: TextStyle(
-                          color: Color(0xFF9B0505),
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              )
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Text(
-                    "Don't have an account? ",
-                    style: TextStyle(
-                      color: Colors.black,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RegisterScreen(),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFDE047),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: Colors.black, width: 1.5),
-                      ),
-                      child: const Text(
-                        "Sign Up",
-                        style: TextStyle(
-                          color: Color(0xFF9B0505),
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
+        // DYNAMIC BOTTOM TEXT — differs per portal:
+        //  - Student: "Request Account" dialog (existing flow, unchanged)
+        //  - Teacher: teachers self-register, so "Sign Up" -> RegisterScreen
+        //  - Parent: nothing in the backend lets a parent self-register —
+        //    AdminWebController only ever creates parent accounts via admin
+        //    bulk-import, or approveStudentRequest() which explicitly
+        //    REQUIRES an existing parent account to already exist. So no
+        //    "Sign Up" button is shown here; if RegisterScreen actually does
+        //    support a parent role (I haven't seen that file to confirm),
+        //    swap this back to the Sign Up button.
+        switch (_loginRole) {
+          'student' => Column(
+            children: [
+              const Text(
+                "Don't have an account?",
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
+              const SizedBox(height: 8),
+              GestureDetector(
+                onTap: _showRequestAccountDialog,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFDE047),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.black, width: 2),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black, offset: Offset(2, 2)),
+                    ],
+                  ),
+                  child: const Text(
+                    "Request Account",
+                    style: TextStyle(
+                      color: Color(0xFF9B0505),
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          'teacher' => Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Text(
+                "Don't have an account? ",
+                style: TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const RegisterScreen(),
+                    ),
+                  );
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFDE047),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.black, width: 1.5),
+                  ),
+                  child: const Text(
+                    "Sign Up",
+                    style: TextStyle(
+                      color: Color(0xFF9B0505),
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          _ => const Text(
+            "Don't have an account? Ask your child's teacher or the\n"
+            "school admin to set one up for you.",
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.black54,
+              fontWeight: FontWeight.bold,
+              fontSize: 12.5,
+            ),
+          ),
+        },
         const SizedBox(height: 50),
       ],
     );
