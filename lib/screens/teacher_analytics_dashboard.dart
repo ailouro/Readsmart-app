@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:audioplayers/audioplayers.dart';
 import '../widgets/guide_comic_background.dart';
 
 class TeacherAnalyticsDashboard extends StatefulWidget {
@@ -23,14 +24,13 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
   bool _isLoading = true;
   Map<String, dynamic> _summaryData = {};
   List<dynamic> _mispronunciations = [];
-  // Words the student got wrong once but corrected themselves on a retry.
-  // Kept in its own list (not merged into _mispronunciations) so the
-  // dashboard can render it as a distinct, non-alarming column.
   List<dynamic> _selfCorrections = [];
 
-  // /api/teachers/{id}/dashboard-summary doesn't embed each student's
-  // progress logs either, so mirror the same per-student fetch+cache used
-  // on the teacher dashboard instead of reading student['progress'].
+  // 🔊 Audio player state for playing struggle word recordings
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  String? _currentlyPlayingUrl;
+  bool _isPlayingAudio = false;
+
   final Map<dynamic, Future<List<dynamic>>> _progressCache = {};
 
   Future<List<dynamic>> _fetchStudentProgress(dynamic studentId) {
@@ -58,12 +58,55 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
   void initState() {
     super.initState();
     _fetchDashboardData();
+    _initAudioListeners();
+  }
+
+  void _initAudioListeners() {
+    _audioPlayer.onPlayerComplete.listen((_) {
+      if (mounted) {
+        setState(() {
+          _isPlayingAudio = false;
+          _currentlyPlayingUrl = null;
+        });
+      }
+    });
+  }
+
+  Future<void> _togglePlayStruggleAudio(String audioUrl) async {
+    try {
+      if (_currentlyPlayingUrl == audioUrl && _isPlayingAudio) {
+        await _audioPlayer.stop();
+        if (mounted) {
+          setState(() {
+            _isPlayingAudio = false;
+            _currentlyPlayingUrl = null;
+          });
+        }
+        return;
+      }
+
+      await _audioPlayer.stop();
+      if (mounted) {
+        setState(() {
+          _currentlyPlayingUrl = audioUrl;
+          _isPlayingAudio = true;
+        });
+      }
+      await _audioPlayer.play(UrlSource(audioUrl));
+    } catch (e) {
+      debugPrint("Audio playback error: $e");
+      if (mounted) {
+        setState(() {
+          _isPlayingAudio = false;
+          _currentlyPlayingUrl = null;
+        });
+      }
+    }
   }
 
   Future<void> _fetchDashboardData() async {
     setState(() => _isLoading = true);
     try {
-      // 🛠️ ROBUST ID FETCHING
       int tId = widget.teacherId;
       if (tId <= 0) {
         final prefs = await SharedPreferences.getInstance();
@@ -74,20 +117,16 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
             1;
       }
 
-      // 1. Fetch Class Summary Stats
       final summaryRes = await http.get(
         Uri.parse("${widget.baseUrl}/api/teachers/$tId/dashboard-summary"),
         headers: const {"ngrok-skip-browser-warning": "69420"},
       );
 
-      // 2. Fetch Mispronunciation Logs
       final mispronunciationRes = await http.get(
         Uri.parse("${widget.baseUrl}/api/teachers/$tId/mispronunciations"),
         headers: const {"ngrok-skip-browser-warning": "69420"},
       );
 
-      // 3. Fetch Self-Corrected Word Logs (words the student got right after
-      // a retry — never hurt the score, just useful signal for the teacher)
       final selfCorrectionRes = await http.get(
         Uri.parse("${widget.baseUrl}/api/teachers/$tId/self-corrections"),
         headers: const {"ngrok-skip-browser-warning": "69420"},
@@ -107,7 +146,6 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
         }
 
         setState(() {
-          // 🛠️ PROPER JSON PARSING (Salo ang 'data' wrap kung meron)
           _summaryData = decodedSummary['data'] ?? decodedSummary;
           _mispronunciations =
               decodedMispro['data'] ?? decodedMispro['mispronunciations'] ?? [];
@@ -121,6 +159,12 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
       debugPrint("Error loading teacher analytics: $e");
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   @override
@@ -156,7 +200,6 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Phil-IRI Summary Cards
                       Row(
                         children: [
                           _buildStatCard(
@@ -197,7 +240,6 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Learner Cards
                       if (_summaryData['students'] == null ||
                           (_summaryData['students'] as List).isEmpty)
                         const Text(
@@ -356,12 +398,12 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
             Table(
               border: TableBorder.all(color: Colors.brown, width: 2),
               columnWidths: const {
-                0: FlexColumnWidth(2),
-                1: FlexColumnWidth(1.2), // In-adjust ng onti for tooltip space
-                2: FlexColumnWidth(1),
-                3: FlexColumnWidth(1.2), // In-adjust ng onti for tooltip space
-                4: FlexColumnWidth(2),
-                5: FlexColumnWidth(2),
+                0: FlexColumnWidth(1.8),
+                1: FlexColumnWidth(1.2),
+                2: FlexColumnWidth(1.0),
+                3: FlexColumnWidth(1.2),
+                4: FlexColumnWidth(2.5), // Expanded space for playable Audio Chips
+                5: FlexColumnWidth(1.8),
               },
               children: [
                 TableRow(
@@ -414,7 +456,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                     Padding(
                       padding: EdgeInsets.all(8.0),
                       child: Text(
-                        "Struggled Words",
+                        "Struggled Words & Audio",
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -443,13 +485,6 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                             log['story_id'].toString(),
                       )
                       .toList();
-                  String wordsText = storyWords.isEmpty
-                      ? "None"
-                      : storyWords
-                            .map(
-                              (w) => "${w['word']} (${w['total_attempts']}x)",
-                            )
-                            .join(", ");
 
                   List storySelfCorrections = studentSelfCorrections
                       .where(
@@ -458,6 +493,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                             log['story_id'].toString(),
                       )
                       .toList();
+
                   String selfCorrectedText = storySelfCorrections.isEmpty
                       ? "None"
                       : storySelfCorrections
@@ -466,7 +502,6 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                             )
                             .join(", ");
 
-                  // TOOLTIP LOGIC VARIABLES
                   String wpmValue = log['wpm'] != null
                       ? "${(log['wpm'] as num).round()}"
                       : 'N/A';
@@ -476,7 +511,6 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                   String totalWords = log['total_words']?.toString() ?? '?';
                   String correctWords = log['correct_words']?.toString() ?? '?';
 
-                  // Compute minutes and seconds for display
                   String timeSpentDisplay = '? mins';
                   if (log['time_on_task'] != null) {
                     int seconds =
@@ -500,7 +534,6 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                         ),
                       ),
 
-                      // LEVEL & ACCURACY WITH TOOLTIP
                       Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Row(
@@ -550,7 +583,6 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                         ),
                       ),
 
-                      // WPM WITH TOOLTIP
                       Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Row(
@@ -588,17 +620,91 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                         ),
                       ),
 
+                      // 🔊 PLAYABLE STRUGGLED WORDS CHIPS WITH AUDIO RECORDING & MISCUE BADGES
                       Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          wordsText,
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.red,
-                          ),
-                        ),
+                        padding: const EdgeInsets.all(6.0),
+                        child: storyWords.isEmpty
+                            ? const Text(
+                                "None",
+                                style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.green,
+                                ),
+                              )
+                            : Wrap(
+                                spacing: 4,
+                                runSpacing: 4,
+                                children: storyWords.map((item) {
+                                  final String wordText = item['word'] ?? '';
+                                  final String? audioUrl = item['audio_url'];
+                                  final String miscueType =
+                                      item['miscue_type'] ?? 'mispronunciation';
+                                  final int attempts =
+                                      item['total_attempts'] ?? 3;
+
+                                  final bool isThisPlaying =
+                                      _isPlayingAudio &&
+                                          _currentlyPlayingUrl == audioUrl;
+
+                                  Color chipBg = miscueType == 'omission'
+                                      ? Colors.grey.shade800
+                                      : Colors.red.shade900;
+
+                                  return InkWell(
+                                    onTap: audioUrl != null && audioUrl.isNotEmpty
+                                        ? () => _togglePlayStruggleAudio(audioUrl)
+                                        : null,
+                                    borderRadius: BorderRadius.circular(6),
+                                    child: Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 6,
+                                        vertical: 3,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: chipBg,
+                                        borderRadius: BorderRadius.circular(6),
+                                        border: Border.all(
+                                          color: isThisPlaying
+                                              ? Colors.amberAccent
+                                              : Colors.black,
+                                          width: isThisPlaying ? 2 : 1,
+                                        ),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            miscueType == 'omission'
+                                                ? "$wordText (omitted)"
+                                                : "$wordText (${attempts}x)",
+                                            style: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                          ),
+                                          if (audioUrl != null &&
+                                              audioUrl.isNotEmpty) ...[
+                                            const SizedBox(width: 4),
+                                            Icon(
+                                              isThisPlaying
+                                                  ? Icons.stop_circle
+                                                  : Icons.volume_up,
+                                              color: isThisPlaying
+                                                  ? Colors.amberAccent
+                                                  : Colors.white,
+                                              size: 13,
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
                       ),
+
                       Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Text(
