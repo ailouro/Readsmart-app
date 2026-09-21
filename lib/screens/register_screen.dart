@@ -322,9 +322,8 @@ class _RegisterScreenState extends State<RegisterScreen> {
             border: Border.all(color: Colors.black, width: 2.5),
           ),
           child: const Text(
-            "Fill in your details and choose Teacher or Parent. Use an email you "
-            "can open: we will send a verification link to it, and you must verify "
-            "it before logging in.",
+            "Fill in your details and choose Teacher or Parent. After you sign "
+            "up, the school admin must approve your account before you can log in.",
             style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
           ),
         ),
