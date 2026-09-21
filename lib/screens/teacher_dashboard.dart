@@ -33,25 +33,6 @@ class TeacherDashboard extends StatefulWidget {
 
 class _TeacherDashboardState extends State<TeacherDashboard> {
   int _selectedIndex = 0;
-  // The teacher's own login email, shown under their name. Read from
-  // whichever SharedPreferences key the login flow saved it under;
-  // shown only when found.
-  String? _email;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadEmail();
-  }
-
-  Future<void> _loadEmail() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? found =
-        prefs.getString('email') ?? prefs.getString('user_email');
-    if (mounted && found != null && found.isNotEmpty) {
-      setState(() => _email = found);
-    }
-  }
 
   void _onItemTapped(int index) {
     setState(() {
@@ -229,20 +210,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   ),
                   textAlign: TextAlign.center,
                 ),
-                if (_email != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 2),
-                    child: Text(
-                      _email!,
-                      style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.white70,
-                        fontWeight: FontWeight.w600,
-                      ),
-                      textAlign: TextAlign.center,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
                 const SizedBox(height: 40),
                 _buildDesktopNavItem(
                   icon: Icons.collections_bookmark,
@@ -373,7 +340,6 @@ class _TopHeaderBar extends StatefulWidget {
 class _TopHeaderBarState extends State<_TopHeaderBar> {
   List<Map<String, dynamic>> _classRequests = [];
   bool _isLoadingRequests = false;
-  String? _email;
 
   static const Color maroonTheme = Color(0xFF940D0D);
   static const Color paperColor = Color(0xFFFFF6E4);
@@ -382,16 +348,6 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
   void initState() {
     super.initState();
     _fetchClassRequests();
-    _loadEmail();
-  }
-
-  Future<void> _loadEmail() async {
-    final prefs = await SharedPreferences.getInstance();
-    final String? found =
-        prefs.getString('email') ?? prefs.getString('user_email');
-    if (mounted && found != null && found.isNotEmpty) {
-      setState(() => _email = found);
-    }
   }
 
   int get _teacherIdInt {
@@ -668,16 +624,6 @@ class _TopHeaderBarState extends State<_TopHeaderBar> {
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
-                if (_email != null)
-                  Text(
-                    _email!,
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                  ),
               ],
             ),
           ),
@@ -902,6 +848,7 @@ class _LibraryTabState extends State<_LibraryTab> {
   static const Color accentTheme = Color(0xFFFDE047);
   List<Map<String, dynamic>> _stories = [];
   bool _isLoading = true;
+  String _storySearchQuery = '';
 
   @override
   void initState() {
@@ -1187,20 +1134,81 @@ class _LibraryTabState extends State<_LibraryTab> {
                 ),
               ),
               const SizedBox(height: 30),
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.black, width: 2.5),
+                  boxShadow: const [
+                    BoxShadow(color: Colors.black, offset: Offset(3, 3)),
+                  ],
+                ),
+                child: TextField(
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Colors.black,
+                    fontSize: 14,
+                  ),
+                  decoration: InputDecoration(
+                    hintText: "Search stories by title...",
+                    hintStyle: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      color: Colors.black45,
+                      fontSize: 13,
+                    ),
+                    prefixIcon: const Icon(
+                      Icons.search_rounded,
+                      color: Colors.black,
+                      size: 20,
+                    ),
+                    suffixIcon: _storySearchQuery.isNotEmpty
+                        ? IconButton(
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              color: Colors.black54,
+                              size: 18,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _storySearchQuery = '';
+                              });
+                            },
+                          )
+                        : null,
+                    border: InputBorder.none,
+                    contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      _storySearchQuery = value.trim().toLowerCase();
+                    });
+                  },
+                ),
+              ),
+              const SizedBox(height: 20),
               _buildLibrarySection(
                 title: "📝 PRE-TEST STORIES",
                 stories: _stories
                     .where((s) => _safeString(s['story_type'], 'pre_test') != 'post_test')
+                    .where((s) => _safeString(s['title']).toLowerCase().contains(_storySearchQuery))
                     .toList(),
-                emptyMessage: "No pre-test stories published yet.",
+                emptyMessage: _storySearchQuery.isEmpty
+                    ? "No pre-test stories published yet."
+                    : "No pre-test stories match \"$_storySearchQuery\".",
               ),
               const SizedBox(height: 30),
               _buildLibrarySection(
                 title: "✅ POST-TEST STORIES",
                 stories: _stories
                     .where((s) => _safeString(s['story_type']) == 'post_test')
+                    .where((s) => _safeString(s['title']).toLowerCase().contains(_storySearchQuery))
                     .toList(),
-                emptyMessage: "No post-test stories published yet.",
+                emptyMessage: _storySearchQuery.isEmpty
+                    ? "No post-test stories published yet."
+                    : "No post-test stories match \"$_storySearchQuery\".",
               ),
             ],
           ),
