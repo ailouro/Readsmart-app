@@ -1408,6 +1408,30 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               ],
             ),
             const SizedBox(height: 12),
+            if (!_isStoryAlreadyRecorded) ...[
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.black, width: 2),
+                ),
+                child: Text(
+                  _isListening
+                      ? "Read the words out loud. A word turns green when you say it correctly."
+                      : "Tap the 🔊 button to hear the page, then tap Start Oral Reading "
+                          "and read the words out loud. Each word gets $_maxWordAttempts tries.",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+            ],
             Container(
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(15),
@@ -2159,7 +2183,19 @@ class _ReadingResultsDialogState extends State<_ReadingResultsDialog> {
     _confettiController = ConfettiController(
       duration: const Duration(seconds: 3),
     );
-    _confettiController.play();
+    // Only celebrate with confetti when the result deserves it.
+    if (widget.wrLevel != "Frustration") _confettiController.play();
+  }
+
+  String get _feedbackMessage {
+    switch (widget.wrLevel) {
+      case "Independent":
+        return "Wonderful reading! You read almost every word correctly.";
+      case "Instructional":
+        return "Good job! Keep practicing and you will get even better.";
+      default:
+        return "Nice try! Reading takes practice. Read the story again and practice the words below.";
+    }
   }
 
   @override
@@ -2252,7 +2288,7 @@ class _ReadingResultsDialogState extends State<_ReadingResultsDialog> {
               ),
             ],
           ),
-          content: Column(
+          content: SingleChildScrollView(child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
@@ -2276,6 +2312,16 @@ class _ReadingResultsDialogState extends State<_ReadingResultsDialog> {
                     "${widget.elapsedSeconds ~/ 60}m ${widget.elapsedSeconds % 60}s",
                 sublabel: "Active time spent reading aloud",
                 level: "Independent", // Just to make it green
+              ),
+              const SizedBox(height: 14),
+              Text(
+                _feedbackMessage,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 14,
+                ),
               ),
               const Divider(color: Colors.white24, height: 24),
               if (widget.allFailedWords.isNotEmpty) ...[
@@ -2320,7 +2366,7 @@ class _ReadingResultsDialogState extends State<_ReadingResultsDialog> {
                 ),
               ],
             ],
-          ),
+          )),
           actions: [
             SizedBox(
               width: double.infinity,
