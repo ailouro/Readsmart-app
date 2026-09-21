@@ -68,7 +68,24 @@ class _TeacherReportsScreenState extends State<TeacherReportsScreen> {
                 style: TextStyle(fontSize: 16, color: Colors.grey),
               ),
             )
-          : ListView.builder(
+          : Column(
+              children: [
+                Container(
+          width: double.infinity,
+          margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.blue.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.blue.shade200),
+          ),
+          child: const Text(
+            "Words your students had trouble pronouncing while reading. Each card shows the student, the story and slide, the hard word, and the date.",
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+          ),
+        ),
+                Expanded(
+                  child: ListView.builder(
               padding: const EdgeInsets.all(12),
               itemCount: _mispronunciations.length,
               itemBuilder: (context, index) {
@@ -119,6 +136,9 @@ class _TeacherReportsScreenState extends State<TeacherReportsScreen> {
                   ),
                 );
               },
+            ),
+                ),
+              ],
             ),
     );
   }
