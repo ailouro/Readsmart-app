@@ -211,6 +211,19 @@ class _ProfileSettingsScreenState extends State<ProfileSettingsScreen> {
                 color: Color(0xFF940D0D),
               ),
             ),
+            const SizedBox(height: 16),
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 32),
+              child: Text(
+                "Tap the camera button to choose a new profile picture from your gallery.",
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
           ],
         ),
       ),
