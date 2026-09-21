@@ -22,7 +22,7 @@ class WordStatus {
   String? audioPath;
   int totalAttempts;
   bool isProperNoun;
-  String miscueType; 
+  String miscueType;
 
   WordStatus({
     required this.originalWord,
@@ -32,7 +32,7 @@ class WordStatus {
     this.audioPath,
     this.totalAttempts = 0,
     this.isProperNoun = false,
-    this.miscueType = 'none', 
+    this.miscueType = 'none',
   });
 }
 
@@ -354,11 +354,13 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         } catch (_) {}
       }
       allStates['$pageIdx'] = words
-          .map((w) => {
-                'isCorrect': w.isCorrect,
-                'isFailed': w.isFailed,
-                'miscueType': w.miscueType,
-              })
+          .map(
+            (w) => {
+              'isCorrect': w.isCorrect,
+              'isFailed': w.isFailed,
+              'miscueType': w.miscueType,
+            },
+          )
           .toList();
       await prefs.setString(key, jsonEncode(allStates));
     } catch (_) {}
@@ -477,8 +479,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
 
   void _endActiveReadingSegment() {
     if (_activeSegmentStart != null) {
-      _activeReadingDuration +=
-          DateTime.now().difference(_activeSegmentStart!);
+      _activeReadingDuration += DateTime.now().difference(_activeSegmentStart!);
       _activeSegmentStart = null;
     }
   }
@@ -656,10 +657,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       if (found) {
         _deepgramService.clearAudioBuffer();
 
-        // 🌟 LOG SELF-CORRECTION (Phil-IRI Rule: Table 5)[cite: 10, 13]
+        // Self-correction notification
         if (_currentWordAttempts > 0) {
           _notifyTeacherOfSelfCorrection(
-              currentTarget, _currentWordAttempts + 1);
+            currentTarget,
+            _currentWordAttempts + 1,
+          );
         }
 
         setState(() {
@@ -686,7 +689,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         if (_currentWordAttempts >= _maxWordAttempts) {
           currentTarget.isFailed = true;
           currentTarget.isCorrect = false;
-          currentTarget.miscueType = 'mispronunciation'; // 🌟 MISPRONUNCIATION[cite: 13]
+          currentTarget.miscueType = 'mispronunciation';
           currentTarget.totalAttempts = _currentWordAttempts;
           _currentWordAttempts = 0;
           _currentWordIndex++;
@@ -751,7 +754,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         final w = _targetWords[i];
         if (!w.isCorrect && !w.isFailed) {
           w.isFailed = true;
-          w.miscueType = 'omission'; // 🌟 OMISSION (Inilaktaw)[cite: 13]
+          w.miscueType = 'omission';
           w.totalAttempts = 0;
         }
       }
@@ -868,6 +871,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             "ngrok-skip-browser-warning": "69420",
           },
           body: jsonEncode({
+            "student_id": widget.studentId,
             "user_id": widget.studentId,
             "story_id": widget.story['id'] ?? widget.story['_id'],
             "quiz_score": 0,
@@ -964,6 +968,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       request.headers.addAll({"ngrok-skip-browser-warning": "69420"});
 
       request.fields['student_id'] = widget.studentId.toString();
+      request.fields['user_id'] = widget.studentId.toString();
       request.fields['story_id'] = (widget.story['id'] ?? widget.story['_id'])
           .toString();
 
@@ -974,7 +979,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               'total_attempts': w.totalAttempts > 0
                   ? w.totalAttempts
                   : _maxWordAttempts,
-              'miscue_type': w.miscueType, // 🌟 PASS MISCUE TYPE TO API[cite: 13]
+              'miscue_type': w.miscueType,
               'slide_index': _currentPage,
             },
           )
@@ -982,15 +987,14 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       request.fields['words_json'] = jsonEncode(wordsData);
 
       for (int i = 0; i < failedWords.length; i++) {
-        request.files.add(
-          http.MultipartFile.fromString('words[]', failedWords[i].cleanWord),
-        );
-        request.files.add(
-          http.MultipartFile.fromString(
-            'attempts[]',
-            failedWords[i].totalAttempts.toString(),
-          ),
-        );
+        // Send array values as form fields instead of files so Laravel parses them properly
+        request.fields['words[$i]'] = failedWords[i].cleanWord;
+        request.fields['attempts[$i]'] =
+            (failedWords[i].totalAttempts > 0
+                    ? failedWords[i].totalAttempts
+                    : _maxWordAttempts)
+                .toString();
+        request.fields['miscue_types[$i]'] = failedWords[i].miscueType;
 
         if (failedWords[i].audioPath != null) {
           request.files.add(
@@ -1015,9 +1019,10 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     }
   }
 
-  // 🌟 NEW HELPER METHOD FOR SELF-CORRECTIONS (Phil-IRI)[cite: 10, 13]
   Future<void> _notifyTeacherOfSelfCorrection(
-      WordStatus word, int totalAttempts) async {
+    WordStatus word,
+    int totalAttempts,
+  ) async {
     try {
       final url = Uri.parse("${widget.baseUrl}/api/student-self-corrections");
       await http.post(
@@ -1028,13 +1033,16 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         },
         body: jsonEncode({
           "student_id": widget.studentId,
+          "user_id": widget.studentId,
           "story_id": widget.story['id'] ?? widget.story['_id'],
           "slide_index": _currentPage,
           "word": word.cleanWord,
           "total_attempts": totalAttempts,
         }),
       );
-      debugPrint("Successfully logged self-correction for '${word.cleanWord}'.");
+      debugPrint(
+        "Successfully logged self-correction for '${word.cleanWord}'.",
+      );
     } catch (e) {
       debugPrint("Failed sending self-correction log: $e");
     }
@@ -1246,7 +1254,10 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             if (!_isStoryAlreadyRecorded) ...[
               Container(
                 width: double.infinity,
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(12),
@@ -1256,7 +1267,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                   _isListening
                       ? "Read the words out loud. A word turns green when you say it correctly."
                       : "Tap the 🔊 button to hear the page, then tap Start Oral Reading "
-                          "and read the words out loud. Each word gets $_maxWordAttempts tries.",
+                            "and read the words out loud. Each word gets $_maxWordAttempts tries.",
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 13,
@@ -1380,8 +1391,10 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                           ),
                           onPressed: _isGenerating
                               ? null
-                              : () =>
-                                    _playServerAudio(narrationIndex, cleanBaseUrl),
+                              : () => _playServerAudio(
+                                  narrationIndex,
+                                  cleanBaseUrl,
+                                ),
                         ),
                       ),
                     ],
@@ -1823,144 +1836,145 @@ class _RemediationDialogState extends State<RemediationDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       elevation: 0,
-      child: Container(
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.amberAccent,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: Colors.black, width: 4),
-          boxShadow: const [
-            BoxShadow(color: Colors.black, offset: Offset(6, 6)),
-          ],
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  _isListeningRemediation
-                      ? Icons.mic
-                      : Icons.record_voice_over,
-                  color: Colors.black,
-                  size: 28,
-                ),
-                const SizedBox(width: 12),
-                const Text(
-                  "Let's Practice!",
-                  style: TextStyle(
-                    color: Colors.black,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 22,
-                  ),
-                ),
+      child:
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.amberAccent,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.black, width: 4),
+              boxShadow: const [
+                BoxShadow(color: Colors.black, offset: Offset(6, 6)),
               ],
             ),
-            const SizedBox(height: 16),
-            Text(
-              "Word ${_currentIndex + 1} of ${widget.failedWords.length}",
-              style: const TextStyle(
-                color: Colors.black87,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 24,
-                vertical: 16,
-              ),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.black, width: 3),
-                boxShadow: const [
-                  BoxShadow(color: Colors.black, offset: Offset(3, 3)),
-                ],
-              ),
-              child: Text(
-                currentWord.originalWord,
-                style: const TextStyle(
-                  color: Colors.redAccent,
-                  fontSize: 32,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
               children: [
-                if (_isListeningRemediation)
-                  const Padding(
-                    padding: EdgeInsets.only(right: 8.0),
-                    child: Icon(
-                      Icons.mic,
-                      color: Colors.redAccent,
-                      size: 20,
+                Row(
+                  children: [
+                    Icon(
+                      _isListeningRemediation
+                          ? Icons.mic
+                          : Icons.record_voice_over,
+                      color: Colors.black,
+                      size: 28,
                     ),
-                  ),
-                Flexible(
-                  child: Text(
-                    _statusMessage,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: _isListeningRemediation
-                          ? Colors.redAccent
-                          : Colors.black,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
+                    const SizedBox(width: 12),
+                    const Text(
+                      "Let's Practice!",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 22,
+                      ),
                     ),
-                  ),
-                ),
-              ],
-            ),
-            if (_remediationSpokenText.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                "Heard: \"$_remediationSpokenText\"",
-                style: const TextStyle(
-                  color: Colors.black54,
-                  fontWeight: FontWeight.bold,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
-            if (!_isPlayingAudio)
-              Container(
-                width: double.infinity,
-                height: 50,
-                decoration: BoxDecoration(
-                  boxShadow: const [
-                    BoxShadow(color: Colors.black, offset: Offset(3, 3)),
                   ],
-                  borderRadius: BorderRadius.circular(12),
                 ),
-                child: ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.black,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      side: const BorderSide(color: Colors.black, width: 3),
-                    ),
-                    elevation: 0,
+                const SizedBox(height: 16),
+                Text(
+                  "Word ${_currentIndex + 1} of ${widget.failedWords.length}",
+                  style: const TextStyle(
+                    color: Colors.black87,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
                   ),
-                  onPressed: _skipToNextWord,
-                  child: const Text(
-                    "Next Word / Continue",
-                    style: TextStyle(
-                      fontSize: 16,
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 24,
+                    vertical: 16,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.black, width: 3),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black, offset: Offset(3, 3)),
+                    ],
+                  ),
+                  child: Text(
+                    currentWord.originalWord,
+                    style: const TextStyle(
+                      color: Colors.redAccent,
+                      fontSize: 32,
                       fontWeight: FontWeight.w900,
                     ),
                   ),
                 ),
-              ),
-          ],
-        ),
-      ).animate().slideY(
+                const SizedBox(height: 20),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    if (_isListeningRemediation)
+                      const Padding(
+                        padding: EdgeInsets.only(right: 8.0),
+                        child: Icon(
+                          Icons.mic,
+                          color: Colors.redAccent,
+                          size: 20,
+                        ),
+                      ),
+                    Flexible(
+                      child: Text(
+                        _statusMessage,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _isListeningRemediation
+                              ? Colors.redAccent
+                              : Colors.black,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                if (_remediationSpokenText.isNotEmpty) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    "Heard: \"$_remediationSpokenText\"",
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontWeight: FontWeight.bold,
+                      fontStyle: FontStyle.italic,
+                    ),
+                  ),
+                ],
+                const SizedBox(height: 24),
+                if (!_isPlayingAudio)
+                  Container(
+                    width: double.infinity,
+                    height: 50,
+                    decoration: BoxDecoration(
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black, offset: Offset(3, 3)),
+                      ],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        foregroundColor: Colors.black,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          side: const BorderSide(color: Colors.black, width: 3),
+                        ),
+                        elevation: 0,
+                      ),
+                      onPressed: _skipToNextWord,
+                      child: const Text(
+                        "Next Word / Continue",
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ).animate().slideY(
             begin: 1,
             end: 0,
             duration: 400.ms,
@@ -2129,6 +2143,7 @@ class _DefinitionSheetState extends State<_DefinitionSheet> {
     );
   }
 }
+
 class _ReadingResultsDialog extends StatefulWidget {
   final int totalWordsCount;
   final int failedWordsCount;
@@ -2328,8 +2343,10 @@ class _ReadingResultsDialogState extends State<_ReadingResultsDialog> {
                             decoration: BoxDecoration(
                               color: Colors.red[900],
                               borderRadius: BorderRadius.circular(8),
-                              border:
-                                  Border.all(color: Colors.black, width: 1.5),
+                              border: Border.all(
+                                color: Colors.black,
+                                width: 1.5,
+                              ),
                             ),
                             child: Text(
                               word.originalWord,
@@ -2370,11 +2387,11 @@ class _ReadingResultsDialogState extends State<_ReadingResultsDialog> {
             ),
           ],
         ).animate().scaleXY(
-              begin: 0.8,
-              end: 1,
-              duration: 400.ms,
-              curve: Curves.easeOutBack,
-            ),
+          begin: 0.8,
+          end: 1,
+          duration: 400.ms,
+          curve: Curves.easeOutBack,
+        ),
         ConfettiWidget(
           confettiController: _confettiController,
           blastDirectionality: BlastDirectionality.explosive,
