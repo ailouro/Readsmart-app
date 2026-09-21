@@ -8,7 +8,7 @@ import '../services/config.dart';
 import '../widgets/responsive_layout.dart';
 import 'story_view_screen.dart';
 import 'assessment_flow_screen.dart';
-import '../services/stage2_session.dart';
+import '../services/phil_iri_session.dart';
 import '../services/bgm_service.dart';
 
 String _safeString(dynamic value, [String fallback = ""]) {
@@ -146,7 +146,8 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
     if (!hasQuiz) return true;
 
     final progress = story['student_progress'];
-    final bool hasQuizScore = progress != null && progress['quiz_score'] != null;
+    final bool hasQuizScore =
+        progress != null && progress['quiz_score'] != null;
     final bool hasLocalQuizScore =
         prefs?.getInt('story_${story['id']}_${tType}_quiz_score') != null;
     return hasQuizScore || hasLocalQuizScore;
@@ -381,7 +382,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
     final String? saved = prefs?.getString(_assessmentPrefsKey(a));
     if (saved != null) {
       try {
-        final session = Stage2Session.fromJson(
+        final session = PhilIriSession.fromJson(
           Map<String, dynamic>.from(jsonDecode(saved) as Map),
         );
         if (session.isComplete) return 'complete';
@@ -405,7 +406,9 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
     if (studentGrade == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Your grade level is missing. Please tell your teacher."),
+          content: Text(
+            "Your grade level is missing. Please tell your teacher.",
+          ),
           backgroundColor: Colors.black87,
         ),
       );
@@ -808,19 +811,20 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
               .map((a) => _safeString(a['test_type']))
               .toSet();
 
-          final List<Map<String, dynamic>> enriched = _assignedStories.map((
-            story,
-          ) {
-            final tType = _missionTestType(story);
-            final readingDone = _isMissionReadingDone(story, tType, prefs);
-            final fullyDone = _isMissionFullyDone(story, tType, prefs);
-            return {
-              'story': story,
-              'tType': tType,
-              'readingDone': readingDone,
-              'fullyDone': fullyDone,
-            };
-          }).where((e) => !assessedTypes.contains(e['tType'])).toList();
+          final List<Map<String, dynamic>> enriched = _assignedStories
+              .map((story) {
+                final tType = _missionTestType(story);
+                final readingDone = _isMissionReadingDone(story, tType, prefs);
+                final fullyDone = _isMissionFullyDone(story, tType, prefs);
+                return {
+                  'story': story,
+                  'tType': tType,
+                  'readingDone': readingDone,
+                  'fullyDone': fullyDone,
+                };
+              })
+              .where((e) => !assessedTypes.contains(e['tType']))
+              .toList();
 
           final int completedCount =
               enriched.where((e) => e['readingDone'] == true).length +
@@ -989,7 +993,8 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                 ),
               ),
               Expanded(
-                child: (filteredPreEntries.isEmpty &&
+                child:
+                    (filteredPreEntries.isEmpty &&
                         filteredPostEntries.isEmpty &&
                         _assessments.isEmpty)
                     ? Center(
@@ -1032,7 +1037,10 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                               ),
                               child: Row(
                                 children: const [
-                                  Icon(Icons.lock_rounded, color: Colors.black54),
+                                  Icon(
+                                    Icons.lock_rounded,
+                                    color: Colors.black54,
+                                  ),
                                   SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
@@ -1063,7 +1071,6 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
       ),
     );
   }
-
 
   Widget _buildMissionSection(
     String title,
@@ -1117,7 +1124,10 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
             child: const Center(
               child: Text(
                 "No missions here yet.",
-                style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black54),
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black54,
+                ),
               ),
             ),
           )
@@ -1155,7 +1165,9 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
     final pagesCount = (story['pages'] as List?)?.length ?? 0;
 
     // 🛠️ FIXED COVER URL LOGIC HERE
-    String rawCoverPath = _safeString(story['cover_image'] ?? story['thumbnail']);
+    String rawCoverPath = _safeString(
+      story['cover_image'] ?? story['thumbnail'],
+    );
     String coverUrl = "";
     if (rawCoverPath.isNotEmpty) {
       if (rawCoverPath.startsWith('http')) {
@@ -1291,7 +1303,8 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                               (progress['is_reading_completed'] == 1 ||
                                   progress['is_reading_completed'] == true);
                           final bool hasQuizScore =
-                              progress != null && progress['quiz_score'] != null;
+                              progress != null &&
+                              progress['quiz_score'] != null;
                           final bool hasQuiz = story['quiz'] != null;
 
                           bool isLocallyReadingCompleted =
@@ -1308,7 +1321,8 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
 
                           bool readingDone =
                               isReadingCompleted || isLocallyReadingCompleted;
-                          bool quizDone = hasQuizScore || localQuizScore != null;
+                          bool quizDone =
+                              hasQuizScore || localQuizScore != null;
 
                           String label = "";
                           Color badgeColor = Colors.green;
@@ -1345,7 +1359,10 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                               decoration: BoxDecoration(
                                 color: badgeColor,
                                 borderRadius: BorderRadius.circular(12),
-                                border: Border.all(color: Colors.black, width: 2),
+                                border: Border.all(
+                                  color: Colors.black,
+                                  width: 2,
+                                ),
                               ),
                               child: Text(
                                 label,
