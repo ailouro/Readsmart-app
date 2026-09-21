@@ -218,6 +218,7 @@ class _StudentDashboardState extends State<StudentDashboard>
           controller: codeController,
           decoration: InputDecoration(
             labelText: "Enter Secret Code",
+            helperText: "Ask your teacher for the secret code.",
             labelStyle: const TextStyle(
               fontWeight: FontWeight.bold,
               color: Colors.black,
@@ -559,6 +560,27 @@ class _StudentDashboardState extends State<StudentDashboard>
 
   // Shared na content ng "Your Missions" — ginagamit ng mobile AT desktop
   // layout, kaya iisa lang ang pinagmumulan ng UI (walang duplicate/black box).
+  // Short "how to use this screen" note shown near the top of a section.
+  Widget _buildInstructionNote(String text) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black, width: 2),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 13,
+          fontWeight: FontWeight.bold,
+          color: Colors.black87,
+        ),
+      ),
+    );
+  }
+
   Widget _buildMissionsSection() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -566,6 +588,11 @@ class _StudentDashboardState extends State<StudentDashboard>
         _buildHeaderBanner(),
         const SizedBox(height: 25),
         _buildSectionTitle("🚀 YOUR MISSIONS"),
+        const SizedBox(height: 10),
+        _buildInstructionNote(
+          "Tap your class below to open its stories. To join a new class, "
+          "tap UNLOCK MISSION and type the secret code from your teacher.",
+        ),
         const SizedBox(height: 15),
         if (_isLoading)
           const Center(
