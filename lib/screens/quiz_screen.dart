@@ -151,6 +151,49 @@ class _QuizScreenState extends State<QuizScreen> {
 
   void _showCompletionDialog(int correctCount, String level) {
     if (!mounted) return;
+
+    final int total = _questions.length;
+    final double ratio = total > 0 ? correctCount / total : 0.0;
+    final String levelLower = level.toLowerCase();
+    final bool saveFailed =
+        levelLower.contains('offline') || levelLower.contains('error');
+
+    // Pick the tone of the feedback (2 = great, 1 = good, 0 = needs practice).
+    // Prefer the reading level computed by the server; fall back to the quiz
+    // score when the level is unknown. A low quiz score never gets "great".
+    int tier;
+    if (levelLower.contains('independent')) {
+      tier = 2;
+    } else if (levelLower.contains('instructional')) {
+      tier = 1;
+    } else if (levelLower.contains('frustration')) {
+      tier = 0;
+    } else {
+      tier = ratio >= 0.8 ? 2 : (ratio >= 0.5 ? 1 : 0);
+    }
+    if (ratio < 0.5 && tier > 1) tier = 1;
+
+    final String title = tier == 2
+        ? "🎉 Great job!"
+        : tier == 1
+            ? "👍 Good work!"
+            : "💪 Keep practicing!";
+    final String message = tier == 2
+        ? "You read and answered the questions really well. Keep it up!"
+        : tier == 1
+            ? "You're getting there! Read the story again and practice the tricky words to get even better."
+            : "This one was a little hard, and that's okay. Try reading the story again slowly and practice the words you found tricky. You can do it!";
+    final Color levelColor = tier == 2
+        ? const Color(0xFF8BCA84)
+        : tier == 1
+            ? const Color(0xFFFDE047)
+            : const Color(0xFFFC9272);
+    final List<String> wordsToPractice = widget.struggledWords
+        .where((w) => w.trim().isNotEmpty)
+        .take(5)
+        .toList();
+    final bool showLevel = !saveFailed && levelLower != 'evaluated';
+
     showDialog(
       context: context,
       barrierDismissible: false,
@@ -159,41 +202,67 @@ class _QuizScreenState extends State<QuizScreen> {
           borderRadius: BorderRadius.circular(20),
           side: const BorderSide(color: Colors.black, width: 3),
         ),
-        title: const Text(
-          "🎉 Mission Accomplished!",
-          style: TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF6A3B43)),
+        title: Text(
+          title,
+          style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF6A3B43)),
           textAlign: TextAlign.center,
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              "Score: $correctCount / ${_questions.length}",
-              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              "Accuracy: ${widget.oralAccuracy.toStringAsFixed(1)}%",
-              style: const TextStyle(fontSize: 16),
-            ),
-            Text(
-              "Speed: ${_wordsPerMinute.round()} WPM",
-              style: const TextStyle(fontSize: 16),
-            ),
-            const SizedBox(height: 15),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFFDCA9F5),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: Colors.black, width: 2),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                "Score: $correctCount / $total",
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               ),
-              child: Text(
-                "Level: ${level.toUpperCase()}",
-                style: const TextStyle(fontWeight: FontWeight.w900),
+              const SizedBox(height: 10),
+              Text(
+                "Accuracy: ${widget.oralAccuracy.toStringAsFixed(1)}%",
+                style: const TextStyle(fontSize: 16),
               ),
-            ),
-          ],
+              Text(
+                "Speed: ${_wordsPerMinute.round()} WPM",
+                style: const TextStyle(fontSize: 16),
+              ),
+              const SizedBox(height: 15),
+              Text(
+                message,
+                textAlign: TextAlign.center,
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+              ),
+              if (wordsToPractice.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Text(
+                  "Words to practice: ${wordsToPractice.join(', ')}",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 14, color: Colors.black54, fontWeight: FontWeight.bold),
+                ),
+              ],
+              if (saveFailed) ...[
+                const SizedBox(height: 10),
+                const Text(
+                  "⚠️ We couldn't save your results. Please tell your teacher.",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Color(0xFF940D0D), fontWeight: FontWeight.bold),
+                ),
+              ],
+              if (showLevel) ...[
+                const SizedBox(height: 15),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: levelColor,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: Colors.black, width: 2),
+                  ),
+                  child: Text(
+                    "Level: ${level.toUpperCase()}",
+                    style: const TextStyle(fontWeight: FontWeight.w900),
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
         actionsAlignment: MainAxisAlignment.center,
         actions: [
@@ -209,7 +278,10 @@ class _QuizScreenState extends State<QuizScreen> {
               Navigator.pop(context);
               Navigator.pop(context);
             },
-            child: const Text("Awesome!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+            child: Text(
+              tier == 2 ? "Awesome!" : "Continue",
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+            ),
           ),
         ],
       ),
@@ -282,10 +354,29 @@ class _QuizScreenState extends State<QuizScreen> {
     List<dynamic> options = question['options'] ?? [];
     String correctString = question['correct_answer'] ?? "";
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+    return Center(
+      child: SingleChildScrollView(
+        child: Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Instructions
+        Container(
+          margin: const EdgeInsets.only(top: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.black, width: 2),
+          ),
+          child: const Text(
+            "Read each question, then tap the answer you think is correct. "
+            "Green means correct and red means not quite.",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF2C246E)),
+          ),
+        ),
+
         // Progress indicator
         Container(
           margin: const EdgeInsets.only(bottom: 20, top: 10),
@@ -389,7 +480,29 @@ class _QuizScreenState extends State<QuizScreen> {
 
           return optBtn.animate(key: ValueKey("${_currentQuestionIndex}_$optIdx"), delay: (100 * optIdx).ms).fadeIn(duration: 300.ms).slideX(begin: 0.2, end: 0);
         }),
+
+        // Feedback right after answering
+        if (_isAnswered)
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.black, width: 2),
+            ),
+            child: Text(
+              (_selectedOptionIndex != null &&
+                      options[_selectedOptionIndex!].toString() == correctString)
+                  ? "✅ Correct! Well done."
+                  : "❌ Not quite. The correct answer is: $correctString",
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF2C246E)),
+            ),
+          ),
       ],
+        ),
+      ),
     );
   }
 }
