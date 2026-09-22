@@ -8,6 +8,10 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 
+// Tiyaking tama ang file path ng iyong QuizEditorScreen import.
+// Palitan ito kung iba ang pangalan ng iyong file.
+import 'quiz_editor_screen.dart';
+
 class StoryEditorScreen extends StatefulWidget {
   final dynamic story;
   final String baseUrl;
@@ -31,14 +35,10 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   // Uri ng kuwento ('pre_test' o 'post_test')
   String _storyType = 'pre_test';
 
-  // Grade level ng kuwento (Phil-IRI graded passages: 'Grade 2' hanggang
-  // 'Grade 7') -- null hanggang piliin mismo ng guro; hindi ito dapat
-  // basta-basta i-default.
+  // Grade level ng kuwento
   String? _gradeLevel;
 
-  // Passage Set ng kuwento ('Set A' hanggang 'Set D') -- null hanggang
-  // piliin ng guro. Kailangan ito para tugma sa Set na pipiliin ng guro
-  // sa assign-assessment step (Phil-IRI uses 4 parallel passage sets).
+  // Passage Set ng kuwento ('Set A' hanggang 'Set D')
   String? _setLetter;
 
   static const List<String> _availableGrades = [
@@ -68,7 +68,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     super.initState();
     _pages = List.from(widget.story['pages'] ?? []);
 
-    // Kunan ang story_type mula sa na-pass na story object, default sa 'pre_test' kapag wala
     final rawType = widget.story['story_type']?.toString();
     if (rawType != null && rawType.isNotEmpty) {
       _storyType = rawType;
@@ -76,14 +75,9 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
       _storyType = 'pre_test';
     }
 
-    // Kunan ang grade_level mula sa na-pass na story object -- iwanang
-    // null (walang naka-select na pill) kapag wala pang itinakda ang guro,
-    // sa halip na basta i-assume na 'Grade 5'.
     final rawGrade = widget.story['grade_level']?.toString();
     _gradeLevel = (rawGrade != null && rawGrade.isNotEmpty) ? rawGrade : null;
 
-    // Kunan ang set_letter mula sa na-pass na story object, kagaya ng
-    // grade_level -- null hanggang piliin ng guro.
     final rawSet = widget.story['set_letter']?.toString();
     _setLetter = (rawSet != null && rawSet.isNotEmpty) ? rawSet : null;
 
@@ -175,12 +169,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     }
   }
 
-  // Function para i-update ang story_type at/o grade_level sa backend.
-  // NOTE: dating tinatawagan nito ang `PUT /api/stories/{id}` na wala palang
-  // naka-register na route sa backend (405 error). Ginawa itong tumugma sa
-  // parehong convention ng `update-script` endpoint (na gumagana) --
-  // `/api/stories/{id}/update-meta` -- kaya kailangan itong idagdag din sa
-  // routes/api.php at StoryController.php sa backend.
   Future<void> _updateStoryMeta({
     String? newType,
     String? newGrade,
@@ -247,7 +235,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         );
       }
     } catch (e) {
-      // I-revert ang UI kapag nabigo ang save sa backend
       setState(() {
         _storyType = previousType;
         _gradeLevel = previousGrade;
@@ -600,7 +587,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     }
   }
 
-  // Widget para sa Story Type selection
   Widget _storyTypeSelector() {
     Widget buildOption(String value, String label, IconData icon) {
       final bool selected = _storyType == value;
@@ -665,10 +651,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     );
   }
 
-  // Widget para sa Grade Level selection (Grade 2 - Grade 7, ang mga grado
-  // na may Phil-IRI graded passage) -- teachers label this themselves, shown
-  // as a badge on the library cover later. Wrap sa halip na Row ng 2 dahil
-  // anim na ngayon ang option.
   Widget _gradeLevelSelector() {
     Widget buildOption(String value) {
       final bool selected = _gradeLevel == value;
@@ -720,10 +702,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     );
   }
 
-  // Widget para sa Passage Set selection (Set A - Set D). Phil-IRI keeps
-  // 4 parallel graded-passage sets per grade so a student never re-reads
-  // the same passage on a retest; the set a teacher picks here is what
-  // must match the Set picked in the assign-assessment step.
   Widget _setLetterSelector() {
     Widget buildOption(String value) {
       final bool selected = _setLetter == value;
@@ -783,13 +761,43 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     super.dispose();
   }
 
+  // WIDGET HELPER PARA SA IMAGE PREVIEW
+  Widget _buildImagePreview(String imageUrl) {
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.contain,
+      width: double.infinity,
+      height: double.infinity,
+      headers: const {"ngrok-skip-browser-warning": "69420"},
+      loadingBuilder: (context, child, loadingProgress) {
+        if (loadingProgress == null) return child;
+        return const Center(
+          child: CircularProgressIndicator(color: Colors.amber),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        debugPrint("Error loading image from: $imageUrl -> $error");
+        return const Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.broken_image_outlined, size: 64, color: Colors.white38),
+            SizedBox(height: 8),
+            Text(
+              "Image preview unavailable",
+              style: TextStyle(color: Colors.white54),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // DESKTOP / LAPTOP LAYOUT (SIDE-BY-SIDE 2 COLUMNS)
   // ---------------------------------------------------------------------------
   Widget _buildDesktopLayout(String cleanBaseUrl, String combinedText) {
     return Row(
       children: [
-        // LEFT COLUMN: SLIDE PREVIEW & NAVIGATION (50% WIDTH)
         Expanded(
           flex: 5,
           child: Container(
@@ -797,7 +805,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
             padding: const EdgeInsets.all(20.0),
             child: Column(
               children: [
-                // 1. QUICK JUMP SLIDE CHIPS (TOP)
                 Container(
                   height: 44,
                   margin: const EdgeInsets.only(bottom: 16),
@@ -832,7 +839,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                   ),
                 ),
 
-                // 2. SLIDE IMAGE & SUBTITLE OVERLAY PREVIEW
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
@@ -860,38 +866,14 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                       itemBuilder: (context, index) {
                         String pageImagePath =
                             _pages[index]['image_path'] ?? "";
-                        String imageUrl =
-                            "$cleanBaseUrl/api/get-image?path=$pageImagePath";
+                        String imageUrl = pageImagePath.startsWith('http')
+                            ? pageImagePath
+                            : "$cleanBaseUrl/api/get-image?path=$pageImagePath";
 
                         return Stack(
                           alignment: Alignment.bottomCenter,
                           children: [
-                            Center(
-                              child: Image.network(
-                                imageUrl,
-                                headers: const {
-                                  "ngrok-skip-browser-warning": "69420",
-                                },
-                                fit: BoxFit.contain,
-                                width: double.infinity,
-                                height: double.infinity,
-                                errorBuilder: (c, o, s) => Column(
-                                  mainAxisAlignment: MainAxisAlignment.center,
-                                  children: const [
-                                    Icon(
-                                      Icons.image_not_supported_outlined,
-                                      color: Colors.white38,
-                                      size: 64,
-                                    ),
-                                    SizedBox(height: 8),
-                                    Text(
-                                      "Image preview unavailable",
-                                      style: TextStyle(color: Colors.white38),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
+                            Center(child: _buildImagePreview(imageUrl)),
                             if (combinedText.isNotEmpty)
                               Container(
                                 width: double.infinity,
@@ -927,7 +909,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
 
                 const SizedBox(height: 16),
 
-                // 3. PREVIOUS / NEXT SLIDE NAVIGATION BAR
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
@@ -979,10 +960,8 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
           ),
         ),
 
-        // DIVIDER
         Container(width: 1, color: Colors.grey[800]),
 
-        // RIGHT COLUMN: EDITING & CONTROL PANEL (50% WIDTH)
         Expanded(
           flex: 5,
           child: Container(
@@ -992,7 +971,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // SECTION TITLE
                   Row(
                     children: [
                       const Icon(
@@ -1013,7 +991,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                   ),
                   const SizedBox(height: 20),
 
-                  // STORY TYPE SELECTOR CARD
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -1035,7 +1012,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
 
                   const SizedBox(height: 20),
 
-                  // SCRIPT & TEXT EDITING CARD
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
@@ -1082,7 +1058,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                         ),
                         const SizedBox(height: 12),
 
-                        // DYNAMIC SCRIPT FIELDS LIST
                         ListView.builder(
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
@@ -1152,7 +1127,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
 
                   const SizedBox(height: 24),
 
-                  // ACTIONS CARD (PLAY / SAVE / CREATE VOICE)
                   Column(
                     children: [
                       SizedBox(
@@ -1278,7 +1252,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   Widget _buildMobileLayout(String cleanBaseUrl, String combinedText) {
     return Column(
       children: [
-        // 1. TOP SLIDE NAVIGATION CONTROLS
         Container(
           color: Colors.black,
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
@@ -1311,7 +1284,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
           ),
         ),
 
-        // 2. QUICK JUMP SLIDE CHIPS
         Container(
           height: 48,
           color: Colors.grey[850],
@@ -1348,7 +1320,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
           ),
         ),
 
-        // 3. SLIDE IMAGE & SUBTITLE PREVIEW AREA
         Expanded(
           flex: 2,
           child: PageView.builder(
@@ -1370,23 +1341,14 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
             },
             itemBuilder: (context, index) {
               String pageImagePath = _pages[index]['image_path'] ?? "";
-              String imageUrl =
-                  "$cleanBaseUrl/api/get-image?path=$pageImagePath";
+              String imageUrl = pageImagePath.startsWith('http')
+                  ? pageImagePath
+                  : "$cleanBaseUrl/api/get-image?path=$pageImagePath";
 
               return Stack(
                 alignment: Alignment.bottomCenter,
                 children: [
-                  Image.network(
-                    imageUrl,
-                    headers: const {"ngrok-skip-browser-warning": "69420"},
-                    fit: BoxFit.contain,
-                    width: double.infinity,
-                    errorBuilder: (c, o, s) => const Icon(
-                      Icons.broken_image,
-                      color: Colors.white,
-                      size: 50,
-                    ),
-                  ),
+                  _buildImagePreview(imageUrl),
                   if (combinedText.isNotEmpty)
                     Container(
                       width: double.infinity,
@@ -1418,7 +1380,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
           ),
         ),
 
-        // 4. BOTTOM EDITING CONTROLS
         Expanded(
           flex: 3,
           child: Container(
@@ -1629,6 +1590,37 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
             Navigator.pop(context, true);
           },
         ),
+        // BAGONG DAGDAG: Edit Quiz Button sa kanang itaas
+        actions: [
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              vertical: 8.0,
+              horizontal: 12.0,
+            ),
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.amberAccent,
+                foregroundColor: Colors.black,
+              ),
+              icon: const Icon(Icons.quiz_rounded, size: 18),
+              label: const Text(
+                "Edit Quiz",
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => QuizEditorScreen(
+                      story: widget.story,
+                      baseUrl: widget.baseUrl,
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
       body: _pages.isEmpty
           ? const Center(
@@ -1639,7 +1631,6 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
             )
           : LayoutBuilder(
               builder: (context, constraints) {
-                // Pinapagana ang side-by-side layout kapag nasa laptop/desktop width (850px at pataas)
                 if (constraints.maxWidth >= 850) {
                   return _buildDesktopLayout(cleanBaseUrl, combinedText);
                 } else {
