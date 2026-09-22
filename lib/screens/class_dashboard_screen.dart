@@ -1020,7 +1020,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
           testType: _safeString(a['test_type']),
           setLetter: _safeString(a['set_letter']),
           gstRaw: _toInt(a['gst_raw']),
-          postTestStartGrade: _toInt(a['start_grade']),
+          directStartGrade: _toInt(a['start_grade']),
         ),
       ),
     );

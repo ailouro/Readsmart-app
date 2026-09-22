@@ -34,8 +34,13 @@ class AssessmentFlowScreen extends StatefulWidget {
   /// English GST raw score (0-20). Needed for the pre-test.
   final int? gstRaw;
 
-  /// Starting grade for the post-test (the manual does not set one).
-  final int? postTestStartGrade;
+  /// Starting grade the caller already knows, bypassing per-session
+  /// computation. Always required for post-test (the manual sets no rule
+  /// for where one starts). For pre-test, it's only a fallback — used
+  /// exactly when [gstRaw] is null, i.e. an assignment path that skips GST
+  /// by design (the Stories tab's class-wide random Set assignment, which
+  /// sets the student's assessment start_grade directly).
+  final int? directStartGrade;
 
   const AssessmentFlowScreen({
     super.key,
@@ -45,7 +50,7 @@ class AssessmentFlowScreen extends StatefulWidget {
     required this.testType,
     required this.setLetter,
     this.gstRaw,
-    this.postTestStartGrade,
+    this.directStartGrade,
   });
 
   @override
@@ -90,25 +95,39 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
     if (_session == null) {
       if (widget.testType == 'pre_test') {
         final gst = widget.gstRaw;
-        if (gst == null) {
-          _fail(
-            'The teacher has not entered your screening score yet. '
-            'Please tell your teacher.',
+        if (gst != null) {
+          _session = PhilIriSession.forPreTest(
+            studentId: widget.studentId,
+            studentGrade: widget.studentGrade,
+            gstRaw: gst,
+            setLetter: widget.setLetter,
           );
-          return;
-        }
-        _session = PhilIriSession.forPreTest(
-          studentId: widget.studentId,
-          studentGrade: widget.studentGrade,
-          gstRaw: gst,
-          setLetter: widget.setLetter,
-        );
-        if (_session == null) {
-          if (mounted) setState(() => _phase = _Phase.notNeeded);
-          return;
+          if (_session == null) {
+            if (mounted) setState(() => _phase = _Phase.notNeeded);
+            return;
+          }
+        } else {
+          // No GST for this student — expected for the Stories tab's
+          // shuffle-assigned pre-tests, which set start_grade directly and
+          // deliberately leave gst_raw unset. Only genuinely missing data
+          // (neither one set) is still an error.
+          final direct = widget.directStartGrade;
+          if (direct == null) {
+            _fail(
+              'The teacher has not entered your screening score yet. '
+              'Please tell your teacher.',
+            );
+            return;
+          }
+          _session = PhilIriSession.forPreTestAtGrade(
+            studentId: widget.studentId,
+            studentGrade: widget.studentGrade,
+            setLetter: widget.setLetter,
+            startGrade: direct,
+          );
         }
       } else {
-        final start = widget.postTestStartGrade;
+        final start = widget.directStartGrade;
         if (start == null) {
           _fail('This test is not ready yet. Please tell your teacher.');
           return;

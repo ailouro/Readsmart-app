@@ -148,6 +148,32 @@ class PhilIriSession {
     );
   }
 
+  /// Pre-test with the starting grade given directly instead of computed
+  /// from a GST score — used when a class-wide assignment (the Stories
+  /// tab's shuffle assign) sets every student to start at the class grade
+  /// with no individual GST on file. Unlike [forPreTest], this never
+  /// returns null: there is no GST score here to trigger the "no further
+  /// testing needed" rule, so the session always starts.
+  static PhilIriSession forPreTestAtGrade({
+    required int studentId,
+    required int studentGrade,
+    required String setLetter,
+    required int startGrade,
+    LevelRule rule = LevelRule.lowerOfBoth,
+  }) {
+    return PhilIriSession._(
+      studentId: studentId,
+      studentGrade: studentGrade,
+      testType: 'pre_test',
+      setLetter: setLetter,
+      startGrade: math.max(
+        PhilIriRules.minGrade,
+        math.min(PhilIriRules.maxGrade, startGrade),
+      ),
+      rule: rule,
+    );
+  }
+
   /// Post-test. The manual only says to identify the three levels again, so
   /// the starting grade is a parameter. Reusing the pre-test start grade is
   /// the simplest choice; confirm what your teachers want.
