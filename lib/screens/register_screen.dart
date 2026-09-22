@@ -17,7 +17,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
 
-  String _selectedRole = 'teacher';
+  // Hardcoded to teacher since parents and students are managed by school admin
+  final String _selectedRole = 'teacher';
+  bool _acceptedPrivacy = false;
   bool _isLoading = false;
 
   // Which required fields failed validation on the last submit attempt —
@@ -33,6 +35,70 @@ class _RegisterScreenState extends State<RegisterScreen> {
   // Above this width we switch from the stacked mobile layout to the
   // split-screen desktop layout.
   static const double _desktopBreakpoint = 900;
+
+  @override
+  void dispose() {
+    _firstNameController.dispose();
+    _lastNameController.dispose();
+    _loginController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  // DPA 2012 Modal Dialog
+  void _showPrivacyPolicyDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: const BorderSide(color: Colors.black, width: 3.5),
+        ),
+        title: const Text(
+          "Teacher Data Privacy Notice (RA 10173) 🔒",
+          style: TextStyle(fontWeight: FontWeight.w900, color: primaryColor),
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text(
+                "In compliance with the Philippine Data Privacy Act of 2012 (RA 10173), ReadSmart collects and processes teacher account details (Name, Email, Account Logs) solely for system administrative and reading analytics management.",
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+              ),
+              SizedBox(height: 10),
+              Text(
+                "• Your data will not be shared with third parties without authorized consent.",
+              ),
+              Text(
+                "• You maintain the right to access and update your account details through the school administrator.",
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+                side: const BorderSide(color: Colors.black, width: 2),
+              ),
+            ),
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text(
+              "I Understand",
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   Future<void> _register() async {
     final Set<String> errors = {};
@@ -57,6 +123,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text("Passwords do not match!")));
+      return;
+    }
+
+    if (!_acceptedPrivacy) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Please read and accept the Data Privacy Policy to proceed.",
+          ),
+          backgroundColor: Colors.red,
+        ),
+      );
       return;
     }
 
@@ -91,15 +169,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       if (response.statusCode == 200 || response.statusCode == 201) {
         if (!mounted) return;
 
-        String successMsg = _selectedRole == 'student'
-            ? "Account created successfully! You may now login."
-            : "Account created! A verification link was sent to your email. Please verify it before logging in.";
-
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(successMsg),
+          const SnackBar(
+            content: Text(
+              "Account created! A verification link was sent to your email. Please verify it before logging in.",
+            ),
             backgroundColor: Colors.green,
-            duration: const Duration(seconds: 4),
+            duration: Duration(seconds: 4),
           ),
         );
         Navigator.pop(context);
@@ -243,7 +319,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 5),
         Text(
-          "Join ReadSmart today!",
+          "Teacher Registration Portal",
           style: TextStyle(
             color: taglineColor,
             fontSize: 16,
@@ -274,42 +350,6 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Widget _buildRoleDropdown() {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.black, width: 3.5),
-        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 4),
-      child: DropdownButtonFormField<String>(
-        value: _selectedRole,
-        icon: const Icon(Icons.arrow_drop_down, color: Colors.black, size: 32),
-        dropdownColor: Colors.white,
-        style: const TextStyle(
-          color: Colors.black,
-          fontWeight: FontWeight.bold,
-          fontSize: 16,
-        ),
-        decoration: const InputDecoration(
-          prefixIcon: Icon(Icons.school_outlined, color: Colors.black),
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.symmetric(vertical: 16),
-        ),
-        items: const [
-          DropdownMenuItem(value: 'teacher', child: Text("Teacher")),
-          DropdownMenuItem(value: 'parent', child: Text("Parent")),
-        ],
-        onChanged: (value) {
-          if (value != null) {
-            setState(() => _selectedRole = value);
-          }
-        },
-      ),
-    );
-  }
-
   Widget _buildFormFields() {
     return Column(
       children: [
@@ -322,9 +362,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
             border: Border.all(color: Colors.black, width: 2.5),
           ),
           child: const Text(
-            "Fill in your details and choose Teacher or Parent. After you sign "
-            "up, the school admin must approve your account before you can log in.",
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black87),
+            "Teacher Registration Portal: Fill in your details below. After signing up, the school administrator must approve your account before you can log in.",
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.bold,
+              color: Colors.black87,
+            ),
           ),
         ),
         const SizedBox(height: 20),
@@ -347,13 +390,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
 
         _buildComicTextField(
           controller: _loginController,
-          hintText: "Email or LRN",
+          hintText: "Email Address",
           icon: Icons.email_outlined,
           fieldKey: 'login',
         ),
-        const SizedBox(height: 20),
-
-        _buildRoleDropdown(),
         const SizedBox(height: 20),
 
         _buildComicTextField(
@@ -371,6 +411,49 @@ class _RegisterScreenState extends State<RegisterScreen> {
           icon: Icons.lock_reset_outlined,
           isPassword: true,
           fieldKey: 'confirmPassword',
+        ),
+        const SizedBox(height: 16),
+
+        // DPA 2012 Agreement Checkbox
+        Row(
+          children: [
+            SizedBox(
+              height: 24,
+              width: 24,
+              child: Checkbox(
+                activeColor: primaryColor,
+                value: _acceptedPrivacy,
+                onChanged: (val) =>
+                    setState(() => _acceptedPrivacy = val ?? false),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _showPrivacyPolicyDialog(context),
+                child: Text.rich(
+                  TextSpan(
+                    text: "I agree to the ",
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    children: [
+                      TextSpan(
+                        text: "Data Privacy Policy (RA 10173)",
+                        style: TextStyle(
+                          color: primaryColor,
+                          decoration: TextDecoration.underline,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -394,11 +477,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 elevation: 0,
               ).copyWith(elevation: WidgetStateProperty.all(0)),
               child: const Text(
-                "SIGN UP",
+                "REGISTER AS TEACHER",
                 style: TextStyle(
-                  fontSize: 22,
+                  fontSize: 20,
                   fontWeight: FontWeight.w900,
-                  letterSpacing: 2,
+                  letterSpacing: 1.5,
                   shadows: [Shadow(color: Colors.black, offset: Offset(2, 2))],
                 ),
               ),
