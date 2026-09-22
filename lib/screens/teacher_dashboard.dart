@@ -1425,6 +1425,7 @@ class _LibraryTabState extends State<_LibraryTab> {
     }
 
     final String gradeLabel = _safeString(story['grade_level']);
+    final String setLabel = _safeString(story['set_letter']);
 
     return Stack(
       children: [
@@ -1559,6 +1560,28 @@ class _LibraryTabState extends State<_LibraryTab> {
                   ),
                   child: Text(
                     gradeLabel,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              if (gradeLabel.isNotEmpty && setLabel.isNotEmpty)
+                const SizedBox(height: 4),
+              if (setLabel.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1D4ED8),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.black, width: 2),
+                  ),
+                  child: Text(
+                    setLabel,
                     style: const TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
