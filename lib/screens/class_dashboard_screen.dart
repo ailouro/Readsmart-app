@@ -424,32 +424,41 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
       .toUpperCase();
 
   /// Finds this student's existing assessment (any status) for the given
-  /// test_type + set combo, from a raw /assessments list. Used so the
-  /// assign dialog can warn before silently overwriting one.
+  /// test_type, from a raw /assessments list. Used so the assign dialog can
+  /// warn before silently overwriting one.
+  ///
+  /// Matches on test_type ALONE, not test_type + set letter: the backend
+  /// keeps exactly one row per (class, student, test_type) and always
+  /// overwrites that row regardless of which set letter is submitted, so a
+  /// teacher picking a different set for an already-assigned or
+  /// already-completed test would otherwise get no warning at all before
+  /// its saved outcome is erased.
   Map<String, dynamic>? _findMatchingAssessment(
     List<dynamic> all,
     String testType,
-    String setLetter,
   ) {
-    final wantSet = _normalizeSetLetter(setLetter);
     for (final raw in all) {
       if (raw is! Map) continue;
       final a = Map<String, dynamic>.from(raw);
       if (_safeString(a['test_type']) != testType) continue;
-      if (_normalizeSetLetter(_safeString(a['set_letter'])) != wantSet) {
-        continue;
-      }
       return a;
     }
     return null;
   }
 
-  String _describeExistingAssessment(Map<String, dynamic> a) {
+  /// [newSet] is whatever set letter is currently selected in the dialog.
+  /// When it differs from the existing row's set, the message calls that
+  /// out explicitly — the backend keeps one row per test_type, so
+  /// reassigning always switches that row to [newSet], not just refreshes
+  /// the same one.
+  String _describeExistingAssessment(Map<String, dynamic> a, String newSet) {
     final status = _safeString(a['status'], 'assigned');
     final label = _safeString(a['test_type']) == 'pre_test'
         ? 'Pre-Test'
         : 'Post-Test';
     final set = _safeString(a['set_letter']);
+    final switching = _normalizeSetLetter(set) != _normalizeSetLetter(newSet);
+    final switchNote = switching ? ' It will be switched to Set $newSet.' : '';
     if (status == 'completed' || status == 'complete') {
       final parts = <String>[];
       if (a['independent_grade'] != null) {
@@ -464,9 +473,10 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
       if (a['below_range'] == true) parts.add('below range');
       if (a['above_range'] == true) parts.add('above range');
       final detail = parts.isEmpty ? '' : ' (${parts.join(', ')})';
-      return 'Already completed this $label, Set $set$detail.';
+      return 'Already completed this $label, Set $set$detail.$switchNote';
     }
-    return 'Already assigned this $label, Set $set — not yet completed.';
+    return 'Already assigned this $label, Set $set — not yet completed.'
+        '$switchNote';
   }
 
   /// Checks whether a Stage 2 passage already exists for this grade, so the
@@ -739,7 +749,6 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                       final match = _findMatchingAssessment(
                         existingForStudent,
                         selectedTestType,
-                        selectedSet,
                       );
                       if (match == null) return const SizedBox.shrink();
                       return Container(
@@ -754,7 +763,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              _describeExistingAssessment(match),
+                              _describeExistingAssessment(match, selectedSet),
                               style: const TextStyle(
                                 fontSize: 12.5,
                                 fontWeight: FontWeight.w600,
@@ -823,12 +832,15 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                         }
 
                         // #3: don't silently overwrite an existing
-                        // assignment/outcome for this exact test_type + set.
+                        // assignment/outcome for this test_type — the
+                        // backend keeps one row per test_type and always
+                        // overwrites it, regardless of set letter, so this
+                        // has to fire even when selectedSet differs from
+                        // whatever set the existing row is on.
                         final existingMatch = existingLoaded
                             ? _findMatchingAssessment(
                                 existingForStudent,
                                 selectedTestType,
-                                selectedSet,
                               )
                             : null;
                         if (existingMatch != null && !confirmReassign) {
