@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:theapp/screens/story_view_screen.dart';
 import '../services/config.dart';
 import 'login_screen.dart';
 import '../services/bgm_service.dart';
@@ -52,6 +53,36 @@ class _StudentDashboardState extends State<StudentDashboard>
     _fetchMyClasses();
     _loadLrn();
     BgmService().startBgm();
+  }
+
+  List<dynamic> _myLibraryStories = [];
+  bool _isLoadingLibrary = false;
+
+  Future<void> _fetchMyLibrary() async {
+    try {
+      setState(() => _isLoadingLibrary = true);
+      final studentId =
+          await _getStudentId(); // Kunin ang ID ng nakalogin na estudyante
+      if (studentId == null) return;
+
+      final response = await http.get(
+        Uri.parse("$baseUrl/api/student/$studentId/completed-stories"),
+        headers:
+            networkHeaders, // Siguraduhing kasama ang Authorization token kung kinakailangan
+      );
+
+      if (response.statusCode == 200 && mounted) {
+        final decoded = jsonDecode(response.body);
+        setState(() {
+          // Depende sa JSON response mo, kunin ang 'data'
+          _myLibraryStories = decoded['data'] ?? [];
+        });
+      }
+    } catch (e) {
+      debugPrint("Error fetching library: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingLibrary = false);
+    }
   }
 
   Future<void> _loadLrn() async {
@@ -1141,6 +1172,71 @@ class _StudentDashboardState extends State<StudentDashboard>
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildLibrarySection() {
+    if (_isLoadingLibrary) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_myLibraryStories.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Text(
+          "Wala ka pang natatapos na kuwento. Tapusin ang mga missions para mapuno ang iyong Library! 📖",
+          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+        ),
+      );
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: _myLibraryStories.length,
+      itemBuilder: (context, index) {
+        final story = _myLibraryStories[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+            side: const BorderSide(color: Colors.black, width: 2),
+          ),
+          child: ListTile(
+            leading: const Icon(
+              Icons.menu_book_rounded,
+              color: Colors.amber,
+              size: 36,
+            ),
+            title: Text(
+              story['title'] ?? 'Kuwento',
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Text(
+              "Score: ${story['score'] ?? 'N/A'} • Tapos na basahin",
+            ),
+            trailing: const Icon(
+              Icons.play_circle_fill_rounded,
+              color: Colors.green,
+              size: 32,
+            ),
+            onTap: () {
+              // I-open ang StoryViewer para sa re-reading
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => StoryViewerScreen(
+                    story: story,
+                    baseUrl: baseUrl,
+                    studentId: widget.studentId ?? 0,
+                    testType: "practice",
+                  ),
+                ),
+              );
+            },
+          ),
+        );
+      },
     );
   }
 
