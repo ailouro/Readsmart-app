@@ -80,6 +80,27 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
   // two separate sections ("Pre Test" / "Post Test") in the Library tab.
   String _storyType = 'pre_test';
 
+  // Grade level (Grade 2 - Grade 7, the Phil-IRI graded-passage range) and
+  // Passage Set (A-D) -- left null until the teacher picks them; a story
+  // can't be assigned to a student's assessment without both.
+  String? _gradeLevel;
+  String? _setLetter;
+
+  static const List<String> _availableGrades = [
+    'Grade 2',
+    'Grade 3',
+    'Grade 4',
+    'Grade 5',
+    'Grade 6',
+    'Grade 7',
+  ];
+  static const List<String> _availableSets = [
+    'Set A',
+    'Set B',
+    'Set C',
+    'Set D',
+  ];
+
   bool _isUploading = false;
   String _uploadStatus = "";
 
@@ -225,6 +246,15 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
       return;
     }
 
+    if (_gradeLevel == null || _setLetter == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please pick a Grade Level and a Passage Set."),
+        ),
+      );
+      return;
+    }
+
     setState(() {
       _isUploading = true;
       _uploadStatus = "Uploading cover image...";
@@ -260,6 +290,8 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
       request.fields['title'] = _titleController.text.trim();
       request.fields['description'] = _descController.text.trim();
       request.fields['story_type'] = _storyType;
+      request.fields['grade_level'] = _gradeLevel!;
+      request.fields['set_letter'] = _setLetter!;
 
       List<List<String>> allScripts = _slides
           .map((s) => s.scriptsList)
@@ -456,6 +488,8 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
         const SizedBox(height: 15),
         _storyTypeSelector(),
         const SizedBox(height: 15),
+        _gradeAndSetSelector(),
+        const SizedBox(height: 15),
         _descriptionField(),
         const SizedBox(height: 25),
         _coverImageSection(),
@@ -486,6 +520,8 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
                   _titleField(),
                   const SizedBox(height: 15),
                   _storyTypeSelector(),
+                  const SizedBox(height: 15),
+                  _gradeAndSetSelector(),
                   const SizedBox(height: 15),
                   _descriptionField(),
                   const SizedBox(height: 25),
@@ -564,12 +600,51 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
           children: [
             buildOption('pre_test', "Pre Test", Icons.edit_note_rounded),
             const SizedBox(width: 12),
-            buildOption(
-              'post_test',
-              "Post Test",
-              Icons.fact_check_rounded,
-            ),
+            buildOption('post_test', "Post Test", Icons.fact_check_rounded),
           ],
+        ),
+      ],
+    );
+  }
+
+  // Grade Level + Passage Set dropdowns, side by side. Both are required
+  // before a story can be assigned to a student's Phil-IRI assessment.
+  Widget _gradeAndSetSelector() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sectionLabel("Grade Level *"),
+              DropdownButtonFormField<String>(
+                value: _gradeLevel,
+                decoration: _comicInputDecoration("Select grade"),
+                items: _availableGrades
+                    .map((g) => DropdownMenuItem(value: g, child: Text(g)))
+                    .toList(),
+                onChanged: (v) => setState(() => _gradeLevel = v),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _sectionLabel("Passage Set *"),
+              DropdownButtonFormField<String>(
+                value: _setLetter,
+                decoration: _comicInputDecoration("Select set"),
+                items: _availableSets
+                    .map((s) => DropdownMenuItem(value: s, child: Text(s)))
+                    .toList(),
+                onChanged: (v) => setState(() => _setLetter = v),
+              ),
+            ],
+          ),
         ),
       ],
     );

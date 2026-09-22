@@ -31,9 +31,30 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   // Uri ng kuwento ('pre_test' o 'post_test')
   String _storyType = 'pre_test';
 
-  // Grade level ng kuwento ('Grade 5' o 'Grade 6') -- null hanggang piliin
-  // mismo ng guro; hindi ito dapat basta-basta i-default sa 'Grade 5'.
+  // Grade level ng kuwento (Phil-IRI graded passages: 'Grade 2' hanggang
+  // 'Grade 7') -- null hanggang piliin mismo ng guro; hindi ito dapat
+  // basta-basta i-default.
   String? _gradeLevel;
+
+  // Passage Set ng kuwento ('Set A' hanggang 'Set D') -- null hanggang
+  // piliin ng guro. Kailangan ito para tugma sa Set na pipiliin ng guro
+  // sa assign-assessment step (Phil-IRI uses 4 parallel passage sets).
+  String? _setLetter;
+
+  static const List<String> _availableGrades = [
+    'Grade 2',
+    'Grade 3',
+    'Grade 4',
+    'Grade 5',
+    'Grade 6',
+    'Grade 7',
+  ];
+  static const List<String> _availableSets = [
+    'Set A',
+    'Set B',
+    'Set C',
+    'Set D',
+  ];
 
   // Managed list of text editing controllers for separate script segments
   final List<TextEditingController> _scriptControllers = [];
@@ -60,6 +81,11 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     // sa halip na basta i-assume na 'Grade 5'.
     final rawGrade = widget.story['grade_level']?.toString();
     _gradeLevel = (rawGrade != null && rawGrade.isNotEmpty) ? rawGrade : null;
+
+    // Kunan ang set_letter mula sa na-pass na story object, kagaya ng
+    // grade_level -- null hanggang piliin ng guro.
+    final rawSet = widget.story['set_letter']?.toString();
+    _setLetter = (rawSet != null && rawSet.isNotEmpty) ? rawSet : null;
 
     _loadCurrentSlideScript();
 
@@ -155,18 +181,29 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   // parehong convention ng `update-script` endpoint (na gumagana) --
   // `/api/stories/{id}/update-meta` -- kaya kailangan itong idagdag din sa
   // routes/api.php at StoryController.php sa backend.
-  Future<void> _updateStoryMeta({String? newType, String? newGrade}) async {
+  Future<void> _updateStoryMeta({
+    String? newType,
+    String? newGrade,
+    String? newSet,
+  }) async {
     final String effectiveType = newType ?? _storyType;
     final String? effectiveGrade = newGrade ?? _gradeLevel;
+    final String? effectiveSet = newSet ?? _setLetter;
 
-    if (effectiveType == _storyType && effectiveGrade == _gradeLevel) return;
+    if (effectiveType == _storyType &&
+        effectiveGrade == _gradeLevel &&
+        effectiveSet == _setLetter) {
+      return;
+    }
 
     final String previousType = _storyType;
     final String? previousGrade = _gradeLevel;
+    final String? previousSet = _setLetter;
 
     setState(() {
       _storyType = effectiveType;
       _gradeLevel = effectiveGrade;
+      _setLetter = effectiveSet;
     });
 
     try {
@@ -182,32 +219,39 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         body: jsonEncode({
           "story_type": effectiveType,
           "grade_level": effectiveGrade,
+          "set_letter": effectiveSet,
         }),
       );
 
       if (response.statusCode == 200) {
         widget.story['story_type'] = effectiveType;
         widget.story['grade_level'] = effectiveGrade;
+        widget.story['set_letter'] = effectiveSet;
         if (mounted) {
+          final String message;
+          if (newType != null) {
+            message =
+                "Na-update ang Story Type sa ${effectiveType == 'post_test' ? 'Post Test' : 'Pre Test'}! 🎯";
+          } else if (newGrade != null) {
+            message = "Na-update ang Grade Level sa $effectiveGrade! 🎯";
+          } else {
+            message = "Na-update ang Passage Set sa $effectiveSet! 🎯";
+          }
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                newType != null
-                    ? "Na-update ang Story Type sa ${effectiveType == 'post_test' ? 'Post Test' : 'Pre Test'}! 🎯"
-                    : "Na-update ang Grade Level sa $effectiveGrade! 🎯",
-              ),
-              backgroundColor: Colors.green,
-            ),
+            SnackBar(content: Text(message), backgroundColor: Colors.green),
           );
         }
       } else {
-        throw Exception("Failed to update story info. Status: ${response.statusCode}");
+        throw Exception(
+          "Failed to update story info. Status: ${response.statusCode}",
+        );
       }
     } catch (e) {
       // I-revert ang UI kapag nabigo ang save sa backend
       setState(() {
         _storyType = previousType;
         _gradeLevel = previousGrade;
+        _setLetter = previousSet;
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -514,8 +558,8 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
         );
         if (response.statusCode != 200) {
           failedCount++;
-          firstErrorDetail ??=
-              "${response.statusCode}: ${response.body}".trim();
+          firstErrorDetail ??= "${response.statusCode}: ${response.body}"
+              .trim();
         }
       }
 
@@ -621,31 +665,33 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
     );
   }
 
-  // Widget para sa Grade Level selection (Grade 5 / Grade 6) -- teachers
-  // label this themselves, shown as a badge on the library cover later.
+  // Widget para sa Grade Level selection (Grade 2 - Grade 7, ang mga grado
+  // na may Phil-IRI graded passage) -- teachers label this themselves, shown
+  // as a badge on the library cover later. Wrap sa halip na Row ng 2 dahil
+  // anim na ngayon ang option.
   Widget _gradeLevelSelector() {
     Widget buildOption(String value) {
       final bool selected = _gradeLevel == value;
-      return Expanded(
-        child: GestureDetector(
-          onTap: () => _updateStoryMeta(newGrade: value),
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            decoration: BoxDecoration(
-              color: selected ? const Color(0xFFFDE047) : Colors.grey[800],
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: selected ? Colors.amberAccent : Colors.grey[700]!,
-                width: 2,
-              ),
+      return GestureDetector(
+        onTap: () => _updateStoryMeta(newGrade: value),
+        child: Container(
+          width: 84,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFFDE047) : Colors.grey[800],
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? Colors.amberAccent : Colors.grey[700]!,
+              width: 2,
             ),
-            child: Text(
-              value,
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-                color: selected ? Colors.black : Colors.white70,
-              ),
+          ),
+          child: Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              color: selected ? Colors.black : Colors.white70,
             ),
           ),
         ),
@@ -665,12 +711,65 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
           ),
         ),
         const SizedBox(height: 8),
-        Row(
-          children: [
-            buildOption('Grade 5'),
-            const SizedBox(width: 10),
-            buildOption('Grade 6'),
-          ],
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: _availableGrades.map(buildOption).toList(),
+        ),
+      ],
+    );
+  }
+
+  // Widget para sa Passage Set selection (Set A - Set D). Phil-IRI keeps
+  // 4 parallel graded-passage sets per grade so a student never re-reads
+  // the same passage on a retest; the set a teacher picks here is what
+  // must match the Set picked in the assign-assessment step.
+  Widget _setLetterSelector() {
+    Widget buildOption(String value) {
+      final bool selected = _setLetter == value;
+      return GestureDetector(
+        onTap: () => _updateStoryMeta(newSet: value),
+        child: Container(
+          width: 84,
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFFFDE047) : Colors.grey[800],
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: selected ? Colors.amberAccent : Colors.grey[700]!,
+              width: 2,
+            ),
+          ),
+          child: Text(
+            value,
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 12,
+              color: selected ? Colors.black : Colors.white70,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          "PASSAGE SET:",
+          style: TextStyle(
+            color: Colors.amberAccent,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.8,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: _availableSets.map(buildOption).toList(),
         ),
       ],
     );
@@ -843,8 +942,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       ElevatedButton.icon(
-                        onPressed:
-                            _currentPage > 0 ? _goToPreviousSlide : null,
+                        onPressed: _currentPage > 0 ? _goToPreviousSlide : null,
                         icon: const Icon(Icons.arrow_back_ios, size: 14),
                         label: const Text("Previous"),
                         style: ElevatedButton.styleFrom(
@@ -929,6 +1027,8 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                         _storyTypeSelector(),
                         const SizedBox(height: 16),
                         _gradeLevelSelector(),
+                        const SizedBox(height: 16),
+                        _setLetterSelector(),
                       ],
                     ),
                   ),
@@ -1188,8 +1288,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
               IconButton(
                 onPressed: _currentPage > 0 ? _goToPreviousSlide : null,
                 icon: const Icon(Icons.arrow_back_ios),
-                color:
-                    _currentPage > 0 ? Colors.amberAccent : Colors.grey[700],
+                color: _currentPage > 0 ? Colors.amberAccent : Colors.grey[700],
               ),
               Text(
                 "Editing Slide ${_currentPage + 1} of ${_pages.length}",
@@ -1200,8 +1299,9 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                 ),
               ),
               IconButton(
-                onPressed:
-                    _currentPage < _pages.length - 1 ? _goToNextSlide : null,
+                onPressed: _currentPage < _pages.length - 1
+                    ? _goToNextSlide
+                    : null,
                 icon: const Icon(Icons.arrow_forward_ios),
                 color: _currentPage < _pages.length - 1
                     ? Colors.amberAccent
@@ -1278,9 +1378,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                 children: [
                   Image.network(
                     imageUrl,
-                    headers: const {
-                      "ngrok-skip-browser-warning": "69420",
-                    },
+                    headers: const {"ngrok-skip-browser-warning": "69420"},
                     fit: BoxFit.contain,
                     width: double.infinity,
                     errorBuilder: (c, o, s) => const Icon(
@@ -1334,6 +1432,8 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                   const SizedBox(height: 16),
                   _gradeLevelSelector(),
                   const SizedBox(height: 16),
+                  _setLetterSelector(),
+                  const SizedBox(height: 16),
 
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1383,9 +1483,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                               child: TextField(
                                 controller: _scriptControllers[idx],
                                 maxLines: null,
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                ),
+                                style: const TextStyle(color: Colors.white),
                                 decoration: InputDecoration(
                                   hintText: "Text Segment ${idx + 1}...",
                                   hintStyle: const TextStyle(
@@ -1457,9 +1555,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                               : const Icon(Icons.save),
                           label: Text(
                             _isSaving ? "Saving..." : "Save Texts",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           onPressed: _isSaving || _isGeneratingVoice
                               ? null
@@ -1485,10 +1581,10 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
                                 )
                               : const Icon(Icons.record_voice_over),
                           label: Text(
-                            _isGeneratingVoice ? "Creating..." : "Create Voices",
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                            ),
+                            _isGeneratingVoice
+                                ? "Creating..."
+                                : "Create Voices",
+                            style: const TextStyle(fontWeight: FontWeight.bold),
                           ),
                           onPressed: _isSaving || _isGeneratingVoice
                               ? null

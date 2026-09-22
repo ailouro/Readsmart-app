@@ -1192,8 +1192,16 @@ class _LibraryTabState extends State<_LibraryTab> {
               _buildLibrarySection(
                 title: "📝 PRE-TEST STORIES",
                 stories: _stories
-                    .where((s) => _safeString(s['story_type'], 'pre_test') != 'post_test')
-                    .where((s) => _safeString(s['title']).toLowerCase().contains(_storySearchQuery))
+                    .where(
+                      (s) =>
+                          _safeString(s['story_type'], 'pre_test') !=
+                          'post_test',
+                    )
+                    .where(
+                      (s) => _safeString(
+                        s['title'],
+                      ).toLowerCase().contains(_storySearchQuery),
+                    )
                     .toList(),
                 emptyMessage: _storySearchQuery.isEmpty
                     ? "No pre-test stories published yet."
@@ -1204,7 +1212,11 @@ class _LibraryTabState extends State<_LibraryTab> {
                 title: "✅ POST-TEST STORIES",
                 stories: _stories
                     .where((s) => _safeString(s['story_type']) == 'post_test')
-                    .where((s) => _safeString(s['title']).toLowerCase().contains(_storySearchQuery))
+                    .where(
+                      (s) => _safeString(
+                        s['title'],
+                      ).toLowerCase().contains(_storySearchQuery),
+                    )
                     .toList(),
                 emptyMessage: _storySearchQuery.isEmpty
                     ? "No post-test stories published yet."
@@ -1271,18 +1283,47 @@ class _LibraryTabState extends State<_LibraryTab> {
     );
   }
 
-  // Hinihiwalay ang mga kwento sa dalawang column: Grade 5 sa kaliwa,
-  // Grade 6 sa kanan, magkatabi nang pahalang. Ang mga kwentong wala pang
+  // Phil-IRI graded passages exist for Grade 2 through Grade 7, so the
+  // library groups stories the same way -- one full-width section per
+  // grade that actually has stories, in order. Ang mga kwentong wala pang
   // itinakdang grade level ay ipinapakita sa isang hiwalay na seksyon sa
   // ibaba, para walang kwentong nawawala sa view habang naghihintay pa ng
   // grade assignment mula sa guro.
+  static const List<String> _libraryGrades = [
+    'Grade 2',
+    'Grade 3',
+    'Grade 4',
+    'Grade 5',
+    'Grade 6',
+    'Grade 7',
+  ];
+  static const List<String> _libraryGradeEmojis = [
+    '🟦',
+    '🟪',
+    '🟧',
+    '🟩',
+    '🟨',
+    '🟥',
+  ];
+
   Widget _buildGradeSplitGrid(List<Map<String, dynamic>> stories) {
-    final List<Map<String, dynamic>> grade5 = stories
-        .where((s) => _safeString(s['grade_level']) == 'Grade 5')
-        .toList();
-    final List<Map<String, dynamic>> grade6 = stories
-        .where((s) => _safeString(s['grade_level']) == 'Grade 6')
-        .toList();
+    final List<Widget> sections = [];
+    for (int i = 0; i < _libraryGrades.length; i++) {
+      final String grade = _libraryGrades[i];
+      final List<Map<String, dynamic>> matching = stories
+          .where((s) => _safeString(s['grade_level']) == grade)
+          .toList();
+      if (matching.isEmpty) continue;
+      if (sections.isNotEmpty) sections.add(const SizedBox(height: 24));
+      sections.add(
+        _buildGradeColumn(
+          "${_libraryGradeEmojis[i]} ${grade.toUpperCase()}",
+          matching,
+          fullWidth: true,
+        ),
+      );
+    }
+
     final List<Map<String, dynamic>> unassigned = stories
         .where((s) => _safeString(s['grade_level']).isEmpty)
         .toList();
@@ -1290,17 +1331,14 @@ class _LibraryTabState extends State<_LibraryTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(child: _buildGradeColumn("🟩 GRADE 5", grade5)),
-            const SizedBox(width: 20),
-            Expanded(child: _buildGradeColumn("🟨 GRADE 6", grade6)),
-          ],
-        ),
+        ...sections,
         if (unassigned.isNotEmpty) ...[
           const SizedBox(height: 24),
-          _buildGradeColumn("❔ NO GRADE LEVEL YET", unassigned, fullWidth: true),
+          _buildGradeColumn(
+            "❔ NO GRADE LEVEL YET",
+            unassigned,
+            fullWidth: true,
+          ),
         ],
       ],
     );
@@ -1341,7 +1379,10 @@ class _LibraryTabState extends State<_LibraryTab> {
             ),
             child: const Text(
               "Wala pang kwento dito.",
-              style: TextStyle(color: Colors.black54, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                color: Colors.black54,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           )
         else
@@ -1386,236 +1427,198 @@ class _LibraryTabState extends State<_LibraryTab> {
     final String gradeLabel = _safeString(story['grade_level']);
 
     return Stack(
+      children: [
+        BouncyTap(
+          onTap: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    StoryViewerScreen(story: story, baseUrl: baseUrl),
+              ),
+            );
+          },
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.black, width: 3.5),
+              boxShadow: const [
+                BoxShadow(color: Colors.black, offset: Offset(4, 4)),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  flex: 3,
+                  child: ClipRRect(
+                    borderRadius: const BorderRadius.vertical(
+                      top: Radius.circular(13),
+                    ),
+                    child: coverUrl.isNotEmpty
+                        ? Image.network(
+                            coverUrl,
+                            fit: BoxFit.cover,
+                            headers: const {
+                              "ngrok-skip-browser-warning": "69420",
+                            },
+                            errorBuilder: (_, __, ___) => Container(
+                              color: accentTheme,
+                              child: const Icon(
+                                Icons.image,
+                                color: Colors.black87,
+                                size: 35,
+                              ),
+                            ),
+                          )
+                        : Container(
+                            color: accentTheme,
+                            child: const Icon(
+                              Icons.image,
+                              color: Colors.black87,
+                              size: 35,
+                            ),
+                          ),
+                  ),
+                ),
+                const Divider(color: Colors.black, thickness: 3, height: 3),
+                Expanded(
+                  flex: 1,
+                  child: Padding(
+                    padding: const EdgeInsets.all(8.0),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        BouncyTap(
-                          onTap: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => StoryViewerScreen(
-                                  story: story,
-                                  baseUrl: baseUrl,
-                                ),
-                              ),
-                            );
-                          },
-                          borderRadius: BorderRadius.circular(16),
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: Colors.white,
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: Colors.black,
-                                width: 3.5,
-                              ),
-                              boxShadow: const [
-                                BoxShadow(
-                                  color: Colors.black,
-                                  offset: Offset(4, 4),
-                                ),
-                              ],
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                Expanded(
-                                  flex: 3,
-                                  child: ClipRRect(
-                                    borderRadius: const BorderRadius.vertical(
-                                      top: Radius.circular(13),
-                                    ),
-                                    child: coverUrl.isNotEmpty
-                                        ? Image.network(
-                                            coverUrl,
-                                            fit: BoxFit.cover,
-                                            headers: const {
-                                              "ngrok-skip-browser-warning":
-                                                  "69420",
-                                            },
-                                            errorBuilder: (_, __, ___) =>
-                                                Container(
-                                                  color: accentTheme,
-                                                  child: const Icon(
-                                                    Icons.image,
-                                                    color: Colors.black87,
-                                                    size: 35,
-                                                  ),
-                                                ),
-                                          )
-                                        : Container(
-                                            color: accentTheme,
-                                            child: const Icon(
-                                              Icons.image,
-                                              color: Colors.black87,
-                                              size: 35,
-                                            ),
-                                          ),
-                                  ),
-                                ),
-                                const Divider(
-                                  color: Colors.black,
-                                  thickness: 3,
-                                  height: 3,
-                                ),
-                                Expanded(
-                                  flex: 1,
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(8.0),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        Text(
-                                          _safeString(
-                                            story['title'],
-                                            'Untitled',
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: const TextStyle(
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 14,
-                                            color: Colors.black,
-                                          ),
-                                        ),
-                                        Text(
-                                          "${pages.length} Pages",
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.bold,
-                                            color: Colors.black54,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
+                        Text(
+                          _safeString(story['title'], 'Untitled'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 14,
+                            color: Colors.black,
                           ),
                         ),
-                        Positioned(
-                          top: 5,
-                          left: 5,
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (story['quiz'] != null)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Color(0xFF8BCA84),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Colors.black,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    "With Quiz",
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ),
-                              if (story['quiz'] != null && gradeLabel.isNotEmpty)
-                                const SizedBox(height: 4),
-                              if (gradeLabel.isNotEmpty)
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 6,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFF940D0D),
-                                    borderRadius: BorderRadius.circular(8),
-                                    border: Border.all(
-                                      color: Colors.black,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: Text(
-                                    gradeLabel,
-                                    style: const TextStyle(
-                                      color: Colors.white,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 10,
-                                    ),
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        Positioned(
-                          top: 5,
-                          right: 5,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              InkWell(
-                                onTap: () {
-                                  Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (context) => StoryEditorScreen(
-                                        story: story,
-                                        baseUrl: baseUrl,
-                                      ),
-                                    ),
-                                  ).then((_) {
-                                    fetchStories();
-                                  });
-                                },
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  margin: const EdgeInsets.only(right: 5),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.black,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.settings,
-                                    color: Colors.blue,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                              InkWell(
-                                onTap: () =>
-                                    _deleteStory(story['id'] ?? story['_id']),
-                                child: Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.black,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.delete,
-                                    color: Colors.red,
-                                    size: 20,
-                                  ),
-                                ),
-                              ),
-                            ],
+                        Text(
+                          "${pages.length} Pages",
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black54,
                           ),
                         ),
                       ],
-                    );
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        Positioned(
+          top: 5,
+          left: 5,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (story['quiz'] != null)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Color(0xFF8BCA84),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.black, width: 2),
+                  ),
+                  child: const Text(
+                    "With Quiz",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+              if (story['quiz'] != null && gradeLabel.isNotEmpty)
+                const SizedBox(height: 4),
+              if (gradeLabel.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF940D0D),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.black, width: 2),
+                  ),
+                  child: Text(
+                    gradeLabel,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 10,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Positioned(
+          top: 5,
+          right: 5,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) =>
+                          StoryEditorScreen(story: story, baseUrl: baseUrl),
+                    ),
+                  ).then((_) {
+                    fetchStories();
+                  });
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  margin: const EdgeInsets.only(right: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black, width: 2),
+                  ),
+                  child: const Icon(
+                    Icons.settings,
+                    color: Colors.blue,
+                    size: 20,
+                  ),
+                ),
+              ),
+              InkWell(
+                onTap: () => _deleteStory(story['id'] ?? story['_id']),
+                child: Container(
+                  padding: const EdgeInsets.all(6),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black, width: 2),
+                  ),
+                  child: const Icon(Icons.delete, color: Colors.red, size: 20),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -1866,9 +1869,19 @@ class _StudentsTabState extends State<_StudentsTab> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  items: ['Grade 5', 'Grade 6']
-                      .map((g) => DropdownMenuItem(value: g, child: Text(g)))
-                      .toList(),
+                  items:
+                      const [
+                            'Grade 2',
+                            'Grade 3',
+                            'Grade 4',
+                            'Grade 5',
+                            'Grade 6',
+                            'Grade 7',
+                          ]
+                          .map(
+                            (g) => DropdownMenuItem(value: g, child: Text(g)),
+                          )
+                          .toList(),
                   onChanged: (v) {
                     if (v != null) setDialogState(() => selectedGrade = v);
                   },
@@ -2109,9 +2122,19 @@ class _StudentsTabState extends State<_StudentsTab> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  items: ['Grade 5', 'Grade 6']
-                      .map((g) => DropdownMenuItem(value: g, child: Text(g)))
-                      .toList(),
+                  items:
+                      const [
+                            'Grade 2',
+                            'Grade 3',
+                            'Grade 4',
+                            'Grade 5',
+                            'Grade 6',
+                            'Grade 7',
+                          ]
+                          .map(
+                            (g) => DropdownMenuItem(value: g, child: Text(g)),
+                          )
+                          .toList(),
                   onChanged: (v) {
                     if (v != null) setDialogState(() => selectedGrade = v);
                   },
@@ -2773,8 +2796,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                   itemCount: _classes.length,
                   itemBuilder: (context, index) {
                     final cls = _classes[index];
-                    final classId =
-                        cls['id'] ?? cls['_id'] ?? cls['class_id'];
+                    final classId = cls['id'] ?? cls['_id'] ?? cls['class_id'];
                     final className = _safeString(
                       cls['name'] ?? cls['class_name'],
                       'Unnamed Class',
@@ -2789,9 +2811,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                         className,
                         style: const TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: gradeLevel.isNotEmpty
-                          ? Text(gradeLevel)
-                          : null,
+                      subtitle: gradeLevel.isNotEmpty ? Text(gradeLevel) : null,
                       onTap: () {
                         Navigator.pop(ctx);
                         _assignStudentToClass(student, classId);
