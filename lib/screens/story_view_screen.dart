@@ -482,7 +482,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   void _startActiveReadingSegment() {
-    _activeSegmentStart = DateTime.now();
+    if (_activeSegmentStart == null) {
+      _activeSegmentStart = DateTime.now();
+    }
   }
 
   void _endActiveReadingSegment() {
@@ -665,7 +667,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       if (found) {
         _deepgramService.clearAudioBuffer();
 
-        // Self-correction notification
         if (_currentWordAttempts > 0) {
           _notifyTeacherOfSelfCorrection(
             currentTarget,
@@ -788,6 +789,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   void _advanceToNextSlide() async {
+    await _stopAllAudio(); // Siguraduhing sarado ang anumang aktibong audio/recording segment
+
     if (_pagesWithOralReadingStarted.contains(_currentPage)) {
       _flushUnreadWordsAsFailed();
     }
@@ -818,13 +821,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         return;
       }
 
-      int elapsedSeconds = 120;
-      if (_readingStartTime != null) {
-        elapsedSeconds = DateTime.now()
-            .difference(_readingStartTime!)
-            .inSeconds;
-      }
-
       _pageTargetWords[_currentPage] = List.from(_targetWords);
 
       int totalWordsCount = 0;
@@ -839,7 +835,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               .where(
                 (w) =>
                     (w.isFailed && !w.isCorrect) ||
-                    // Assessment: a word that was never read is an omission.
                     (widget.assessmentMode && !w.isCorrect && !w.isFailed),
               )
               .length;
@@ -854,7 +849,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                 .where((w) => w.isNotEmpty)
                 .length;
             totalWordsCount += unseenWords;
-            // Assessment: a page that was skipped entirely was not read.
             if (widget.assessmentMode) failedWordsCount += unseenWords;
           }
         }
@@ -909,8 +903,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               "oral_fluency_accuracy": wrPct,
               "total_words": totalWordsCount,
               "correct_words": correctWordsCount,
-              "time_on_task": activeSeconds, // Pinalitan ng activeSeconds
-              "wpm": computedWpm, // Naidagdag ang computed WPM
+              "time_on_task": activeSeconds,
+              "wpm": computedWpm,
               "struggled_words": _allFailedWords
                   .map((w) => w.cleanWord)
                   .join(", "),
@@ -937,8 +931,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
 
       if (!mounted) return;
 
-      // Assessment mode: run the quiz, then hand both scores back to the
-      // assessment flow instead of replacing this screen.
       if (widget.assessmentMode) {
         final score = await Navigator.push<PassageScore>(
           context,
@@ -950,7 +942,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               baseUrl: widget.baseUrl,
               oralAccuracy: wrPct,
               totalWords: totalWordsCount,
-              readingTimeSeconds: activeSeconds, // Pinalitan ng activeSeconds
+              readingTimeSeconds: activeSeconds,
               struggledWords: _allFailedWords.map((w) => w.cleanWord).toList(),
               assessmentMode: true,
             ),
@@ -971,7 +963,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             baseUrl: widget.baseUrl,
             oralAccuracy: wrPct,
             totalWords: totalWordsCount,
-            readingTimeSeconds: activeSeconds, // Pinalitan ng activeSeconds
+            readingTimeSeconds: activeSeconds,
           ),
         ),
       );
@@ -1046,7 +1038,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       request.fields['words_json'] = jsonEncode(wordsData);
 
       for (int i = 0; i < failedWords.length; i++) {
-        // Send array values as form fields instead of files so Laravel parses them properly
         request.fields['words[$i]'] = failedWords[i].cleanWord;
         request.fields['attempts[$i]'] =
             (failedWords[i].totalAttempts > 0
@@ -1496,12 +1487,15 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       controller: _pageController,
       physics: const NeverScrollableScrollPhysics(),
       onPageChanged: (index) async {
+        await _stopAllAudio();
+
         final int leavingPage = _currentPage;
         final List<WordStatus> leavingWords = List.from(_targetWords);
         _pageTargetWords[_currentPage] = leavingWords;
         _pageCurrentWordIndex[_currentPage] = _currentWordIndex;
         _pageAssessmentPassed[_currentPage] = _isAssessmentPassed;
 
+        if (!mounted) return;
         setState(() {
           _currentPage = index;
           if (_pageTargetWords.containsKey(index)) {
@@ -1528,15 +1522,15 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           _setupTargetWords(_firstReadingScript(pages[index]['audio_scripts']));
         }
         final prefs = await SharedPreferences.getInstance();
-        prefs.setInt('story_${widget.story['id']}_page', index);
-        _savePageWordStates(leavingPage, leavingWords);
+        await prefs.setInt('story_${widget.story['id']}_page', index);
+        await _savePageWordStates(leavingPage, leavingWords);
 
         String nextPath = "";
         if (index + 1 < pages.length) {
           nextPath =
               pages[index + 1]['image_path'] ?? pages[index + 1]['image'] ?? "";
         }
-        if (nextPath.isNotEmpty) {
+        if (nextPath.isNotEmpty && mounted) {
           String nextUrl = "";
           if (nextPath.startsWith('http')) {
             nextUrl = nextPath;
