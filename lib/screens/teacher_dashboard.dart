@@ -3828,11 +3828,84 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
   bool _isLoadingStories = true;
   bool _isLoadingStudents = true;
 
+  // Reading-test assignments (Phil-IRI GST flow), fetched class-wide so the
+  // Stories tab can show WHO already has a test assigned instead of just
+  // "No stories assigned to this class yet." — that old message only ever
+  // looked at the deprecated class_story pivot, which nothing writes to
+  // anymore now that assigning goes through the Students tab.
+  List<Map<String, dynamic>> _classAssessments = [];
+  bool _isLoadingAssessments = true;
+
   @override
   void initState() {
     super.initState();
     _fetchClassStories();
     _fetchClassStudents();
+    _fetchClassAssessments();
+  }
+
+  Future<void> _fetchClassAssessments() async {
+    final classId =
+        widget.item['id'] ?? widget.item['_id'] ?? widget.item['class_id'];
+
+    try {
+      final res = await http.get(
+        Uri.parse("$baseUrl/api/classes/$classId/assessments"),
+        headers: networkHeaders,
+      );
+      if (res.statusCode == 200 && mounted) {
+        final decoded = jsonDecode(res.body);
+        final List<dynamic> raw = decoded is Map
+            ? ((decoded['assessments'] ?? decoded['data'] ?? []) as List)
+            : (decoded is List ? decoded : []);
+        final List<Map<String, dynamic>> cleanList = [];
+        for (var a in raw) {
+          if (a is Map) cleanList.add(Map<String, dynamic>.from(a));
+        }
+        setState(() => _classAssessments = cleanList);
+      }
+    } catch (e) {
+      debugPrint("Error fetching class assessments: $e");
+    } finally {
+      if (mounted) setState(() => _isLoadingAssessments = false);
+    }
+  }
+
+  /// One row per student who currently has a reading test assigned,
+  /// newest assessment wins if a student has more than one on record.
+  List<Map<String, dynamic>> get _studentsWithAssignedTests {
+    if (_classAssessments.isEmpty) return [];
+
+    final Map<String, String> nameById = {
+      for (final s in _students)
+        _safeString(s['id'] ?? s['_id']): _safeString(
+          s['name'] ?? s['username'],
+          'Student',
+        ),
+    };
+
+    final Map<String, Map<String, dynamic>> latestByStudent = {};
+    for (final a in _classAssessments) {
+      final sid = _safeString(
+        a['student_id'] ?? a['user_id'] ?? a['student']?['id'],
+      );
+      if (sid.isEmpty) continue;
+      // Assumes results come back in chronological order; if a student has
+      // both a pre-test and post-test on record, the later call in the list
+      // wins so the row shows their most recent assignment.
+      latestByStudent[sid] = a;
+    }
+
+    return latestByStudent.entries.map((e) {
+      final a = e.value;
+      return {
+        'student_id': e.key,
+        'name': nameById[e.key] ?? _safeString(a['student_name'], 'Student'),
+        'test_type': _safeString(a['test_type'], 'post_test'),
+        'set_letter': _safeString(a['set_letter']),
+        'status': _safeString(a['status'], 'assigned'),
+      };
+    }).toList();
   }
 
   Future _fetchClassStories() async {
@@ -5094,33 +5167,131 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                       ),
                       const SizedBox(height: 15),
                       Expanded(
-                        child: _isLoadingStories
+                        child: (_isLoadingStories || _isLoadingAssessments)
                             ? const Center(
                                 child: CircularProgressIndicator(
                                   color: Color(0xFF940D0D),
                                 ),
                               )
                             : _assignedStories.isEmpty
-                            ? Center(
-                                child: Container(
-                                  padding: const EdgeInsets.all(20),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFBAE6FD),
-                                    borderRadius: BorderRadius.circular(16),
-                                    border: Border.all(
-                                      color: Colors.black,
-                                      width: 2.5,
-                                    ),
-                                  ),
-                                  child: const Text(
-                                    "No stories assigned to this class yet.",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black,
-                                    ),
-                                  ),
-                                ),
-                              )
+                            ? (_studentsWithAssignedTests.isEmpty
+                                  ? Center(
+                                      child: Container(
+                                        padding: const EdgeInsets.all(20),
+                                        decoration: BoxDecoration(
+                                          color: const Color(0xFFBAE6FD),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
+                                          ),
+                                          border: Border.all(
+                                            color: Colors.black,
+                                            width: 2.5,
+                                          ),
+                                        ),
+                                        child: const Text(
+                                          "No stories assigned to this class yet.",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            color: Colors.black,
+                                          ),
+                                        ),
+                                      ),
+                                    )
+                                  : ListView.builder(
+                                      itemCount:
+                                          _studentsWithAssignedTests.length,
+                                      itemBuilder: (context, index) {
+                                        final s =
+                                            _studentsWithAssignedTests[index];
+                                        final label =
+                                            s['test_type'] == 'pre_test'
+                                            ? 'Pre-Test'
+                                            : 'Post-Test';
+                                        final setLetter =
+                                            s['set_letter'] as String;
+                                        final status = s['status'] as String;
+                                        final isDone =
+                                            status == 'completed' ||
+                                            status == 'complete';
+
+                                        return Container(
+                                          margin: const EdgeInsets.only(
+                                            bottom: 10,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 12,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: const Color(0xFFBAE6FD),
+                                            borderRadius: BorderRadius.circular(
+                                              12,
+                                            ),
+                                            border: Border.all(
+                                              color: Colors.black,
+                                              width: 2,
+                                            ),
+                                          ),
+                                          child: Row(
+                                            children: [
+                                              Expanded(
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    Text(
+                                                      s['name'] as String,
+                                                      style: const TextStyle(
+                                                        fontWeight:
+                                                            FontWeight.bold,
+                                                        fontSize: 14,
+                                                      ),
+                                                    ),
+                                                    const SizedBox(height: 2),
+                                                    Text(
+                                                      setLetter.isNotEmpty
+                                                          ? "$label • Set $setLetter"
+                                                          : label,
+                                                      style: const TextStyle(
+                                                        fontSize: 12,
+                                                        color: Colors.black87,
+                                                      ),
+                                                    ),
+                                                  ],
+                                                ),
+                                              ),
+                                              Container(
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 4,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: isDone
+                                                      ? Colors.green.shade100
+                                                      : Colors.amber.shade100,
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  border: Border.all(
+                                                    color: Colors.black45,
+                                                    width: 1,
+                                                  ),
+                                                ),
+                                                child: Text(
+                                                  isDone
+                                                      ? "Completed"
+                                                      : "Assigned",
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ))
                             : GridView.builder(
                                 itemCount: _assignedStories.length,
                                 gridDelegate:
