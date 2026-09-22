@@ -1807,7 +1807,7 @@ class _StudentsTabState extends State<_StudentsTab> {
         className: className,
         grade: grade,
         section: section,
-        buildRecordCard: _buildLearnerRecordCard,
+        buildRecordCard: (student) => _buildLearnerRecordCard(student),
       ),
     );
 
@@ -2382,6 +2382,25 @@ class _StudentsTabState extends State<_StudentsTab> {
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildLearnerRecordCard(dynamic student) {
+    final Map<String, dynamic> s = Map<String, dynamic>.from(student as Map);
+    final studentId = s['id'] ?? s['user_id'];
+
+    return FutureBuilder<List<dynamic>>(
+      future: _fetchStudentProgress(studentId),
+      builder: (context, snapshot) {
+        final bool isLoading =
+            snapshot.connectionState == ConnectionState.waiting;
+        final List progressLogs = snapshot.data ?? [];
+        return _buildLearnerRecordCardContent(
+          s,
+          progressLogs,
+          isLoading: isLoading,
+        );
+      },
     );
   }
 
@@ -3492,32 +3511,13 @@ class _StudentsTabState extends State<_StudentsTab> {
     );
   }
 
-  Widget _buildLearnerRecordCard(dynamic student) {
-    final Map<String, dynamic> s = Map<String, dynamic>.from(student as Map);
-    final studentId = s['id'] ?? s['user_id'];
-
-    return FutureBuilder<List<dynamic>>(
-      future: _fetchStudentProgress(studentId),
-      builder: (context, snapshot) {
-        final bool isLoading =
-            snapshot.connectionState == ConnectionState.waiting;
-        final List progressLogs = snapshot.data ?? [];
-        return _buildLearnerRecordCardContent(
-          s,
-          progressLogs,
-          isLoading: isLoading,
-        );
-      },
-    );
-  }
-
   Widget _buildLearnerRecordCardContent(
     Map<String, dynamic> student,
     List progressLogs, {
     bool isLoading = false,
   }) {
     List studentMispronunciations = _mispronunciations
-        .where((m) => m['student_id'] == student['id'])
+        .where((m) => m['student_id'].toString() == student['id'].toString())
         .toList();
 
     return Container(
@@ -3534,6 +3534,7 @@ class _StudentsTabState extends State<_StudentsTab> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // Student Header Info
           Table(
             border: TableBorder.all(color: Colors.brown, width: 2),
             columnWidths: const {
@@ -3629,18 +3630,18 @@ class _StudentsTabState extends State<_StudentsTab> {
             Table(
               border: TableBorder.all(color: Colors.brown, width: 2),
               columnWidths: const {
-                0: FlexColumnWidth(2),
-                1: FlexColumnWidth(1),
-                2: FlexColumnWidth(1),
-                3: FlexColumnWidth(1),
-                4: FlexColumnWidth(2),
+                0: FlexColumnWidth(1.6), // Story Title
+                1: FlexColumnWidth(1.8), // Phil-IRI Level + Breakdown
+                2: FlexColumnWidth(1.1), // Quiz Score + %
+                3: FlexColumnWidth(1.5), // Reading Time & WPM
+                4: FlexColumnWidth(2.0), // Struggled Words
               },
               children: [
                 TableRow(
                   decoration: BoxDecoration(color: Colors.brown.shade700),
                   children: const [
                     Padding(
-                      padding: EdgeInsets.all(8.0),
+                      padding: EdgeInsets.all(6.0),
                       child: Text(
                         "Story",
                         style: TextStyle(
@@ -3651,9 +3652,9 @@ class _StudentsTabState extends State<_StudentsTab> {
                       ),
                     ),
                     Padding(
-                      padding: EdgeInsets.all(8.0),
+                      padding: EdgeInsets.all(6.0),
                       child: Text(
-                        "Level",
+                        "Phil-IRI Level",
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -3662,7 +3663,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                       ),
                     ),
                     Padding(
-                      padding: EdgeInsets.all(8.0),
+                      padding: EdgeInsets.all(6.0),
                       child: Text(
                         "Quiz",
                         style: TextStyle(
@@ -3673,9 +3674,9 @@ class _StudentsTabState extends State<_StudentsTab> {
                       ),
                     ),
                     Padding(
-                      padding: EdgeInsets.all(8.0),
+                      padding: EdgeInsets.all(6.0),
                       child: Text(
-                        "WPM",
+                        "Time & Speed",
                         style: TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -3684,7 +3685,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                       ),
                     ),
                     Padding(
-                      padding: EdgeInsets.all(8.0),
+                      padding: EdgeInsets.all(6.0),
                       child: Text(
                         "Struggled Words",
                         style: TextStyle(
@@ -3697,8 +3698,39 @@ class _StudentsTabState extends State<_StudentsTab> {
                   ],
                 ),
                 ...progressLogs.map((log) {
+                  // 1. Compute Quiz Percentage
+                  int quizScore = log['quiz_score'] ?? 0;
+                  int totalQuestions = log['total_questions'] ?? 0;
+                  double quizPct = (totalQuestions > 0)
+                      ? (quizScore / totalQuestions) * 100
+                      : 0;
+
+                  // 2. Word Recognition Accuracy %
+                  double wrPct = (log['oral_fluency_accuracy'] != null)
+                      ? (log['oral_fluency_accuracy'] as num).toDouble()
+                      : 0.0;
+
+                  // 3. Format Reading Time (time_on_task) & WPM
+                  int timeSeconds =
+                      int.tryParse(log['time_on_task']?.toString() ?? '0') ?? 0;
+                  int mins = timeSeconds ~/ 60;
+                  int secs = timeSeconds % 60;
+                  String timeDisplay = "${mins}m ${secs}s";
+
+                  int correctWords = log['correct_words'] ?? 0;
+                  int computedWpm = log['wpm'] != null
+                      ? int.tryParse(log['wpm'].toString()) ?? 0
+                      : (timeSeconds > 0
+                            ? ((correctWords / (timeSeconds / 60)).round())
+                            : 0);
+
+                  // 4. Mispronunciations
                   List storyWords = studentMispronunciations
-                      .where((m) => m['story_id'] == log['story_id'])
+                      .where(
+                        (m) =>
+                            m['story_id'].toString() ==
+                            log['story_id'].toString(),
+                      )
                       .toList();
                   String wordsText = storyWords.isEmpty
                       ? "None"
@@ -3711,66 +3743,115 @@ class _StudentsTabState extends State<_StudentsTab> {
                   return TableRow(
                     decoration: BoxDecoration(color: Colors.amber.shade100),
                     children: [
+                      // Story Title
                       Padding(
-                        padding: const EdgeInsets.all(8.0),
+                        padding: const EdgeInsets.all(6.0),
                         child: Text(
                           log['story']?['title'] ?? 'Unknown',
                           style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
+                            fontSize: 10,
+                            fontWeight: FontWeight.w700,
                           ),
                         ),
                       ),
+                      // Phil-IRI Level + Detailed Breakdown
                       Padding(
-                        padding: const EdgeInsets.all(8.0),
+                        padding: const EdgeInsets.all(6.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _safeString(
+                                log['reading_level'],
+                                'N/A',
+                              ).toUpperCase(),
+                              style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                color:
+                                    log['reading_level']
+                                        .toString()
+                                        .toLowerCase()
+                                        .contains('indep')
+                                    ? Colors.green.shade800
+                                    : (log['reading_level']
+                                              .toString()
+                                              .toLowerCase()
+                                              .contains('instr')
+                                          ? Colors.amber.shade900
+                                          : Colors.red.shade900),
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              "WR: ${wrPct.toStringAsFixed(0)}% | Comp: ${quizPct.toStringAsFixed(0)}%",
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w600,
+                                color: Colors.black87,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      // Quiz Score & Percentage
+                      Padding(
+                        padding: const EdgeInsets.all(6.0),
                         child: Text(
-                          _safeString(log['reading_level'], 'N/A'),
+                          "$quizScore/$totalQuestions\n(${quizPct.toStringAsFixed(0)}%)",
                           style: const TextStyle(
-                            fontSize: 11,
+                            fontSize: 10,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ),
+                      // Time Spent & Calculated WPM
                       Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          "${log['quiz_score'] ?? 0}/${log['total_questions'] ?? 0}",
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
+                        padding: const EdgeInsets.all(6.0),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              "$computedWpm WPM",
+                              style: const TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                color: Colors.blueAccent,
+                              ),
+                            ),
+                            Text(
+                              "Time: $timeDisplay",
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ],
                         ),
                       ),
+                      // Struggled Words
                       Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          _safeString(log['oral_fluency_accuracy'], 'N/A') +
-                              (log['oral_fluency_accuracy'] != null ? '%' : ''),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
+                        padding: const EdgeInsets.all(6.0),
                         child: Text(
                           wordsText,
-                          style: const TextStyle(
-                            fontSize: 11,
+                          style: TextStyle(
+                            fontSize: 10,
                             fontWeight: FontWeight.w600,
-                            color: Colors.red,
+                            color: storyWords.isEmpty
+                                ? Colors.green.shade700
+                                : Colors.red.shade800,
                           ),
                         ),
                       ),
                     ],
                   );
-                }).toList(),
+                }), // Pwedeng alisin ang .toList() kapag may '...' na sa harap
               ],
-            ),
+            ), // Isasara ang Table
         ],
-      ),
-    );
+      ), // Isasara ang Column
+    ); // Isasara ang Container
   }
 }
 
@@ -3813,7 +3894,7 @@ class _ClassDetailsSheet extends StatefulWidget {
   final String className;
   final String grade;
   final String section;
-  final Widget Function(Map<String, dynamic>)? buildRecordCard;
+  final Widget Function(dynamic)? buildRecordCard;
 
   const _ClassDetailsSheet({
     required this.item,
