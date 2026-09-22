@@ -635,6 +635,11 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       return;
     }
 
+    if (_isListening) {
+      await _stopAllAudio();
+      return;
+    }
+
     await _stopAllAudio();
 
     if (_isListening) {
@@ -646,6 +651,18 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
 
     if (_currentWordIndex >= _targetWords.length) {
       _finishSlideAssessment();
+      return;
+    }
+
+    if (_isPlayingTts || _isPlayingServerAudio) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "Please wait for the speaker to finish before reading.",
+          ),
+          backgroundColor: Colors.orange,
+        ),
+      );
       return;
     }
 
