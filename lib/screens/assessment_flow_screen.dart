@@ -11,15 +11,6 @@ import 'story_view_screen.dart';
 
 enum _Phase { loading, ready, fetching, notNeeded, error, complete }
 
-/// Runs the Phil-IRI Stage 2 flowchart for one student.
-///
-/// The student never picks a story. This screen asks [PhilIriSession] which
-/// grade comes next, loads that grade's passage from the chosen set, runs
-/// StoryViewerScreen (oral reading) and QuizScreen (comprehension) in
-/// assessment mode, scores the result, and repeats until all three reading
-/// levels are found.
-///
-/// Pops with `true` when the test is finished so the caller can refresh.
 class AssessmentFlowScreen extends StatefulWidget {
   final String baseUrl;
   final int studentId;
@@ -28,18 +19,12 @@ class AssessmentFlowScreen extends StatefulWidget {
   /// 'pre_test' or 'post_test'.
   final String testType;
 
-  /// 'A' to 'D'. Chosen by the teacher.
+  /// 'A' to 'D'.
   final String setLetter;
 
-  /// English GST raw score (0-20). Needed for the pre-test.
+  /// English GST raw score (0-20).
   final int? gstRaw;
 
-  /// Starting grade the caller already knows, bypassing per-session
-  /// computation. Always required for post-test (the manual sets no rule
-  /// for where one starts). For pre-test, it's only a fallback — used
-  /// exactly when [gstRaw] is null, i.e. an assignment path that skips GST
-  /// by design (the Stories tab's class-wide random Set assignment, which
-  /// sets the student's assessment start_grade directly).
   final int? directStartGrade;
 
   const AssessmentFlowScreen({
@@ -80,7 +65,6 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
     setState(() => _phase = _Phase.loading);
     final prefs = await SharedPreferences.getInstance();
 
-    // Resume an unfinished (or finished) test instead of starting over.
     final saved = prefs.getString(_prefsKey);
     if (saved != null) {
       try {
@@ -92,13 +76,16 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
       }
     }
 
+    // Limit student grade strictly to Grade 5 or Grade 6
+    final int clampedStudentGrade = widget.studentGrade.clamp(5, 6);
+
     if (_session == null) {
       if (widget.testType == 'pre_test') {
         final gst = widget.gstRaw;
         if (gst != null) {
           _session = PhilIriSession.forPreTest(
             studentId: widget.studentId,
-            studentGrade: widget.studentGrade,
+            studentGrade: clampedStudentGrade,
             gstRaw: gst,
             setLetter: widget.setLetter,
           );
@@ -107,36 +94,25 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
             return;
           }
         } else {
-          // No GST for this student — expected for the Stories tab's
-          // shuffle-assigned pre-tests, which set start_grade directly and
-          // deliberately leave gst_raw unset. Only genuinely missing data
-          // (neither one set) is still an error.
-          final direct = widget.directStartGrade;
-          if (direct == null) {
-            _fail(
-              'The teacher has not entered your screening score yet. '
-              'Please tell your teacher.',
-            );
-            return;
-          }
+          final direct = widget.directStartGrade ?? clampedStudentGrade;
+          final clampedDirect = direct.clamp(5, 6);
           _session = PhilIriSession.forPreTestAtGrade(
             studentId: widget.studentId,
-            studentGrade: widget.studentGrade,
+            studentGrade: clampedStudentGrade,
             setLetter: widget.setLetter,
-            startGrade: direct,
+            startGrade: clampedDirect,
           );
         }
       } else {
-        final start = widget.directStartGrade;
-        if (start == null) {
-          _fail('This test is not ready yet. Please tell your teacher.');
-          return;
-        }
+        // POST TEST: Ensure starting grade is strictly Grade 5 or 6
+        final start = widget.directStartGrade ?? clampedStudentGrade;
+        final clampedStart = start.clamp(5, 6);
+
         _session = PhilIriSession.forPostTest(
           studentId: widget.studentId,
-          studentGrade: widget.studentGrade,
+          studentGrade: clampedStudentGrade,
           setLetter: widget.setLetter,
-          startGrade: start,
+          startGrade: clampedStart,
         );
       }
       await _saveSession();
@@ -164,6 +140,13 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
   }
 
   Future<dynamic> _fetchPassage(int grade) async {
+    // Safety check for Grade 5 and 6 limit
+    if (grade < 5 || grade > 6) {
+      _error =
+          'Only Grade 5 and Grade 6 stories are available for this assessment.';
+      return null;
+    }
+
     try {
       final response = await http.get(
         Uri.parse(
@@ -190,20 +173,25 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
     return null;
   }
 
-  /// Reads one passage (oral reading + quiz), scores it and moves the
-  /// flowchart along. One passage per tap, so students get a short break
-  /// between stories.
   Future<void> _readNextPassage() async {
     final session = _session;
     if (session == null) {
       await _init();
       return;
     }
-    final grade = session.nextGrade;
-    if (grade == null) {
+    final rawGrade = session.nextGrade;
+    if (rawGrade == null) {
       await _finish();
       return;
     }
+
+    // Limit scope: If Phil-IRI attempts to test outside Grade 5-6, finish assessment cleanly.
+    if (rawGrade < 5 || rawGrade > 6) {
+      await _finish();
+      return;
+    }
+
+    final grade = rawGrade;
 
     setState(() => _phase = _Phase.fetching);
     final story = await _fetchPassage(grade);
@@ -227,8 +215,6 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
     );
     if (!mounted) return;
 
-    // The student left before finishing. Nothing is recorded, and the same
-    // passage is offered again when they come back.
     if (score == null) {
       setState(() => _phase = _Phase.ready);
       return;
@@ -240,7 +226,6 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
       wrPct: score.wrPct,
       compCorrect: score.compCorrect,
       compTotal: score.compTotal,
-      // A passage with no quiz can only be judged on word reading.
       rule: score.compTotal == 0 ? LevelRule.wordReadingOnly : session.rule,
     );
     session.record(result);
@@ -248,15 +233,15 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
     await _postPassage(story, result, score);
 
     if (!mounted) return;
-    if (session.nextGrade == null) {
+    if (session.nextGrade == null ||
+        session.nextGrade! < 5 ||
+        session.nextGrade! > 6) {
       await _finish();
     } else {
       setState(() => _phase = _Phase.ready);
     }
   }
 
-  /// Same endpoint and fields the app already uses, plus the assessment
-  /// details, so existing progress screens keep working.
   Future<void> _postPassage(
     dynamic story,
     PassageResult result,
@@ -312,13 +297,12 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
           'student_id': widget.studentId,
           'test_type': widget.testType,
           'set_letter': widget.setLetter,
-          'start_grade': session.startGrade,
+          'start_grade': session.startGrade.clamp(5, 6),
           'independent_grade': outcome.independentGrade,
           'instructional_grade': outcome.instructionalGrade,
           'frustration_grade': outcome.frustrationGrade,
           'below_range': outcome.belowRange,
           'above_range': outcome.aboveRange,
-          // Full record as a backup in case any single save above failed.
           'session': session.toJson(),
         }),
       );
@@ -332,8 +316,6 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
     if (!mounted) return;
     setState(() => _phase = _Phase.complete);
   }
-
-  // ---------------------------------------------------------------- UI
 
   Widget _card({required List<Widget> children}) {
     return Container(

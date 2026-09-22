@@ -501,6 +501,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black, size: 32),
       ),
+
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 30.0),
