@@ -8,6 +8,7 @@ import 'package:theapp/screens/story_view_screen.dart';
 import 'package:theapp/screens/upload_story_screen.dart';
 import 'package:theapp/screens/story_editor_screen.dart';
 import '../services/config.dart';
+import '../services/phil_iri_rules.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/bouncy_tap.dart';
 import 'teacher_profile_screen.dart';
@@ -3817,6 +3818,10 @@ class _ClassDetailsSheet extends StatefulWidget {
 }
 
 class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
+  static const Color maroonTheme = Color(0xFF940D0D);
+  static const Color accentTheme = Color(0xFFFDE047);
+  static const List<String> _assessmentSets = ['A', 'B', 'C', 'D'];
+
   List<Map<String, dynamic>> _assignedStories = [];
   List<Map<String, dynamic>> _students = [];
   bool _isLoadingStories = true;
@@ -3949,6 +3954,270 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
     } finally {
       if (mounted) setState(() => _isLoadingStudents = false);
     }
+  }
+
+  // ---------------------------------------------------------------------
+  // Teacher: assign a Phil-IRI Reading Test (pre-test or post-test) to one
+  // student. This is the actual "Assign a Reading Test" action the Stories
+  // tab's banner points to.
+  // ---------------------------------------------------------------------
+
+  int? get _classGrade => int.tryParse(widget.grade);
+
+  Future<void> _showAssignAssessmentDialog(Map<String, dynamic> student) async {
+    final dynamic studentId = student['id'] ?? student['_id'];
+    if (studentId == null) return;
+
+    final classId =
+        widget.item['id'] ?? widget.item['_id'] ?? widget.item['class_id'];
+    final String studentName = _safeString(
+      student['name'] ?? student['username'],
+      'this student',
+    );
+    final int? classGrade = _classGrade;
+
+    final gstController = TextEditingController();
+    String selectedTestType = 'pre_test';
+    String selectedSet = _assessmentSets.first;
+    int postTestStartGrade = (classGrade ?? PhilIriRules.minGrade).clamp(
+      PhilIriRules.minGrade,
+      PhilIriRules.maxGrade,
+    );
+    bool isSubmitting = false;
+    String? errorText;
+
+    await showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: Colors.black, width: 3.5),
+          ),
+          backgroundColor: accentTheme,
+          title: const Text(
+            "Assign Reading Test",
+            style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black),
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "For $studentName"
+                  "${classGrade != null ? ' (Grade $classGrade)' : ''}",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'pre_test', label: Text('Pre-Test')),
+                    ButtonSegment(value: 'post_test', label: Text('Post-Test')),
+                  ],
+                  selected: {selectedTestType},
+                  onSelectionChanged: isSubmitting
+                      ? null
+                      : (v) => setDialogState(() {
+                          selectedTestType = v.first;
+                          errorText = null;
+                        }),
+                ),
+                const SizedBox(height: 16),
+                if (selectedTestType == 'pre_test')
+                  TextField(
+                    controller: gstController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: "GST raw score (0-20)",
+                      errorText: errorText,
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  )
+                else ...[
+                  DropdownButtonFormField<int>(
+                    initialValue: postTestStartGrade,
+                    decoration: InputDecoration(
+                      labelText: "Starting Grade",
+                      errorText: errorText,
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    items: [
+                      for (
+                        int g = PhilIriRules.minGrade;
+                        g <= PhilIriRules.maxGrade;
+                        g++
+                      )
+                        DropdownMenuItem(value: g, child: Text("Grade $g")),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) {
+                        setDialogState(() {
+                          postTestStartGrade = v;
+                          errorText = null;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    "The manual has no fixed rule for the post-test starting "
+                    "grade. Many teachers reuse the grade the pre-test "
+                    "settled on.",
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ],
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  initialValue: selectedSet,
+                  decoration: InputDecoration(
+                    labelText: "Passage Set",
+                    filled: true,
+                    fillColor: Colors.white,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  items: _assessmentSets
+                      .map(
+                        (s) =>
+                            DropdownMenuItem(value: s, child: Text("Set $s")),
+                      )
+                      .toList(),
+                  onChanged: (v) {
+                    if (v != null) setDialogState(() => selectedSet = v);
+                  },
+                ),
+              ],
+            ),
+          ),
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          actions: [
+            TextButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () => Navigator.pop(dialogContext),
+              child: const Text(
+                "Cancel",
+                style: TextStyle(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: maroonTheme),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      setDialogState(() => errorText = null);
+
+                      if (classGrade == null) {
+                        setDialogState(
+                          () =>
+                              errorText = "This class has no grade level set.",
+                        );
+                        return;
+                      }
+
+                      int? gstRaw;
+                      if (selectedTestType == 'pre_test') {
+                        gstRaw = int.tryParse(gstController.text.trim());
+                        if (gstRaw == null || gstRaw < 0 || gstRaw > 20) {
+                          setDialogState(
+                            () => errorText = "Enter a GST score from 0 to 20.",
+                          );
+                          return;
+                        }
+                      }
+
+                      setDialogState(() => isSubmitting = true);
+
+                      try {
+                        final response = await http.post(
+                          Uri.parse(
+                            "$baseUrl/api/classes/$classId/assessments",
+                          ),
+                          headers: {
+                            ...networkHeaders,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                          },
+                          body: jsonEncode({
+                            'student_id': studentId,
+                            'test_type': selectedTestType,
+                            'set_letter': selectedSet,
+                            'student_grade': classGrade,
+                            if (selectedTestType == 'pre_test')
+                              'gst_raw': gstRaw
+                            else
+                              'start_grade': postTestStartGrade,
+                          }),
+                        );
+
+                        if ((response.statusCode == 200 ||
+                                response.statusCode == 201) &&
+                            mounted) {
+                          Navigator.pop(dialogContext);
+                          final String label = selectedTestType == 'pre_test'
+                              ? 'Pre-Test'
+                              : 'Post-Test';
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text("$label assigned to $studentName!"),
+                              backgroundColor: Colors.green,
+                            ),
+                          );
+                        } else {
+                          final decoded = response.body.isNotEmpty
+                              ? jsonDecode(response.body)
+                              : {};
+                          setDialogState(() {
+                            isSubmitting = false;
+                            errorText =
+                                decoded['message']?.toString() ??
+                                "Could not assign the test (${response.statusCode}).";
+                          });
+                        }
+                      } catch (e) {
+                        setDialogState(() {
+                          isSubmitting = false;
+                          errorText = "Could not reach the server.";
+                        });
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      "Assign",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    gstController.dispose();
   }
 
   Future<void> _unassignStory(dynamic storyId, String testType) async {
@@ -4781,6 +5050,37 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                                       subtitle: Text(
                                         email,
                                         style: const TextStyle(fontSize: 12),
+                                      ),
+                                      trailing: ElevatedButton(
+                                        style: ElevatedButton.styleFrom(
+                                          backgroundColor: accentTheme,
+                                          foregroundColor: Colors.black,
+                                          elevation: 0,
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 8,
+                                          ),
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              8,
+                                            ),
+                                            side: const BorderSide(
+                                              color: Colors.black,
+                                              width: 2,
+                                            ),
+                                          ),
+                                        ),
+                                        onPressed: () =>
+                                            _showAssignAssessmentDialog(
+                                              student,
+                                            ),
+                                        child: const Text(
+                                          "Assign Test",
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.w900,
+                                            fontSize: 11,
+                                          ),
+                                        ),
                                       ),
                                     ),
                                   );
