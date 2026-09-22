@@ -789,7 +789,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   void _advanceToNextSlide() async {
-    await _stopAllAudio(); // Siguraduhing sarado ang anumang aktibong audio/recording segment
+    await _stopAllAudio();
 
     if (_pagesWithOralReadingStarted.contains(_currentPage)) {
       _flushUnreadWordsAsFailed();
@@ -857,14 +857,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       int correctWordsCount = totalWordsCount - failedWordsCount;
       if (correctWordsCount < 0) correctWordsCount = 0;
 
-      // 1. Kunin ang eksaktong aktibong oras ng oral reading (microphone active time)
       int activeSeconds = _activeReadingDuration.inSeconds;
       if (activeSeconds <= 0 && _readingStartTime != null) {
         activeSeconds = DateTime.now().difference(_readingStartTime!).inSeconds;
       }
       if (activeSeconds <= 0) activeSeconds = 1;
 
-      // 2. Kwentahin ang Words Per Minute (WPM)
       double timeInMinutes = activeSeconds / 60.0;
       int computedWpm = (timeInMinutes > 0 && correctWordsCount > 0)
           ? (correctWordsCount / timeInMinutes).round()
