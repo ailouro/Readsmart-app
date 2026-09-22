@@ -624,6 +624,30 @@ class _StudentDashboardState extends State<StudentDashboard>
           "Tap your class below to open its stories. To join a new class, "
           "tap UNLOCK MISSION and type the secret code from your teacher.",
         ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Row(
+            children: const [
+              Icon(
+                Icons.collections_bookmark_rounded,
+                color: maroonTheme,
+                size: 24,
+              ),
+              SizedBox(width: 8),
+              Text(
+                "📚 Aking Silid-Aklatan (My Library)",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87, // O anong kulay ng text ang gamit mo
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+
+        _buildLibrarySection(),
         const SizedBox(height: 15),
         if (_isLoading)
           const Center(
