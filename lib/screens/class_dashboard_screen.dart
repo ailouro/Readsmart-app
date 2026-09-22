@@ -9,6 +9,7 @@ import '../widgets/responsive_layout.dart';
 import 'story_view_screen.dart';
 import 'assessment_flow_screen.dart';
 import '../services/phil_iri_session.dart';
+import '../services/phil_iri_rules.dart';
 import '../services/bgm_service.dart';
 
 String _safeString(dynamic value, [String fallback = ""]) {
@@ -377,7 +378,13 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
   /// gap when a save failed or the student is offline.
   String _assessmentStatus(Map<String, dynamic> a, SharedPreferences? prefs) {
     final String server = _safeString(a['status'], 'not_started');
-    if (server == 'complete' || server == 'not_needed') return server;
+    // The backend saves 'completed'; accept both spellings so a status
+    // change there never silently breaks this check again.
+    if (server == 'complete' ||
+        server == 'completed' ||
+        server == 'not_needed') {
+      return server == 'completed' ? 'complete' : server;
+    }
 
     final String? saved = prefs?.getString(_assessmentPrefsKey(a));
     if (saved != null) {
@@ -418,7 +425,16 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
     final int? classGrade = _classGrade;
 
     final gstController = TextEditingController();
+    String selectedTestType = 'pre_test';
     String selectedSet = _assessmentSets.first;
+    // Post-test has no GST score. The manual gives no rule for where a
+    // post-test should start, so the teacher chooses the grade directly.
+    // Reusing the class grade as the default is a reasonable starting
+    // point, not a Phil-IRI requirement.
+    int postTestStartGrade = (classGrade ?? PhilIriRules.minGrade).clamp(
+      PhilIriRules.minGrade,
+      PhilIriRules.maxGrade,
+    );
     bool isSubmitting = false;
     String? errorText;
 
@@ -432,12 +448,9 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
             side: const BorderSide(color: Colors.black, width: 3.5),
           ),
           backgroundColor: accentTheme,
-          title: Text(
+          title: const Text(
             "Assign Reading Test",
-            style: const TextStyle(
-              fontWeight: FontWeight.w900,
-              color: Colors.black,
-            ),
+            style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black),
           ),
           content: SingleChildScrollView(
             child: Column(
@@ -445,24 +458,76 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  "Pre-Test for $studentName"
+                  "For $studentName"
                   "${classGrade != null ? ' (Grade $classGrade)' : ''}",
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 const SizedBox(height: 16),
-                TextField(
-                  controller: gstController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: "GST raw score (0-20)",
-                    errorText: errorText,
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'pre_test', label: Text('Pre-Test')),
+                    ButtonSegment(value: 'post_test', label: Text('Post-Test')),
+                  ],
+                  selected: {selectedTestType},
+                  onSelectionChanged: isSubmitting
+                      ? null
+                      : (v) => setDialogState(() {
+                          selectedTestType = v.first;
+                          errorText = null;
+                        }),
                 ),
+                const SizedBox(height: 16),
+                if (selectedTestType == 'pre_test')
+                  TextField(
+                    controller: gstController,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: "GST raw score (0-20)",
+                      errorText: errorText,
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  )
+                else ...[
+                  DropdownButtonFormField<int>(
+                    value: postTestStartGrade,
+                    decoration: InputDecoration(
+                      labelText: "Starting Grade",
+                      errorText: errorText,
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    items: [
+                      for (
+                        int g = PhilIriRules.minGrade;
+                        g <= PhilIriRules.maxGrade;
+                        g++
+                      )
+                        DropdownMenuItem(value: g, child: Text("Grade $g")),
+                    ],
+                    onChanged: (v) {
+                      if (v != null) {
+                        setDialogState(() {
+                          postTestStartGrade = v;
+                          errorText = null;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 6),
+                  const Text(
+                    "The manual has no fixed rule for the post-test starting "
+                    "grade. Many teachers reuse the grade the pre-test "
+                    "settled on.",
+                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  ),
+                ],
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
                   value: selectedSet,
@@ -516,14 +581,15 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                         return;
                       }
 
-                      final int? gstRaw = int.tryParse(
-                        gstController.text.trim(),
-                      );
-                      if (gstRaw == null || gstRaw < 0 || gstRaw > 20) {
-                        setDialogState(
-                          () => errorText = "Enter a GST score from 0 to 20.",
-                        );
-                        return;
+                      int? gstRaw;
+                      if (selectedTestType == 'pre_test') {
+                        gstRaw = int.tryParse(gstController.text.trim());
+                        if (gstRaw == null || gstRaw < 0 || gstRaw > 20) {
+                          setDialogState(
+                            () => errorText = "Enter a GST score from 0 to 20.",
+                          );
+                          return;
+                        }
                       }
 
                       setDialogState(() => isSubmitting = true);
@@ -540,10 +606,13 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                           },
                           body: jsonEncode({
                             'student_id': studentId,
-                            'test_type': 'pre_test',
+                            'test_type': selectedTestType,
                             'set_letter': selectedSet,
-                            'gst_raw': gstRaw,
                             'student_grade': classGrade,
+                            if (selectedTestType == 'pre_test')
+                              'gst_raw': gstRaw
+                            else
+                              'start_grade': postTestStartGrade,
                           }),
                         );
 
@@ -551,11 +620,12 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                                 response.statusCode == 201) &&
                             mounted) {
                           Navigator.pop(dialogContext);
+                          final String label = selectedTestType == 'pre_test'
+                              ? 'Pre-Test'
+                              : 'Post-Test';
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
-                              content: Text(
-                                "Pre-Test assigned to $studentName!",
-                              ),
+                              content: Text("$label assigned to $studentName!"),
                               backgroundColor: Colors.green,
                             ),
                           );
