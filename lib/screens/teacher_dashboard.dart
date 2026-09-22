@@ -4071,6 +4071,221 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
     );
   }
 
+  // ---------------------------------------------------------------------
+  // Teacher: randomly assign a reading test to every student in the class
+  // at once (Stories tab). No GST here — every student starts at the
+  // class's own grade level. This is a deliberately different, simpler
+  // path than _showAssignAssessmentDialog below; that one is untouched.
+  // ---------------------------------------------------------------------
+
+  Future<void> _showBulkShuffleAssignDialog() async {
+    final classId =
+        widget.item['id'] ?? widget.item['_id'] ?? widget.item['class_id'];
+    final int? classGrade = _classGrade;
+
+    if (classGrade == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("This class has no grade level set.")),
+      );
+      return;
+    }
+
+    String selectedTestType = 'pre_test';
+    bool isSubmitting = false;
+    String? errorText;
+
+    final List<dynamic>? assignments = await showDialog<List<dynamic>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: Colors.black, width: 3.5),
+          ),
+          backgroundColor: accentTheme,
+          title: const Text(
+            "Randomly Assign to Class",
+            style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "Every one of the ${_students.length} students in this "
+                "class (Grade $classGrade) gets a randomly picked Set "
+                "(A-D) — independently per student, so the split won't "
+                "be even. No GST score is used; everyone starts at "
+                "Grade $classGrade.",
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 16),
+              SegmentedButton<String>(
+                segments: const [
+                  ButtonSegment(value: 'pre_test', label: Text('Pre-Test')),
+                  ButtonSegment(value: 'post_test', label: Text('Post-Test')),
+                ],
+                selected: {selectedTestType},
+                onSelectionChanged: isSubmitting
+                    ? null
+                    : (v) => setDialogState(() {
+                        selectedTestType = v.first;
+                        errorText = null;
+                      }),
+              ),
+              const SizedBox(height: 10),
+              const Text(
+                "Reassigning a student who already has one for this test "
+                "type replaces it (a fresh Set, fresh attempt) — any saved "
+                "result on it is erased.",
+                style: TextStyle(fontSize: 12, color: Colors.black54),
+              ),
+              if (errorText != null) ...[
+                const SizedBox(height: 10),
+                Text(
+                  errorText!,
+                  style: const TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12.5,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          actionsAlignment: MainAxisAlignment.spaceBetween,
+          actions: [
+            TextButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () => Navigator.pop(dialogContext),
+              child: const Text(
+                "Cancel",
+                style: TextStyle(
+                  color: Colors.black54,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: maroonTheme),
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      setDialogState(() {
+                        isSubmitting = true;
+                        errorText = null;
+                      });
+                      try {
+                        final response = await http.post(
+                          Uri.parse(
+                            "$baseUrl/api/classes/$classId/assessments/bulk",
+                          ),
+                          headers: {
+                            ...networkHeaders,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                          },
+                          body: jsonEncode({
+                            'test_type': selectedTestType,
+                            'student_ids': _students
+                                .map((s) => s['id'] ?? s['_id'])
+                                .toList(),
+                            'student_grade': classGrade,
+                          }),
+                        );
+                        if ((response.statusCode == 200 ||
+                                response.statusCode == 201) &&
+                            mounted) {
+                          final decoded = jsonDecode(response.body);
+                          final list =
+                              (decoded is Map ? decoded['assessments'] : null)
+                                  as List<dynamic>? ??
+                              [];
+                          Navigator.pop(dialogContext, list);
+                        } else {
+                          setDialogState(() {
+                            isSubmitting = false;
+                            errorText =
+                                'Failed to assign (code ${response.statusCode}). Try again.';
+                          });
+                        }
+                      } catch (e) {
+                        setDialogState(() {
+                          isSubmitting = false;
+                          errorText = 'Network error: $e';
+                        });
+                      }
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      height: 16,
+                      width: 16,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Text(
+                      "Shuffle & Assign",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    if (assignments == null || !mounted) return;
+
+    // Build a quick id -> name lookup from the roster already loaded for
+    // this class, so the result list reads as names, not raw IDs.
+    final Map<String, String> nameById = {
+      for (final s in _students)
+        _safeString(s['id'] ?? s['_id']): _safeString(
+          s['name'] ?? s['username'],
+          'Student',
+        ),
+    };
+
+    await showDialog(
+      context: context,
+      builder: (c) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text("Done — Sets Assigned"),
+        content: SizedBox(
+          width: double.maxFinite,
+          child: ListView.builder(
+            shrinkWrap: true,
+            itemCount: assignments.length,
+            itemBuilder: (_, i) {
+              final a = Map<String, dynamic>.from(assignments[i] as Map);
+              final name = nameById[_safeString(a['student_id'])] ?? 'Student';
+              return ListTile(
+                dense: true,
+                title: Text(name),
+                trailing: Text(
+                  "Set ${_safeString(a['set_letter'])}",
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              );
+            },
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c),
+            child: const Text("Close"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showAssignAssessmentDialog(Map<String, dynamic> student) async {
     final dynamic studentId = student['id'] ?? student['_id'];
     if (studentId == null) return;
@@ -4851,6 +5066,29 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                             fontSize: 13,
                             fontWeight: FontWeight.w700,
                             color: Colors.black87,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: OutlinedButton.icon(
+                          onPressed: _isLoadingStudents || _students.isEmpty
+                              ? null
+                              : _showBulkShuffleAssignDialog,
+                          icon: const Icon(Icons.shuffle),
+                          label: Text(
+                            _students.isEmpty
+                                ? "No students in this class yet"
+                                : "Randomly Assign to Class (${_students.length} students)",
+                          ),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: maroonTheme,
+                            side: const BorderSide(
+                              color: maroonTheme,
+                              width: 2,
+                            ),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
                       ),
