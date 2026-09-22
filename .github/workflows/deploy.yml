@@ -19,6 +19,17 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+      - name: Configure Git networking
+        run: |
+          git config --global http.version HTTP/1.1
+          git config --global fetch.parallel 1
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: '3.24.5'
+          cache: true
 
       - name: Install dependencies
         run: flutter pub get
@@ -31,3 +42,5 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build/web
+
+      
