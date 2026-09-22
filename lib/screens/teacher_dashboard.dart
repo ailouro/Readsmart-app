@@ -2862,24 +2862,11 @@ class _StudentsTabState extends State<_StudentsTab> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 20),
-        Row(
-          children: [
-            const Icon(Icons.priority_high_rounded, color: maroonTheme),
-            const SizedBox(width: 6),
-            Text(
-              "Needs Class Assignment (${unassigned.length})",
-              style: const TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 14,
-                color: maroonTheme,
-              ),
-            ),
-          ],
-        ),
+        const SizedBox(height: 30),
+        const ComicBadgeHeader(title: "NEEDS CLASS ASSIGNMENT ⚠️"),
         const SizedBox(height: 10),
         Container(
-          width: double.infinity,
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: Colors.white,
             borderRadius: BorderRadius.circular(16),
@@ -2891,48 +2878,70 @@ class _StudentsTabState extends State<_StudentsTab> {
           child: ListView.separated(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
-            padding: const EdgeInsets.symmetric(vertical: 6),
             itemCount: unassigned.length,
-            separatorBuilder: (_, __) =>
-                const Divider(height: 1, color: Colors.black12),
+            separatorBuilder: (context, index) =>
+                const Divider(color: Colors.black26, thickness: 1),
             itemBuilder: (context, index) {
               final student = unassigned[index];
+              final String name = _safeString(
+                student['name'],
+                'Unknown Student',
+              );
+              final String lrn = _safeString(student['lrn'], 'N/A');
+              final String gradeLevel = _safeString(student['grade_level']);
+              final String section = _safeString(student['section']);
+
               return ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: accentTheme,
-                  child: Text(
-                    _safeString(student['name'], '?').isNotEmpty
-                        ? _safeString(student['name'], '?')[0].toUpperCase()
-                        : '?',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w900,
-                      color: Colors.black,
-                    ),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 4,
+                ),
+                leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade100,
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.black, width: 2),
+                  ),
+                  child: const Icon(
+                    Icons.person_add_disabled_rounded,
+                    color: Colors.black87,
                   ),
                 ),
                 title: Text(
-                  _safeString(student['name'], 'Unknown Student'),
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  name,
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                  ),
                 ),
                 subtitle: Text(
-                  "LRN: ${_safeString(student['lrn'], 'N/A')}",
-                  style: const TextStyle(fontSize: 12),
+                  "LRN: $lrn${gradeLevel.isNotEmpty ? ' • $gradeLevel' : ''}${section.isNotEmpty ? ' $section' : ''}",
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
                 ),
                 trailing: ElevatedButton.icon(
                   onPressed: () => _showAssignClassPicker(student),
-                  icon: const Icon(Icons.add, size: 16, color: Colors.black),
+                  icon: const Icon(
+                    Icons.class_outlined,
+                    size: 16,
+                    color: Colors.black,
+                  ),
                   label: const Text(
                     "Assign",
                     style: TextStyle(
                       color: Colors.black,
                       fontWeight: FontWeight.w900,
+                      fontSize: 12,
                     ),
                   ),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: accentTheme,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
-                      side: const BorderSide(color: Colors.black, width: 1.5),
+                      side: const BorderSide(color: Colors.black, width: 2),
                     ),
                     elevation: 0,
                   ),
