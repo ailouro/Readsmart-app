@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' show Platform;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import '../services/bgm_service.dart';
@@ -236,10 +237,41 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     super.initState();
     BgmService().stopBgm();
     _readingStartTime = DateTime.now();
+    _configureAudioSession();
     _checkIfStoryRecorded();
     _initTtsEngine();
     _initAudioPlayerListeners();
     _loadSavedPage();
+  }
+
+  /// 🔊 MOBILE AUDIO FIX
+  /// On Android/iOS, audioplayers and flutter_tts default to an audio
+  /// session that can get muted by silent mode / Do Not Disturb, or that
+  /// loses focus to other apps. This forces playback through the media
+  /// (music) volume stream so the AI voice actually plays on phones.
+  Future<void> _configureAudioSession() async {
+    try {
+      await AudioPlayer.global.setAudioContext(
+        AudioContext(
+          android: const AudioContextAndroid(
+            isSpeakerphoneOn: true,
+            stayAwake: true,
+            contentType: AndroidContentType.music,
+            usageType: AndroidUsageType.media,
+            audioFocus: AndroidAudioFocus.gainTransientMayDuck,
+          ),
+          iOS: AudioContextIOS(
+            category: AVAudioSessionCategory.playback,
+            options: const {
+              AVAudioSessionOptions.mixWithOthers,
+              AVAudioSessionOptions.defaultToSpeaker,
+            },
+          ),
+        ),
+      );
+    } catch (e) {
+      debugPrint("Failed to configure audio session: $e");
+    }
   }
 
   Future<void> _checkIfStoryRecorded() async {
@@ -427,6 +459,21 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   void _initTtsEngine() async {
+    if (Platform.isIOS) {
+      try {
+        await _flutterTts.setSharedInstance(true);
+        await _flutterTts.setIosAudioCategory(
+          IosTextToSpeechAudioCategory.playback,
+          [
+            IosTextToSpeechAudioCategoryOptions.mixWithOthers,
+            IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+          ],
+          IosTextToSpeechAudioMode.defaultMode,
+        );
+      } catch (e) {
+        debugPrint("Failed to configure iOS TTS audio session: $e");
+      }
+    }
     await _flutterTts.setLanguage("en-US");
     await _flutterTts.setSpeechRate(0.45);
     await _flutterTts.setVolume(1.0);
@@ -1111,7 +1158,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     if (_targetWords.isEmpty) return const SizedBox.shrink();
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: Colors.amberAccent,
         borderRadius: BorderRadius.circular(16),
@@ -1120,8 +1167,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       ),
       child: Wrap(
         alignment: WrapAlignment.center,
-        spacing: 14.0,
-        runSpacing: 18.0,
+        spacing: 8.0,
+        runSpacing: 6.0,
         children: _targetWords.asMap().entries.map((entry) {
           int wIndex = entry.key;
           WordStatus wStatus = entry.value;
@@ -1157,7 +1204,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             wStatus.originalWord,
             style: GoogleFonts.fredoka(
               color: textColor,
-              fontSize: 22,
+              fontSize: 14,
               fontWeight: FontWeight.w700,
               decoration: decoration,
               decorationStyle: decorationStyle,
@@ -1237,7 +1284,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       child: Container(
         width: double.infinity,
         color: Colors.transparent,
-        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -1303,8 +1350,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
+                  horizontal: 10,
+                  vertical: 6,
                 ),
                 decoration: BoxDecoration(
                   color: Colors.white,
@@ -1318,138 +1365,146 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                             "and read the words out loud. Each word gets $_maxWordAttempts tries.",
                   textAlign: TextAlign.center,
                   style: const TextStyle(
-                    fontSize: 13,
+                    fontSize: 10,
                     fontWeight: FontWeight.bold,
                     color: Colors.black87,
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              const SizedBox(height: 8),
             ],
-            Container(
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(15),
-                boxShadow: const [
-                  BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-                ],
-              ),
-              child: Material(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(15),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(15),
-                  onTap: _isStoryAlreadyRecorded
-                      ? null
-                      : (_currentWordIndex < _targetWords.length
-                            ? _startOralReading
-                            : null),
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    decoration: BoxDecoration(
-                      color: _isStoryAlreadyRecorded
-                          ? Colors.grey[400]
-                          : (_isListening
-                                ? Colors.redAccent
-                                : (_currentWordIndex >= _targetWords.length
-                                      ? Colors.grey
-                                      : Colors.tealAccent[400])),
-                      borderRadius: BorderRadius.circular(15),
-                      border: Border.all(color: Colors.black, width: 3),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(
-                          _isStoryAlreadyRecorded
-                              ? Icons.check_circle
-                              : (_isListening ? Icons.stop : Icons.mic),
-                          color: Colors.black,
-                          size: 24,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          _isStoryAlreadyRecorded
-                              ? "Already Recorded"
-                              : (_isListening
-                                    ? "Stop Oral Reading"
-                                    : (_currentWordIndex < _targetWords.length
-                                          ? "Start Oral Reading 🎤"
-                                          : "Completed!")),
-                          style: const TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            if (_targetWords.isNotEmpty) ...[
-              const SizedBox(height: 12),
-              Text(
-                "Attempt: $_currentWordAttempts / $_maxWordAttempts",
-                style: const TextStyle(
-                  color: Colors.black,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 14,
-                  shadows: [Shadow(color: Colors.white, offset: Offset(1, 1))],
-                ),
-              ),
-              const SizedBox(height: 6),
-            ],
-            const SizedBox(height: 12),
             Builder(
               builder: (context) {
                 final int narrationIndex = currentScripts.length > 1 ? 1 : 0;
                 final bool isThisServerPlaying =
                     _isPlayingServerAudio && _playingIndex == narrationIndex;
 
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Container(
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          boxShadow: [
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    Expanded(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(15),
+                          boxShadow: const [
                             BoxShadow(
                               color: Colors.black,
-                              offset: Offset(2, 2),
+                              offset: Offset(4, 4),
                             ),
                           ],
                         ),
-                        child: IconButton(
-                          style: IconButton.styleFrom(
-                            backgroundColor: isThisServerPlaying
-                                ? Colors.amber[800]
-                                : Colors.blueAccent,
-                            foregroundColor: Colors.white,
-                            shape: const CircleBorder(
-                              side: BorderSide(color: Colors.black, width: 2.5),
+                        child: Material(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(15),
+                          child: InkWell(
+                            borderRadius: BorderRadius.circular(15),
+                            onTap: _isStoryAlreadyRecorded
+                                ? null
+                                : (_currentWordIndex < _targetWords.length
+                                      ? _startOralReading
+                                      : null),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              decoration: BoxDecoration(
+                                color: _isStoryAlreadyRecorded
+                                    ? Colors.grey[400]
+                                    : (_isListening
+                                          ? Colors.redAccent
+                                          : (_currentWordIndex >=
+                                                    _targetWords.length
+                                                ? Colors.grey
+                                                : Colors.tealAccent[400])),
+                                borderRadius: BorderRadius.circular(15),
+                                border: Border.all(
+                                  color: Colors.black,
+                                  width: 3,
+                                ),
+                              ),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                    _isStoryAlreadyRecorded
+                                        ? Icons.check_circle
+                                        : (_isListening
+                                              ? Icons.stop
+                                              : Icons.mic),
+                                    color: Colors.black,
+                                    size: 22,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Flexible(
+                                    child: Text(
+                                      _isStoryAlreadyRecorded
+                                          ? "Already Recorded"
+                                          : (_isListening
+                                                ? "Stop Oral Reading"
+                                                : (_currentWordIndex <
+                                                          _targetWords.length
+                                                      ? "Start Oral Reading 🎤"
+                                                      : "Completed!")),
+                                      textAlign: TextAlign.center,
+                                      style: const TextStyle(
+                                        color: Colors.black,
+                                        fontWeight: FontWeight.w900,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
-                          icon: Icon(
-                            isThisServerPlaying ? Icons.stop : Icons.volume_up,
-                            size: 20,
-                          ),
-                          onPressed: _isGenerating
-                              ? null
-                              : () => _playServerAudio(
-                                  narrationIndex,
-                                  cleanBaseUrl,
-                                ),
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      decoration: const BoxDecoration(
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(color: Colors.black, offset: Offset(2, 2)),
+                        ],
+                      ),
+                      child: IconButton(
+                        style: IconButton.styleFrom(
+                          backgroundColor: isThisServerPlaying
+                              ? Colors.amber[800]
+                              : Colors.blueAccent,
+                          foregroundColor: Colors.white,
+                          shape: const CircleBorder(
+                            side: BorderSide(color: Colors.black, width: 2.5),
+                          ),
+                        ),
+                        icon: Icon(
+                          isThisServerPlaying ? Icons.stop : Icons.volume_up,
+                          size: 20,
+                        ),
+                        onPressed: _isGenerating
+                            ? null
+                            : () => _playServerAudio(
+                                narrationIndex,
+                                cleanBaseUrl,
+                              ),
+                      ),
+                    ),
+                  ],
                 );
               },
             ),
+            if (_targetWords.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Text(
+                "Attempt: $_currentWordAttempts / $_maxWordAttempts",
+                style: const TextStyle(
+                  color: Colors.black,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                  shadows: [Shadow(color: Colors.white, offset: Offset(1, 1))],
+                ),
+              ),
+            ],
           ],
         ),
       ),
@@ -1563,17 +1618,17 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         }
 
         return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Padding(
-                padding: const EdgeInsets.only(bottom: 8.0),
+                padding: const EdgeInsets.only(bottom: 4.0),
                 child: Text(
                   "Slide ${index + 1} of ${pages.length}",
                   style: const TextStyle(
                     color: Colors.white,
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: FontWeight.w900,
                     shadows: [
                       Shadow(color: Colors.black, offset: Offset(2, 2)),
@@ -1598,6 +1653,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                       child: Image.network(
                         imageUrl,
                         fit: BoxFit.contain,
+                        width: double.infinity,
+                        height: double.infinity,
                         headers: const {"ngrok-skip-browser-warning": "69420"},
                         loadingBuilder: (context, child, loadingProgress) {
                           if (loadingProgress == null) return child;
@@ -1712,14 +1769,14 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                     } else {
                       return Column(
                         children: [
-                          Expanded(flex: 4, child: pageViewWidget),
+                          Expanded(flex: 7, child: pageViewWidget),
                           if (currentScripts.isNotEmpty)
                             Flexible(
                               flex: 2,
                               child: Padding(
                                 padding: const EdgeInsets.symmetric(
-                                  horizontal: 20.0,
-                                  vertical: 8.0,
+                                  horizontal: 14.0,
+                                  vertical: 6.0,
                                 ),
                                 child: SingleChildScrollView(
                                   controller: _scriptScrollController,
@@ -1727,7 +1784,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                                 ),
                               ),
                             ),
-                          Expanded(flex: 4, child: controlsWidget),
+                          Expanded(flex: 3, child: controlsWidget),
                           skipButtonWidget,
                         ],
                       );
