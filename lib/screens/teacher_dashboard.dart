@@ -9,6 +9,7 @@ import 'package:theapp/screens/upload_story_screen.dart';
 import 'package:theapp/screens/story_editor_screen.dart';
 import '../services/config.dart';
 import '../services/phil_iri_rules.dart';
+import '../services/phil_iri_session.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/bouncy_tap.dart';
 import 'teacher_profile_screen.dart';
@@ -3964,6 +3965,112 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
 
   int? get _classGrade => int.tryParse(widget.grade);
 
+  // Same normalization the backend applies (strtoupper(trim(str_ireplace(
+  // 'Set', '', ...)))), so "A" and "Set A" compare equal here too.
+  String _normalizeSetLetter(String s) => s
+      .replaceAll(RegExp('set', caseSensitive: false), '')
+      .trim()
+      .toUpperCase();
+
+  /// Finds this student's existing assessment (any status) for the given
+  /// test_type + set combo, from a raw /assessments list. Used so the
+  /// assign dialog can warn before silently overwriting one.
+  Map<String, dynamic>? _findMatchingAssessment(
+    List<dynamic> all,
+    String testType,
+    String setLetter,
+  ) {
+    final wantSet = _normalizeSetLetter(setLetter);
+    for (final raw in all) {
+      if (raw is! Map) continue;
+      final a = Map<String, dynamic>.from(raw);
+      if (_safeString(a['test_type']) != testType) continue;
+      if (_normalizeSetLetter(_safeString(a['set_letter'])) != wantSet) {
+        continue;
+      }
+      return a;
+    }
+    return null;
+  }
+
+  String _describeExistingAssessment(Map<String, dynamic> a) {
+    final status = _safeString(a['status'], 'assigned');
+    final label = _safeString(a['test_type']) == 'pre_test'
+        ? 'Pre-Test'
+        : 'Post-Test';
+    final set = _safeString(a['set_letter']);
+    if (status == 'completed' || status == 'complete') {
+      final parts = <String>[];
+      if (a['independent_grade'] != null) {
+        parts.add('Independent Gr. ${a['independent_grade']}');
+      }
+      if (a['instructional_grade'] != null) {
+        parts.add('Instructional Gr. ${a['instructional_grade']}');
+      }
+      if (a['frustration_grade'] != null) {
+        parts.add('Frustration Gr. ${a['frustration_grade']}');
+      }
+      if (a['below_range'] == true) parts.add('below range');
+      if (a['above_range'] == true) parts.add('above range');
+      final detail = parts.isEmpty ? '' : ' (${parts.join(', ')})';
+      return 'Already completed this $label, Set $set$detail.';
+    }
+    return 'Already assigned this $label, Set $set — not yet completed.';
+  }
+
+  /// Checks whether a Stage 2 passage already exists for this grade, so the
+  /// teacher can be warned before assigning a test that will stall.
+  /// Fails open (returns true) on a network error so a hiccup here never
+  /// blocks a legitimate assignment.
+  Future<bool> _passageExistsFor({
+    required String testType,
+    required String setLetter,
+    required int grade,
+  }) async {
+    try {
+      final response = await http.get(
+        Uri.parse(
+          "$baseUrl/api/assessment-passage"
+          "?test_type=$testType"
+          "&set_letter=${Uri.encodeQueryComponent(setLetter)}"
+          "&grade=$grade",
+        ),
+        headers: networkHeaders,
+      );
+      if (response.statusCode != 200) return false;
+      final decoded = jsonDecode(response.body);
+      final story = decoded is Map ? decoded['story'] : null;
+      final pages = story is Map ? story['pages'] : null;
+      return pages is List && pages.isNotEmpty;
+    } catch (e) {
+      debugPrint("Passage availability check failed: $e");
+      return true;
+    }
+  }
+
+  Future<bool?> _confirmAssignDespiteWarning(
+    BuildContext context,
+    String message,
+  ) {
+    return showDialog<bool>(
+      context: context,
+      builder: (c) => AlertDialog(
+        title: const Text("Heads up"),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text("Cancel"),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text("Assign Anyway"),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _showAssignAssessmentDialog(Map<String, dynamic> student) async {
     final dynamic studentId = student['id'] ?? student['_id'];
     if (studentId == null) return;
@@ -3986,234 +4093,433 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
     bool isSubmitting = false;
     String? errorText;
 
+    // #3: existing-assignment visibility. Fetched once when the dialog
+    // first builds, so the teacher sees current status before they can
+    // accidentally overwrite an in-progress or completed attempt.
+    bool existingFetchStarted = false;
+    bool existingLoaded = false;
+    List<dynamic> existingForStudent = [];
+    bool confirmReassign = false;
+
     await showDialog(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) => StatefulBuilder(
-        builder: (dialogContext, setDialogState) => AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Colors.black, width: 3.5),
-          ),
-          backgroundColor: accentTheme,
-          title: const Text(
-            "Assign Reading Test",
-            style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black),
-          ),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  "For $studentName"
-                  "${classGrade != null ? ' (Grade $classGrade)' : ''}",
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                const SizedBox(height: 16),
-                SegmentedButton<String>(
-                  segments: const [
-                    ButtonSegment(value: 'pre_test', label: Text('Pre-Test')),
-                    ButtonSegment(value: 'post_test', label: Text('Post-Test')),
-                  ],
-                  selected: {selectedTestType},
-                  onSelectionChanged: isSubmitting
-                      ? null
-                      : (v) => setDialogState(() {
-                          selectedTestType = v.first;
-                          errorText = null;
-                        }),
-                ),
-                const SizedBox(height: 16),
-                if (selectedTestType == 'pre_test')
-                  TextField(
-                    controller: gstController,
-                    keyboardType: TextInputType.number,
-                    decoration: InputDecoration(
-                      labelText: "GST raw score (0-20)",
-                      errorText: errorText,
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
+        builder: (dialogContext, setDialogState) {
+          if (!existingFetchStarted) {
+            existingFetchStarted = true;
+            () async {
+              List<dynamic> list = [];
+              try {
+                final res = await http.get(
+                  Uri.parse(
+                    "$baseUrl/api/classes/$classId/assessments"
+                    "?student_id=$studentId",
+                  ),
+                  headers: networkHeaders,
+                );
+                if (res.statusCode == 200) {
+                  final decoded = jsonDecode(res.body);
+                  list = decoded is Map
+                      ? ((decoded['assessments'] ?? decoded['data'] ?? [])
+                            as List)
+                      : (decoded is List ? decoded : []);
+                }
+              } catch (e) {
+                debugPrint("Error fetching existing assessments: $e");
+              }
+              if (mounted) {
+                try {
+                  setDialogState(() {
+                    existingForStudent = list;
+                    existingLoaded = true;
+                  });
+                } catch (_) {}
+              }
+            }();
+          }
+
+          return AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+              side: const BorderSide(color: Colors.black, width: 3.5),
+            ),
+            backgroundColor: accentTheme,
+            title: const Text(
+              "Assign Reading Test",
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                color: Colors.black,
+              ),
+            ),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    "For $studentName"
+                    "${classGrade != null ? ' (Grade $classGrade)' : ''}",
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'pre_test', label: Text('Pre-Test')),
+                      ButtonSegment(
+                        value: 'post_test',
+                        label: Text('Post-Test'),
                       ),
-                    ),
-                  )
-                else ...[
-                  DropdownButtonFormField<int>(
-                    initialValue: postTestStartGrade,
-                    decoration: InputDecoration(
-                      labelText: "Starting Grade",
-                      errorText: errorText,
-                      filled: true,
-                      fillColor: Colors.white,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                    items: [
-                      for (
-                        int g = PhilIriRules.minGrade;
-                        g <= PhilIriRules.maxGrade;
-                        g++
-                      )
-                        DropdownMenuItem(value: g, child: Text("Grade $g")),
                     ],
+                    selected: {selectedTestType},
+                    onSelectionChanged: isSubmitting
+                        ? null
+                        : (v) => setDialogState(() {
+                            selectedTestType = v.first;
+                            errorText = null;
+                            confirmReassign = false;
+                          }),
+                  ),
+                  const SizedBox(height: 16),
+                  if (selectedTestType == 'pre_test')
+                    TextField(
+                      controller: gstController,
+                      keyboardType: TextInputType.number,
+                      decoration: InputDecoration(
+                        labelText: "GST raw score (0-20)",
+                        errorText: errorText,
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    )
+                  else ...[
+                    DropdownButtonFormField<int>(
+                      initialValue: postTestStartGrade,
+                      decoration: InputDecoration(
+                        labelText: "Starting Grade",
+                        errorText: errorText,
+                        filled: true,
+                        fillColor: Colors.white,
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      items: [
+                        for (
+                          int g = PhilIriRules.minGrade;
+                          g <= PhilIriRules.maxGrade;
+                          g++
+                        )
+                          DropdownMenuItem(value: g, child: Text("Grade $g")),
+                      ],
+                      onChanged: (v) {
+                        if (v != null) {
+                          setDialogState(() {
+                            postTestStartGrade = v;
+                            errorText = null;
+                          });
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 6),
+                    const Text(
+                      "The manual has no fixed rule for the post-test starting "
+                      "grade. Many teachers reuse the grade the pre-test "
+                      "settled on.",
+                      style: TextStyle(fontSize: 12, color: Colors.black54),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    initialValue: selectedSet,
+                    decoration: InputDecoration(
+                      labelText: "Passage Set",
+                      filled: true,
+                      fillColor: Colors.white,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    items: _assessmentSets
+                        .map(
+                          (s) =>
+                              DropdownMenuItem(value: s, child: Text("Set $s")),
+                        )
+                        .toList(),
                     onChanged: (v) {
                       if (v != null) {
                         setDialogState(() {
-                          postTestStartGrade = v;
+                          selectedSet = v;
                           errorText = null;
+                          confirmReassign = false;
                         });
                       }
                     },
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    "The manual has no fixed rule for the post-test starting "
-                    "grade. Many teachers reuse the grade the pre-test "
-                    "settled on.",
-                    style: TextStyle(fontSize: 12, color: Colors.black54),
+                  Builder(
+                    builder: (_) {
+                      if (!existingLoaded) {
+                        return const Padding(
+                          padding: EdgeInsets.only(top: 12),
+                          child: Row(
+                            children: [
+                              SizedBox(
+                                height: 14,
+                                width: 14,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              ),
+                              SizedBox(width: 8),
+                              Text(
+                                "Checking existing assignments...",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }
+                      final match = _findMatchingAssessment(
+                        existingForStudent,
+                        selectedTestType,
+                        selectedSet,
+                      );
+                      if (match == null) return const SizedBox.shrink();
+                      return Container(
+                        margin: const EdgeInsets.only(top: 12),
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.orange.shade700),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              _describeExistingAssessment(match),
+                              style: const TextStyle(
+                                fontSize: 12.5,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            CheckboxListTile(
+                              contentPadding: EdgeInsets.zero,
+                              dense: true,
+                              controlAffinity: ListTileControlAffinity.leading,
+                              value: confirmReassign,
+                              onChanged: (v) => setDialogState(
+                                () => confirmReassign = v ?? false,
+                              ),
+                              title: const Text(
+                                "Reassign anyway (erases the saved result)",
+                                style: TextStyle(fontSize: 12.5),
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ],
-                const SizedBox(height: 12),
-                DropdownButtonFormField<String>(
-                  initialValue: selectedSet,
-                  decoration: InputDecoration(
-                    labelText: "Passage Set",
-                    filled: true,
-                    fillColor: Colors.white,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  items: _assessmentSets
-                      .map(
-                        (s) =>
-                            DropdownMenuItem(value: s, child: Text("Set $s")),
-                      )
-                      .toList(),
-                  onChanged: (v) {
-                    if (v != null) setDialogState(() => selectedSet = v);
-                  },
-                ),
-              ],
-            ),
-          ),
-          actionsAlignment: MainAxisAlignment.spaceBetween,
-          actions: [
-            TextButton(
-              onPressed: isSubmitting
-                  ? null
-                  : () => Navigator.pop(dialogContext),
-              child: const Text(
-                "Cancel",
-                style: TextStyle(
-                  color: Colors.black54,
-                  fontWeight: FontWeight.bold,
-                ),
               ),
             ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: maroonTheme),
-              onPressed: isSubmitting
-                  ? null
-                  : () async {
-                      setDialogState(() => errorText = null);
+            actionsAlignment: MainAxisAlignment.spaceBetween,
+            actions: [
+              TextButton(
+                onPressed: isSubmitting
+                    ? null
+                    : () => Navigator.pop(dialogContext),
+                child: const Text(
+                  "Cancel",
+                  style: TextStyle(
+                    color: Colors.black54,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: maroonTheme),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        setDialogState(() => errorText = null);
 
-                      if (classGrade == null) {
-                        setDialogState(
-                          () =>
-                              errorText = "This class has no grade level set.",
-                        );
-                        return;
-                      }
-
-                      int? gstRaw;
-                      if (selectedTestType == 'pre_test') {
-                        gstRaw = int.tryParse(gstController.text.trim());
-                        if (gstRaw == null || gstRaw < 0 || gstRaw > 20) {
+                        if (classGrade == null) {
                           setDialogState(
-                            () => errorText = "Enter a GST score from 0 to 20.",
+                            () => errorText =
+                                "This class has no grade level set.",
                           );
                           return;
                         }
-                      }
 
-                      setDialogState(() => isSubmitting = true);
+                        int? gstRaw;
+                        if (selectedTestType == 'pre_test') {
+                          gstRaw = int.tryParse(gstController.text.trim());
+                          if (gstRaw == null || gstRaw < 0 || gstRaw > 20) {
+                            setDialogState(
+                              () =>
+                                  errorText = "Enter a GST score from 0 to 20.",
+                            );
+                            return;
+                          }
+                        }
 
-                      try {
-                        final response = await http.post(
-                          Uri.parse(
-                            "$baseUrl/api/classes/$classId/assessments",
-                          ),
-                          headers: {
-                            ...networkHeaders,
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                          },
-                          body: jsonEncode({
-                            'student_id': studentId,
-                            'test_type': selectedTestType,
-                            'set_letter': selectedSet,
-                            'student_grade': classGrade,
-                            if (selectedTestType == 'pre_test')
-                              'gst_raw': gstRaw
-                            else
-                              'start_grade': postTestStartGrade,
-                          }),
-                        );
-
-                        if ((response.statusCode == 200 ||
-                                response.statusCode == 201) &&
-                            mounted) {
-                          Navigator.pop(dialogContext);
-                          final String label = selectedTestType == 'pre_test'
-                              ? 'Pre-Test'
-                              : 'Post-Test';
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text("$label assigned to $studentName!"),
-                              backgroundColor: Colors.green,
-                            ),
+                        // #3: don't silently overwrite an existing
+                        // assignment/outcome for this exact test_type + set.
+                        final existingMatch = existingLoaded
+                            ? _findMatchingAssessment(
+                                existingForStudent,
+                                selectedTestType,
+                                selectedSet,
+                              )
+                            : null;
+                        if (existingMatch != null && !confirmReassign) {
+                          setDialogState(
+                            () => errorText =
+                                'Check "Reassign anyway" above to confirm — '
+                                'this student already has that test.',
                           );
+                          return;
+                        }
+
+                        setDialogState(() => isSubmitting = true);
+
+                        // #2: warn (don't block) if no passage exists yet for
+                        // the computed starting grade, so the teacher isn't
+                        // blindsided by a student who stalls on step one.
+                        int? checkGrade;
+                        if (selectedTestType == 'pre_test') {
+                          final int studentIdInt = studentId is int
+                              ? studentId
+                              : (int.tryParse(studentId.toString()) ?? 0);
+                          final session = PhilIriSession.forPreTest(
+                            studentId: studentIdInt,
+                            studentGrade: classGrade,
+                            gstRaw: gstRaw!,
+                            setLetter: selectedSet,
+                          );
+                          if (session == null) {
+                            final proceed = await _confirmAssignDespiteWarning(
+                              dialogContext,
+                              "This student's GST score ($gstRaw) is at or "
+                              "above the cutoff of 14, so the manual says "
+                              "no further testing is needed. Assign the "
+                              "pre-test anyway?",
+                            );
+                            if (proceed != true) {
+                              setDialogState(() => isSubmitting = false);
+                              return;
+                            }
+                          } else {
+                            checkGrade = session.startGrade;
+                          }
                         } else {
-                          final decoded = response.body.isNotEmpty
-                              ? jsonDecode(response.body)
-                              : {};
+                          checkGrade = postTestStartGrade;
+                        }
+
+                        if (checkGrade != null) {
+                          final exists = await _passageExistsFor(
+                            testType: selectedTestType,
+                            setLetter: selectedSet,
+                            grade: checkGrade,
+                          );
+                          if (!exists) {
+                            final proceed = await _confirmAssignDespiteWarning(
+                              dialogContext,
+                              "No Grade $checkGrade story exists yet for Set "
+                              "$selectedSet. The student will get stuck at "
+                              "this step until one is uploaded. Assign "
+                              "anyway?",
+                            );
+                            if (proceed != true) {
+                              setDialogState(() => isSubmitting = false);
+                              return;
+                            }
+                          }
+                        }
+
+                        try {
+                          final response = await http.post(
+                            Uri.parse(
+                              "$baseUrl/api/classes/$classId/assessments",
+                            ),
+                            headers: {
+                              ...networkHeaders,
+                              'Content-Type': 'application/json',
+                              'Accept': 'application/json',
+                            },
+                            body: jsonEncode({
+                              'student_id': studentId,
+                              'test_type': selectedTestType,
+                              'set_letter': selectedSet,
+                              'student_grade': classGrade,
+                              if (selectedTestType == 'pre_test')
+                                'gst_raw': gstRaw
+                              else
+                                'start_grade': postTestStartGrade,
+                            }),
+                          );
+
+                          if ((response.statusCode == 200 ||
+                                  response.statusCode == 201) &&
+                              mounted) {
+                            Navigator.pop(dialogContext);
+                            final String label = selectedTestType == 'pre_test'
+                                ? 'Pre-Test'
+                                : 'Post-Test';
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  "$label assigned to $studentName!",
+                                ),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } else {
+                            final decoded = response.body.isNotEmpty
+                                ? jsonDecode(response.body)
+                                : {};
+                            setDialogState(() {
+                              isSubmitting = false;
+                              errorText =
+                                  decoded['message']?.toString() ??
+                                  "Could not assign the test (${response.statusCode}).";
+                            });
+                          }
+                        } catch (e) {
                           setDialogState(() {
                             isSubmitting = false;
-                            errorText =
-                                decoded['message']?.toString() ??
-                                "Could not assign the test (${response.statusCode}).";
+                            errorText = "Could not reach the server.";
                           });
                         }
-                      } catch (e) {
-                        setDialogState(() {
-                          isSubmitting = false;
-                          errorText = "Could not reach the server.";
-                        });
-                      }
-                    },
-              child: isSubmitting
-                  ? const SizedBox(
-                      height: 18,
-                      width: 18,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+                      },
+                child: isSubmitting
+                    ? const SizedBox(
+                        height: 18,
+                        width: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        "Assign",
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    )
-                  : const Text(
-                      "Assign",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-            ),
-          ],
-        ),
+              ),
+            ],
+          );
+        },
       ),
     );
 
