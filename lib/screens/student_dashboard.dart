@@ -1200,67 +1200,86 @@ class _StudentDashboardState extends State<StudentDashboard>
   }
 
   Widget _buildLibrarySection() {
-    if (_isLoadingLibrary) {
-      return const Center(child: CircularProgressIndicator());
-    }
-
-    if (_myLibraryStories.isEmpty) {
-      return const Padding(
-        padding: EdgeInsets.all(16.0),
-        child: Text(
-          "Wala ka pang natatapos na kuwento. Tapusin ang mga missions para mapuno ang iyong Library! 📖",
-          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-        ),
-      );
-    }
-
-    return ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: _myLibraryStories.length,
-      itemBuilder: (context, index) {
-        final story = _myLibraryStories[index];
-        return Card(
-          margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: Colors.black, width: 2),
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.black, width: 2),
+        boxShadow: const [
+          BoxShadow(color: Colors.black, offset: Offset(2, 2), blurRadius: 0),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: const [
+              Icon(
+                Icons.collections_bookmark_rounded,
+                color: Colors.amber,
+                size: 24,
+              ),
+              SizedBox(width: 8),
+              Text(
+                "Aking Silid-Aklatan (My Library)",
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
           ),
-          child: ListTile(
-            leading: const Icon(
-              Icons.menu_book_rounded,
-              color: Colors.amber,
-              size: 36,
-            ),
-            title: Text(
-              story['title'] ?? 'Kuwento',
-              style: const TextStyle(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text(
-              "Score: ${story['score'] ?? 'N/A'} • Tapos na basahin",
-            ),
-            trailing: const Icon(
-              Icons.play_circle_fill_rounded,
-              color: Colors.green,
-              size: 32,
-            ),
-            onTap: () {
-              // I-open ang StoryViewer para sa re-reading
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (_) => StoryViewerScreen(
-                    story: story,
-                    baseUrl: baseUrl,
-                    studentId: widget.studentId ?? 0,
-                    testType: "practice",
+          const Divider(color: Colors.black, thickness: 2, height: 20),
+
+          if (_isLoadingLibrary)
+            const Center(child: CircularProgressIndicator())
+          else if (_myLibraryStories.isEmpty)
+            const Text(
+              "Wala ka pang natatapos na kuwento. Tapusin ang mga missions para mapuno ang iyong Library! 📖",
+              style: TextStyle(fontSize: 14, color: Colors.black87),
+            )
+          else
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: _myLibraryStories.length,
+              itemBuilder: (context, index) {
+                final story = _myLibraryStories[index];
+                return ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: const Icon(
+                    Icons.menu_book_rounded,
+                    color: Colors.green,
+                    size: 32,
                   ),
-                ),
-              );
-            },
-          ),
-        );
-      },
+                  title: Text(
+                    story['title'] ?? 'Kuwento',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text("Score: ${story['quiz_score'] ?? 'N/A'}"),
+                  trailing: const Icon(
+                    Icons.play_circle_fill_rounded,
+                    color: Colors.amber,
+                    size: 28,
+                  ),
+                  onTap: () {
+                    // I-open ang StoryViewer para sa re-reading
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => StoryViewerScreen(
+                          story: story,
+                          baseUrl: baseUrl,
+                          studentId: widget.studentId ?? 0,
+                          testType: "practice",
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+        ],
+      ),
     );
   }
 
