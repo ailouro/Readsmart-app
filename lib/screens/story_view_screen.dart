@@ -863,6 +863,19 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       int correctWordsCount = totalWordsCount - failedWordsCount;
       if (correctWordsCount < 0) correctWordsCount = 0;
 
+      // 1. Kunin ang eksaktong aktibong oras ng oral reading (microphone active time)
+      int activeSeconds = _activeReadingDuration.inSeconds;
+      if (activeSeconds <= 0 && _readingStartTime != null) {
+        activeSeconds = DateTime.now().difference(_readingStartTime!).inSeconds;
+      }
+      if (activeSeconds <= 0) activeSeconds = 1;
+
+      // 2. Kwentahin ang Words Per Minute (WPM)
+      double timeInMinutes = activeSeconds / 60.0;
+      int computedWpm = (timeInMinutes > 0 && correctWordsCount > 0)
+          ? (correctWordsCount / timeInMinutes).round()
+          : 0;
+
       double wrPct = totalWordsCount > 0
           ? (correctWordsCount / totalWordsCount) * 100.0
           : 0.0;
@@ -896,7 +909,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               "oral_fluency_accuracy": wrPct,
               "total_words": totalWordsCount,
               "correct_words": correctWordsCount,
-              "time_on_task": elapsedSeconds > 0 ? elapsedSeconds : 1,
+              "time_on_task": activeSeconds, // Pinalitan ng activeSeconds
+              "wpm": computedWpm, // Naidagdag ang computed WPM
               "struggled_words": _allFailedWords
                   .map((w) => w.cleanWord)
                   .join(", "),
@@ -936,7 +950,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               baseUrl: widget.baseUrl,
               oralAccuracy: wrPct,
               totalWords: totalWordsCount,
-              readingTimeSeconds: elapsedSeconds > 0 ? elapsedSeconds : 1,
+              readingTimeSeconds: activeSeconds, // Pinalitan ng activeSeconds
               struggledWords: _allFailedWords.map((w) => w.cleanWord).toList(),
               assessmentMode: true,
             ),
@@ -957,7 +971,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             baseUrl: widget.baseUrl,
             oralAccuracy: wrPct,
             totalWords: totalWordsCount,
-            readingTimeSeconds: elapsedSeconds > 0 ? elapsedSeconds : 1,
+            readingTimeSeconds: activeSeconds, // Pinalitan ng activeSeconds
           ),
         ),
       );
