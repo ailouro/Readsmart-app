@@ -43,8 +43,7 @@ class _QuizScreenState extends State<QuizScreen> {
 
   int _currentQuestionIndex = 0;
   int _correctCount = 0;
-  bool _isAnswered = false;
-  int? _selectedOptionIndex;
+  bool _isFlipped = false;
 
   double get _wordsPerMinute {
     if (widget.readingTimeSeconds <= 0 || widget.totalWords <= 0) return 0;
@@ -100,22 +99,27 @@ class _QuizScreenState extends State<QuizScreen> {
     );
   }
 
-  void _handleAnswer(int idx, String selectedString, String correctString) {
-    if (_isAnswered) return;
-    
+  void _flipCard() {
+    if (_isFlipped) return;
+    setState(() => _isFlipped = true);
+  }
+
+  /// Student flips the card, compares the revealed answer to what they
+  /// thought in their head, then self-marks. This replaces auto-grading
+  /// from a tapped option, since flashcard mode never shows the choices.
+  void _markSelf(bool gotItRight) {
+    if (!_isFlipped) return;
+
     setState(() {
-      _isAnswered = true;
-      _selectedOptionIndex = idx;
-      if (selectedString == correctString) _correctCount++;
+      if (gotItRight) _correctCount++;
     });
 
-    Future.delayed(const Duration(milliseconds: 1500), () {
+    Future.delayed(const Duration(milliseconds: 350), () {
       if (!mounted) return;
       if (_currentQuestionIndex < _questions.length - 1) {
         setState(() {
           _currentQuestionIndex++;
-          _isAnswered = false;
-          _selectedOptionIndex = null;
+          _isFlipped = false;
         });
       } else {
         _submitQuizData();
@@ -208,18 +212,18 @@ class _QuizScreenState extends State<QuizScreen> {
     final String title = tier == 2
         ? "🎉 Great job!"
         : tier == 1
-            ? "👍 Good work!"
-            : "💪 Keep practicing!";
+        ? "👍 Good work!"
+        : "💪 Keep practicing!";
     final String message = tier == 2
         ? "You read and answered the questions really well. Keep it up!"
         : tier == 1
-            ? "You're getting there! Read the story again and practice the tricky words to get even better."
-            : "This one was a little hard, and that's okay. Try reading the story again slowly and practice the words you found tricky. You can do it!";
+        ? "You're getting there! Read the story again and practice the tricky words to get even better."
+        : "This one was a little hard, and that's okay. Try reading the story again slowly and practice the words you found tricky. You can do it!";
     final Color levelColor = tier == 2
         ? const Color(0xFF8BCA84)
         : tier == 1
-            ? const Color(0xFFFDE047)
-            : const Color(0xFFFC9272);
+        ? const Color(0xFFFDE047)
+        : const Color(0xFFFC9272);
     final List<String> wordsToPractice = widget.struggledWords
         .where((w) => w.trim().isNotEmpty)
         .take(5)
@@ -236,7 +240,10 @@ class _QuizScreenState extends State<QuizScreen> {
         ),
         title: Text(
           title,
-          style: const TextStyle(fontWeight: FontWeight.w900, color: Color(0xFF6A3B43)),
+          style: const TextStyle(
+            fontWeight: FontWeight.w900,
+            color: Color(0xFF6A3B43),
+          ),
           textAlign: TextAlign.center,
         ),
         content: SingleChildScrollView(
@@ -245,7 +252,10 @@ class _QuizScreenState extends State<QuizScreen> {
             children: [
               Text(
                 "Score: $correctCount / $total",
-                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+                style: const TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 10),
               Text(
@@ -260,14 +270,21 @@ class _QuizScreenState extends State<QuizScreen> {
               Text(
                 message,
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
               if (wordsToPractice.isNotEmpty) ...[
                 const SizedBox(height: 10),
                 Text(
                   "Words to practice: ${wordsToPractice.join(', ')}",
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 14, color: Colors.black54, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 14,
+                    color: Colors.black54,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
               if (saveFailed) ...[
@@ -275,13 +292,20 @@ class _QuizScreenState extends State<QuizScreen> {
                 const Text(
                   "⚠️ We couldn't save your results. Please tell your teacher.",
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 13, color: Color(0xFF940D0D), fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: Color(0xFF940D0D),
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
               if (showLevel) ...[
                 const SizedBox(height: 15),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
                   decoration: BoxDecoration(
                     color: levelColor,
                     borderRadius: BorderRadius.circular(10),
@@ -312,7 +336,10 @@ class _QuizScreenState extends State<QuizScreen> {
             },
             child: Text(
               tier == 2 ? "Awesome!" : "Continue",
-              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+              style: const TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
@@ -331,7 +358,13 @@ class _QuizScreenState extends State<QuizScreen> {
             fontWeight: FontWeight.w900,
             color: Colors.white,
             fontSize: 24,
-            shadows: [Shadow(color: Colors.black45, offset: Offset(2, 2), blurRadius: 4)],
+            shadows: [
+              Shadow(
+                color: Colors.black45,
+                offset: Offset(2, 2),
+                blurRadius: 4,
+              ),
+            ],
           ),
         ),
         backgroundColor: Colors.transparent,
@@ -350,12 +383,18 @@ class _QuizScreenState extends State<QuizScreen> {
                   width: isDesktop ? 600 : constraints.maxWidth,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: _isLoading
-                      ? const Center(child: CircularProgressIndicator(color: Colors.white))
+                      ? const Center(
+                          child: CircularProgressIndicator(color: Colors.white),
+                        )
                       : _questions.isEmpty
                       ? const Center(
                           child: Text(
                             "No quiz available for this story.",
-                            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         )
                       : _buildQuizGame(),
@@ -376,168 +415,329 @@ class _QuizScreenState extends State<QuizScreen> {
           children: [
             CircularProgressIndicator(color: Colors.white),
             SizedBox(height: 20),
-            Text("Saving your progress...", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(
+              "Saving your progress...",
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
           ],
         ),
       );
     }
 
     var question = _questions[_currentQuestionIndex];
-    List<dynamic> options = question['options'] ?? [];
     String correctString = question['correct_answer'] ?? "";
 
     return Center(
       child: SingleChildScrollView(
         child: Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // Instructions
-        Container(
-          margin: const EdgeInsets.only(top: 10),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.black, width: 2),
-          ),
-          child: const Text(
-            "Read each question, then tap the answer you think is correct. "
-            "Green means correct and red means not quite.",
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF2C246E)),
-          ),
-        ),
-
-        // Progress indicator
-        Container(
-          margin: const EdgeInsets.only(bottom: 20, top: 10),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: List.generate(_questions.length, (idx) {
-              return AnimatedContainer(
-                duration: const Duration(milliseconds: 300),
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                width: idx == _currentQuestionIndex ? 24 : 12,
-                height: 12,
-                decoration: BoxDecoration(
-                  color: idx < _currentQuestionIndex ? const Color(0xFF679B9B) : idx == _currentQuestionIndex ? const Color(0xFF9B40C9) : Colors.white54,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: Colors.black87, width: 1.5),
-                ),
-              );
-            }),
-          ),
-        ),
-        
-        // Question Card
-        Card(
-          elevation: 8,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-            side: const BorderSide(color: Colors.black, width: 3),
-          ),
-          color: Colors.white,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              children: [
-                Text(
-                  "Question ${_currentQuestionIndex + 1}",
-                  style: const TextStyle(color: Color(0xFF9B40C9), fontWeight: FontWeight.bold, fontSize: 16),
-                ),
-                const SizedBox(height: 10),
-                Text(
-                  question['question_text'],
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w900, color: Color(0xFF2C246E)),
-                ),
-              ],
-            ),
-          ),
-        ).animate(key: ValueKey(_currentQuestionIndex)).fadeIn(duration: 400.ms).slideY(begin: 0.2, end: 0),
-        
-        const SizedBox(height: 30),
-        
-        // Options
-        ...List.generate(options.length, (optIdx) {
-          String optString = options[optIdx].toString();
-          bool isSelected = _selectedOptionIndex == optIdx;
-          bool isCorrectOption = optString == correctString;
-          
-          Color btnColor = Colors.white;
-          Color textColor = const Color(0xFF2C246E);
-          
-          if (_isAnswered) {
-            if (isCorrectOption) {
-              btnColor = Colors.greenAccent;
-              textColor = Colors.black;
-            } else if (isSelected) {
-              btnColor = Colors.redAccent;
-              textColor = Colors.white;
-            } else {
-              btnColor = Colors.white54;
-            }
-          } else if (isSelected) {
-            btnColor = const Color(0xFFDCA9F5);
-          }
-
-          Widget optBtn = Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: btnColor,
-                foregroundColor: textColor,
-                padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                  side: const BorderSide(color: Colors.black, width: 2),
-                ),
-                elevation: isSelected ? 2 : 5,
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Instructions
+            Container(
+              margin: const EdgeInsets.only(top: 10),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.black, width: 2),
               ),
-              onPressed: _isAnswered ? null : () => _handleAnswer(optIdx, optString, correctString),
-              child: Text(
-                optString,
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              child: const Text(
+                "Read the question and think of your answer. Tap the card to "
+                "flip it and see the correct answer, then tell us if you got "
+                "it right.",
                 textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2C246E),
+                ),
               ),
             ),
-          );
 
-          if (_isAnswered && isSelected && !isCorrectOption) {
-            optBtn = optBtn.animate().shake(duration: 400.ms);
-          } else if (_isAnswered && isCorrectOption) {
-            optBtn = optBtn.animate().scale(begin: const Offset(1.0, 1.0), end: const Offset(1.05, 1.05), duration: 200.ms).then().scale(begin: const Offset(1.05, 1.05), end: const Offset(1.0, 1.0));
-          }
-
-          return optBtn.animate(key: ValueKey("${_currentQuestionIndex}_$optIdx"), delay: (100 * optIdx).ms).fadeIn(duration: 300.ms).slideX(begin: 0.2, end: 0);
-        }),
-
-        // Feedback right after answering
-        if (_isAnswered)
-          Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: Colors.black, width: 2),
+            // Progress indicator
+            Container(
+              margin: const EdgeInsets.only(bottom: 20, top: 10),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(_questions.length, (idx) {
+                  return AnimatedContainer(
+                    duration: const Duration(milliseconds: 300),
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    width: idx == _currentQuestionIndex ? 24 : 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: idx < _currentQuestionIndex
+                          ? const Color(0xFF679B9B)
+                          : idx == _currentQuestionIndex
+                          ? const Color(0xFF9B40C9)
+                          : Colors.white54,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(color: Colors.black87, width: 1.5),
+                    ),
+                  );
+                }),
+              ),
             ),
-            child: Text(
-              (_selectedOptionIndex != null &&
-                      options[_selectedOptionIndex!].toString() == correctString)
-                  ? "✅ Correct! Well done."
-                  : "❌ Not quite. The correct answer is: $correctString",
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF2C246E)),
-            ),
-          ),
-      ],
+
+            // Flip Card: front = question, back = correct answer
+            _FlipQuestionCard(
+                  key: ValueKey(_currentQuestionIndex),
+                  questionNumber: _currentQuestionIndex + 1,
+                  questionText: (question['question_text'] ?? '').toString(),
+                  correctAnswer: correctString,
+                  isFlipped: _isFlipped,
+                  onFlip: _flipCard,
+                )
+                .animate(key: ValueKey("wrap_$_currentQuestionIndex"))
+                .fadeIn(duration: 400.ms)
+                .slideY(begin: 0.2, end: 0),
+
+            const SizedBox(height: 24),
+
+            // Before flipping: nudge to flip. After flipping: self-mark.
+            if (!_isFlipped)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.black, width: 2),
+                ),
+                child: const Text(
+                  "👆 Tap the card above to reveal the answer",
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF2C246E),
+                  ),
+                ),
+              )
+            else
+              Column(
+                children: [
+                  const Text(
+                    "Did you get it right?",
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  Row(
+                        children: [
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.redAccent,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: const BorderSide(
+                                    color: Colors.black,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                              icon: const Icon(Icons.close),
+                              label: const Text(
+                                "Mali",
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: () => _markSelf(false),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.greenAccent[700],
+                                foregroundColor: Colors.black,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 16,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(16),
+                                  side: const BorderSide(
+                                    color: Colors.black,
+                                    width: 2,
+                                  ),
+                                ),
+                              ),
+                              icon: const Icon(Icons.check),
+                              label: const Text(
+                                "Tama",
+                                style: TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                              onPressed: () => _markSelf(true),
+                            ),
+                          ),
+                        ],
+                      )
+                      .animate()
+                      .fadeIn(duration: 300.ms)
+                      .slideY(begin: 0.2, end: 0),
+                ],
+              ),
+          ],
         ),
       ),
     );
   }
 }
+
+/// A question card that flips (front → back) around the Y axis to reveal
+/// the correct answer, like a physical flashcard.
+class _FlipQuestionCard extends StatefulWidget {
+  final int questionNumber;
+  final String questionText;
+  final String correctAnswer;
+  final bool isFlipped;
+  final VoidCallback onFlip;
+
+  const _FlipQuestionCard({
+    super.key,
+    required this.questionNumber,
+    required this.questionText,
+    required this.correctAnswer,
+    required this.isFlipped,
+    required this.onFlip,
+  });
+
+  @override
+  State<_FlipQuestionCard> createState() => _FlipQuestionCardState();
+}
+
+class _FlipQuestionCardState extends State<_FlipQuestionCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 400),
+    value: widget.isFlipped ? 1 : 0,
+  );
+
+  @override
+  void didUpdateWidget(covariant _FlipQuestionCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.isFlipped && !oldWidget.isFlipped) {
+      _controller.forward();
+    } else if (!widget.isFlipped && oldWidget.isFlipped) {
+      _controller.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: widget.onFlip,
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, child) {
+          final angle = _controller.value * 3.14159265;
+          final showingFront = angle < 3.14159265 / 2;
+          final face = showingFront
+              ? _buildFace(front: true)
+              : Transform(
+                  alignment: Alignment.center,
+                  transform: Matrix4.identity()..rotateY(3.14159265),
+                  child: _buildFace(front: false),
+                );
+          return Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.0012)
+              ..rotateY(angle),
+            child: face,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildFace({required bool front}) {
+    return Card(
+      elevation: 8,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: const BorderSide(color: Colors.black, width: 3),
+      ),
+      color: front ? Colors.white : const Color(0xFFDFF5E1),
+      child: Container(
+        width: double.infinity,
+        constraints: const BoxConstraints(minHeight: 220),
+        padding: const EdgeInsets.all(24),
+        alignment: Alignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: front
+              ? [
+                  Text(
+                    "Question $questionNumber",
+                    style: const TextStyle(
+                      color: Color(0xFF9B40C9),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    questionText,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF2C246E),
+                    ),
+                  ),
+                ]
+              : [
+                  const Text(
+                    "Answer",
+                    style: TextStyle(
+                      color: Color(0xFF2C7A3D),
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    correctAnswer,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w900,
+                      color: Color(0xFF2C246E),
+                    ),
+                  ),
+                ],
+        ),
+      ),
+    );
+  }
+
+  int get questionNumber => widget.questionNumber;
+  String get questionText => widget.questionText;
+  String get correctAnswer => widget.correctAnswer;
+}
+
 class QuizBackgroundPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
