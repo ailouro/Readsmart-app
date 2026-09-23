@@ -23,9 +23,16 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
+<<<<<<< HEAD
           channel: 'stable'
           flutter-version: '3.24.5'
           cache: true
+=======
+          channel: stable
+          flutter-version: 'latest'
+          environment:
+          sdk: ">=3.5.4 <4.0.0"
+>>>>>>> 64cb570b6c6988326650a55e26f502c4811eb555
 
       - name: Install dependencies
         run: flutter pub get
@@ -38,3 +45,5 @@ jobs:
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: ./build/web
+
+      
