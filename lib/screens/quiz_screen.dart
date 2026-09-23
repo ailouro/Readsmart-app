@@ -43,7 +43,11 @@ class _QuizScreenState extends State<QuizScreen> {
 
   int _currentQuestionIndex = 0;
   int _correctCount = 0;
-  bool _isFlipped = false;
+  int _streak = 0;
+
+  // Multiple-choice selection state for the current question.
+  int? _selectedIndex;
+  bool _answered = false;
 
   double get _wordsPerMinute {
     if (widget.readingTimeSeconds <= 0 || widget.totalWords <= 0) return 0;
@@ -99,27 +103,45 @@ class _QuizScreenState extends State<QuizScreen> {
     );
   }
 
-  void _flipCard() {
-    if (_isFlipped) return;
-    setState(() => _isFlipped = true);
+  /// Options for the current question, with the index of the correct one.
+  /// `correct_answer` is matched by text against `options` so the backend
+  /// doesn't need to send a separate index field.
+  (List<String> options, int correctIndex) _optionsFor(
+    Map<String, dynamic> question,
+  ) {
+    final List<String> options = ((question['options'] as List?) ?? [])
+        .map((o) => o.toString())
+        .toList();
+    final String correctAnswer = (question['correct_answer'] ?? '').toString();
+    int correctIndex = options.indexWhere(
+      (o) => o.trim() == correctAnswer.trim(),
+    );
+    if (correctIndex == -1) correctIndex = 0;
+    return (options, correctIndex);
   }
 
-  /// Student flips the card, compares the revealed answer to what they
-  /// thought in their head, then self-marks. This replaces auto-grading
-  /// from a tapped option, since flashcard mode never shows the choices.
-  void _markSelf(bool gotItRight) {
-    if (!_isFlipped) return;
+  void _selectOption(int tappedIndex, int correctIndex) {
+    if (_answered) return;
 
+    final bool isCorrect = tappedIndex == correctIndex;
     setState(() {
-      if (gotItRight) _correctCount++;
+      _answered = true;
+      _selectedIndex = tappedIndex;
+      if (isCorrect) {
+        _correctCount++;
+        _streak++;
+      } else {
+        _streak = 0;
+      }
     });
 
-    Future.delayed(const Duration(milliseconds: 350), () {
+    Future.delayed(const Duration(milliseconds: 1300), () {
       if (!mounted) return;
       if (_currentQuestionIndex < _questions.length - 1) {
         setState(() {
           _currentQuestionIndex++;
-          _isFlipped = false;
+          _selectedIndex = null;
+          _answered = false;
         });
       } else {
         _submitQuizData();
@@ -428,8 +450,8 @@ class _QuizScreenState extends State<QuizScreen> {
       );
     }
 
-    var question = _questions[_currentQuestionIndex];
-    String correctString = question['correct_answer'] ?? "";
+    var question = _questions[_currentQuestionIndex] as Map<String, dynamic>;
+    final (options, correctIndex) = _optionsFor(question);
 
     return Center(
       child: SingleChildScrollView(
@@ -437,31 +459,30 @@ class _QuizScreenState extends State<QuizScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // Instructions
-            Container(
-              margin: const EdgeInsets.only(top: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.black, width: 2),
-              ),
-              child: const Text(
-                "Read the question and think of your answer. Tap the card to "
-                "flip it and see the correct answer, then tell us if you got "
-                "it right.",
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF2C246E),
-                ),
+            // Score + streak badges
+            Padding(
+              padding: const EdgeInsets.only(top: 8, bottom: 4),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _StatBadge(
+                    icon: "🔥",
+                    value: "$_streak",
+                    key: ValueKey("streak_$_streak"),
+                  ),
+                  const SizedBox(width: 10),
+                  _StatBadge(
+                    icon: "⭐",
+                    value: "$_correctCount",
+                    key: ValueKey("score_$_correctCount"),
+                  ),
+                ],
               ),
             ),
 
             // Progress indicator
             Container(
-              margin: const EdgeInsets.only(bottom: 20, top: 10),
+              margin: const EdgeInsets.only(bottom: 16, top: 10),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: List.generate(_questions.length, (idx) {
@@ -484,112 +505,174 @@ class _QuizScreenState extends State<QuizScreen> {
               ),
             ),
 
-            // Flip Card: front = question, back = correct answer
-            _FlipQuestionCard(
-                  key: ValueKey(_currentQuestionIndex),
-                  questionNumber: _currentQuestionIndex + 1,
-                  questionText: (question['question_text'] ?? '').toString(),
-                  correctAnswer: correctString,
-                  isFlipped: _isFlipped,
-                  onFlip: _flipCard,
+            // Question card
+            Container(
+                  key: ValueKey("q_$_currentQuestionIndex"),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(18),
+                    border: Border.all(color: Colors.black, width: 3),
+                    boxShadow: const [
+                      BoxShadow(color: Colors.black, offset: Offset(5, 5)),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Question ${_currentQuestionIndex + 1}",
+                        style: const TextStyle(
+                          color: Color(0xFF9B40C9),
+                          fontWeight: FontWeight.bold,
+                          fontSize: 13,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        (question['question_text'] ?? '').toString(),
+                        style: const TextStyle(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF2C246E),
+                          height: 1.3,
+                        ),
+                      ),
+                    ],
+                  ),
                 )
                 .animate(key: ValueKey("wrap_$_currentQuestionIndex"))
                 .fadeIn(duration: 400.ms)
                 .slideY(begin: 0.2, end: 0),
 
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
 
-            // Before flipping: nudge to flip. After flipping: self-mark.
-            if (!_isFlipped)
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.black, width: 2),
-                ),
-                child: const Text(
-                  "👆 Tap the card above to reveal the answer",
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF2C246E),
-                  ),
-                ),
-              )
-            else
-              Column(
-                children: [
-                  const Text(
-                    "Did you get it right?",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
+            // Answer options
+            ...List.generate(options.length, (i) {
+              final bool isSelected = _selectedIndex == i;
+              final bool isCorrectOption = i == correctIndex;
+              final bool showCorrect = _answered && isCorrectOption;
+              final bool showWrong =
+                  _answered && isSelected && !isCorrectOption;
+
+              Color bg = Colors.white;
+              if (showCorrect) {
+                bg = const Color(0xFF8BCA84);
+              } else if (showWrong) {
+                bg = const Color(0xFFFC9272);
+              }
+
+              Widget optionWidget = Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(14),
+                    onTap: _answered
+                        ? null
+                        : () => _selectOption(i, correctIndex),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 12,
+                      ),
+                      decoration: BoxDecoration(
+                        color: bg,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: Colors.black, width: 3),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black, offset: Offset(3, 3)),
+                        ],
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 26,
+                            height: 26,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: (showCorrect || showWrong)
+                                  ? Colors.white
+                                  : const Color(0xFFFDE047),
+                              shape: BoxShape.circle,
+                              border: Border.all(color: Colors.black, width: 2),
+                            ),
+                            child: Text(
+                              String.fromCharCode(65 + i),
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13,
+                                color: Color(0xFF2C246E),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              options[i],
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFF2C246E),
+                              ),
+                            ),
+                          ),
+                          if (showCorrect)
+                            const Icon(Icons.check_circle, color: Colors.black),
+                          if (showWrong)
+                            const Icon(Icons.cancel, color: Colors.black),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                        children: [
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.redAccent,
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  side: const BorderSide(
-                                    color: Colors.black,
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                              icon: const Icon(Icons.close),
-                              label: const Text(
-                                "Mali",
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              onPressed: () => _markSelf(false),
-                            ),
-                          ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: ElevatedButton.icon(
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.greenAccent[700],
-                                foregroundColor: Colors.black,
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(16),
-                                  side: const BorderSide(
-                                    color: Colors.black,
-                                    width: 2,
-                                  ),
-                                ),
-                              ),
-                              icon: const Icon(Icons.check),
-                              label: const Text(
-                                "Tama",
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              onPressed: () => _markSelf(true),
-                            ),
-                          ),
-                        ],
-                      )
-                      .animate()
-                      .fadeIn(duration: 300.ms)
-                      .slideY(begin: 0.2, end: 0),
-                ],
+                ),
+              );
+
+              if (showWrong) {
+                optionWidget = optionWidget.animate().shake(
+                  duration: 350.ms,
+                  hz: 4,
+                );
+              } else if (showCorrect) {
+                optionWidget = optionWidget
+                    .animate()
+                    .scale(
+                      duration: 250.ms,
+                      begin: const Offset(1, 1),
+                      end: const Offset(1.03, 1.03),
+                    )
+                    .then()
+                    .scale(
+                      duration: 150.ms,
+                      begin: const Offset(1.03, 1.03),
+                      end: const Offset(1, 1),
+                    );
+              }
+              return optionWidget;
+            }),
+
+            const SizedBox(height: 4),
+
+            // Feedback toast
+            if (_answered)
+              Padding(
+                padding: const EdgeInsets.only(top: 4),
+                child: Text(
+                  _selectedIndex == correctIndex
+                      ? (_streak >= 3 ? "🔥 On fire! Great job!" : "✅ Correct!")
+                      : "Not quite — the correct answer is highlighted!",
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                    shadows: [
+                      Shadow(color: Colors.black, offset: Offset(1, 1)),
+                    ],
+                  ),
+                ).animate().fadeIn(duration: 250.ms),
               ),
           ],
         ),
@@ -598,144 +681,47 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 }
 
-/// A question card that flips (front → back) around the Y axis to reveal
-/// the correct answer, like a physical flashcard.
-class _FlipQuestionCard extends StatefulWidget {
-  final int questionNumber;
-  final String questionText;
-  final String correctAnswer;
-  final bool isFlipped;
-  final VoidCallback onFlip;
+/// Small pill badge used for the streak (🔥) and score (⭐) counters. It
+/// pops briefly whenever its value changes, since a new [key] is passed in
+/// each time the count updates.
+class _StatBadge extends StatelessWidget {
+  final String icon;
+  final String value;
 
-  const _FlipQuestionCard({
-    super.key,
-    required this.questionNumber,
-    required this.questionText,
-    required this.correctAnswer,
-    required this.isFlipped,
-    required this.onFlip,
-  });
-
-  @override
-  State<_FlipQuestionCard> createState() => _FlipQuestionCardState();
-}
-
-class _FlipQuestionCardState extends State<_FlipQuestionCard>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 400),
-    value: widget.isFlipped ? 1 : 0,
-  );
-
-  @override
-  void didUpdateWidget(covariant _FlipQuestionCard oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isFlipped && !oldWidget.isFlipped) {
-      _controller.forward();
-    } else if (!widget.isFlipped && oldWidget.isFlipped) {
-      _controller.reverse();
-    }
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
+  const _StatBadge({super.key, required this.icon, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: widget.onFlip,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, child) {
-          final angle = _controller.value * 3.14159265;
-          final showingFront = angle < 3.14159265 / 2;
-          final face = showingFront
-              ? _buildFace(front: true)
-              : Transform(
-                  alignment: Alignment.center,
-                  transform: Matrix4.identity()..rotateY(3.14159265),
-                  child: _buildFace(front: false),
-                );
-          return Transform(
-            alignment: Alignment.center,
-            transform: Matrix4.identity()
-              ..setEntry(3, 2, 0.0012)
-              ..rotateY(angle),
-            child: face,
-          );
-        },
-      ),
-    );
-  }
-
-  Widget _buildFace({required bool front}) {
-    return Card(
-      elevation: 8,
-      shape: RoundedRectangleBorder(
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(20),
-        side: const BorderSide(color: Colors.black, width: 3),
+        border: Border.all(color: Colors.black, width: 2),
+        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(2, 2))],
       ),
-      color: front ? Colors.white : const Color(0xFFDFF5E1),
-      child: Container(
-        width: double.infinity,
-        constraints: const BoxConstraints(minHeight: 220),
-        padding: const EdgeInsets.all(24),
-        alignment: Alignment.center,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: front
-              ? [
-                  Text(
-                    "Question $questionNumber",
-                    style: const TextStyle(
-                      color: Color(0xFF9B40C9),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    questionText,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF2C246E),
-                    ),
-                  ),
-                ]
-              : [
-                  const Text(
-                    "Answer",
-                    style: TextStyle(
-                      color: Color(0xFF2C7A3D),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    correctAnswer,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w900,
-                      color: Color(0xFF2C246E),
-                    ),
-                  ),
-                ],
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(icon, style: const TextStyle(fontSize: 14)),
+          const SizedBox(width: 5),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.w900,
+              fontSize: 14,
+              color: Color(0xFF2C246E),
+            ),
+          ),
+        ],
       ),
+    ).animate().scale(
+      duration: 220.ms,
+      begin: const Offset(0.7, 0.7),
+      end: const Offset(1, 1),
+      curve: Curves.easeOutBack,
     );
   }
-
-  int get questionNumber => widget.questionNumber;
-  String get questionText => widget.questionText;
-  String get correctAnswer => widget.correctAnswer;
 }
 
 class QuizBackgroundPainter extends CustomPainter {
