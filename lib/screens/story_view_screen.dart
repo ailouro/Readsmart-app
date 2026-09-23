@@ -176,6 +176,10 @@ class StoryViewerScreen extends StatefulWidget {
   /// AssessmentFlowScreen can score the passage.
   final bool assessmentMode;
 
+  /// Practice mode flag for My Library / Activity.
+  /// When true, reading progress and test results will not be saved to backend.
+  final bool isPracticeOnly;
+
   const StoryViewerScreen({
     super.key,
     required this.story,
@@ -183,6 +187,7 @@ class StoryViewerScreen extends StatefulWidget {
     this.studentId = 1,
     this.testType = "post_test",
     this.assessmentMode = false,
+    this.isPracticeOnly = false,
   });
 
   @override
@@ -245,10 +250,6 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   /// 🔊 MOBILE AUDIO FIX
-  /// On Android/iOS, audioplayers and flutter_tts default to an audio
-  /// session that can get muted by silent mode / Do Not Disturb, or that
-  /// loses focus to other apps. This forces playback through the media
-  /// (music) volume stream so the AI voice actually plays on phones.
   Future<void> _configureAudioSession() async {
     try {
       await AudioPlayer.global.setAudioContext(
@@ -275,7 +276,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   Future<void> _checkIfStoryRecorded() async {
-    if (widget.assessmentMode) return;
+    if (widget.assessmentMode || widget.isPracticeOnly) return;
     final prefs = await SharedPreferences.getInstance();
     bool recorded =
         prefs.getBool(
@@ -295,14 +296,14 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           'story_${widget.story['id'] ?? widget.story['_id']}_reading_completed',
         ) ??
         false;
-    if (alreadyCompleted) {
+    if (alreadyCompleted && !widget.isPracticeOnly) {
       await _clearSavedStoryProgress();
     }
 
     final String? savedStates = prefs.getString(
       'story_${widget.story['id']}_word_states',
     );
-    if (savedStates != null) {
+    if (savedStates != null && !widget.isPracticeOnly) {
       try {
         final Map<String, dynamic> decoded = jsonDecode(savedStates);
         final List<dynamic> pages = widget.story['pages'] ?? [];
@@ -369,20 +370,23 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       } catch (_) {}
     }
 
-    int? savedPage = prefs.getInt('story_${widget.story['id']}_page');
-    if (savedPage != null && savedPage > 0) {
-      List<dynamic> pages = widget.story['pages'] ?? [];
-      if (savedPage < pages.length) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (_pageController.hasClients) {
-            _pageController.jumpToPage(savedPage);
-          }
-        });
+    if (!widget.isPracticeOnly) {
+      int? savedPage = prefs.getInt('story_${widget.story['id']}_page');
+      if (savedPage != null && savedPage > 0) {
+        List<dynamic> pages = widget.story['pages'] ?? [];
+        if (savedPage < pages.length) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (_pageController.hasClients) {
+              _pageController.jumpToPage(savedPage);
+            }
+          });
+        }
       }
     }
   }
 
   Future<void> _savePageWordStates(int pageIdx, List<WordStatus> words) async {
+    if (widget.isPracticeOnly) return;
     try {
       final prefs = await SharedPreferences.getInstance();
       final String key = 'story_${widget.story['id']}_word_states';
@@ -866,7 +870,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         curve: Curves.easeInOut,
       );
     } else {
-      if (_isStoryAlreadyRecorded) {
+      if (_isStoryAlreadyRecorded && !widget.isPracticeOnly) {
         if (!mounted) return;
         Navigator.pushReplacement(
           context,
@@ -948,7 +952,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         wrLevel = 'Frustration';
       }
 
-      if (!widget.assessmentMode) {
+      // KUNG HINDI PRACTICE MODE AT HINDI ASSESSMENT MODE, MAG-SAVE SA BACKEND
+      if (!widget.assessmentMode && !widget.isPracticeOnly) {
         try {
           await http.post(
             Uri.parse("${widget.baseUrl}/api/student/progress"),
@@ -978,11 +983,11 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         }
       }
 
-      if (_allFailedWords.isNotEmpty) {
+      if (_allFailedWords.isNotEmpty && !widget.isPracticeOnly) {
         await _notifyTeacherOfFailedWords(_allFailedWords);
       }
 
-      if (!widget.assessmentMode) {
+      if (!widget.assessmentMode && !widget.isPracticeOnly) {
         final prefs = await SharedPreferences.getInstance();
         await prefs.setBool(
           'story_${widget.story['id'] ?? widget.story['_id']}_reading_completed',
@@ -992,6 +997,34 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       await _clearSavedStoryProgress();
 
       if (!mounted) return;
+
+      // 🌟 KUNG PRACTICE MODE (MY LIBRARY):
+      if (widget.isPracticeOnly) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text("Magaling! 🌟", textAlign: TextAlign.center),
+            content: const Text(
+              "Natapos mo ang pagsasanay sa pagbasa!",
+              textAlign: TextAlign.center,
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.pop(dialogContext); // Isara ang dialog
+                  Navigator.pop(context); // Bumalik sa My Library
+                },
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+        );
+        return;
+      }
 
       if (widget.assessmentMode) {
         final score = await Navigator.push<PassageScore>(
@@ -1073,7 +1106,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   Future<void> _notifyTeacherOfFailedWords(List<WordStatus> failedWords) async {
-    if (failedWords.isEmpty) return;
+    if (failedWords.isEmpty || widget.isPracticeOnly) return;
     try {
       final url = Uri.parse("${widget.baseUrl}/api/student-mispronunciations");
       var request = http.MultipartRequest('POST', url);
@@ -1135,6 +1168,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     WordStatus word,
     int totalAttempts,
   ) async {
+    if (widget.isPracticeOnly) return;
     try {
       final url = Uri.parse("${widget.baseUrl}/api/student-self-corrections");
       await http.post(
@@ -1363,7 +1397,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               ],
             ),
             const SizedBox(height: 12),
-            if (!_isStoryAlreadyRecorded) ...[
+            if (!_isStoryAlreadyRecorded || widget.isPracticeOnly) ...[
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -1415,7 +1449,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                           borderRadius: BorderRadius.circular(15),
                           child: InkWell(
                             borderRadius: BorderRadius.circular(15),
-                            onTap: _isStoryAlreadyRecorded
+                            onTap:
+                                (_isStoryAlreadyRecorded &&
+                                    !widget.isPracticeOnly)
                                 ? null
                                 : (_currentWordIndex < _targetWords.length
                                       ? _startOralReading
@@ -1424,7 +1460,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                               width: double.infinity,
                               padding: const EdgeInsets.symmetric(vertical: 10),
                               decoration: BoxDecoration(
-                                color: _isStoryAlreadyRecorded
+                                color:
+                                    (_isStoryAlreadyRecorded &&
+                                        !widget.isPracticeOnly)
                                     ? Colors.grey[400]
                                     : (_isListening
                                           ? Colors.redAccent
@@ -1442,7 +1480,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
                                   Icon(
-                                    _isStoryAlreadyRecorded
+                                    (_isStoryAlreadyRecorded &&
+                                            !widget.isPracticeOnly)
                                         ? Icons.check_circle
                                         : (_isListening
                                               ? Icons.stop
@@ -1453,7 +1492,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                                   const SizedBox(width: 6),
                                   Flexible(
                                     child: Text(
-                                      _isStoryAlreadyRecorded
+                                      (_isStoryAlreadyRecorded &&
+                                              !widget.isPracticeOnly)
                                           ? "Already Recorded"
                                           : (_isListening
                                                 ? "Stop Oral Reading"
@@ -1546,7 +1586,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           child: Text(
             _currentPage < pages.length - 1
                 ? "Skip to Next Slide"
-                : "Finish Reading & Take Quiz",
+                : (widget.isPracticeOnly
+                      ? "Finish Practice"
+                      : "Finish Reading & Take Quiz"),
             style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
           ),
         ),
@@ -1591,9 +1633,11 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         if (!_pageTargetWords.containsKey(index)) {
           _setupTargetWords(_firstReadingScript(pages[index]['audio_scripts']));
         }
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setInt('story_${widget.story['id']}_page', index);
-        await _savePageWordStates(leavingPage, leavingWords);
+        if (!widget.isPracticeOnly) {
+          final prefs = await SharedPreferences.getInstance();
+          await prefs.setInt('story_${widget.story['id']}_page', index);
+          await _savePageWordStates(leavingPage, leavingWords);
+        }
 
         String nextPath = "";
         if (index + 1 < pages.length) {

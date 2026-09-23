@@ -242,119 +242,17 @@ class _StudentDashboardState extends State<StudentDashboard>
     }
   }
 
-  void _showJoinClassDialog() {
-    final TextEditingController codeController = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: const BorderSide(color: Colors.black, width: 3.5),
-        ),
-        title: const Text(
-          "Unlock a New Mission 🗝️",
-          style: TextStyle(color: maroonTheme, fontWeight: FontWeight.w900),
-        ),
-        content: TextField(
-          controller: codeController,
-          decoration: InputDecoration(
-            labelText: "Enter Secret Code",
-            helperText: "Ask your teacher for the secret code.",
-            labelStyle: const TextStyle(
-              fontWeight: FontWeight.bold,
-              color: Colors.black,
-            ),
-            filled: true,
-            fillColor: Colors.grey[100],
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: Colors.black, width: 2.5),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(12),
-              borderSide: const BorderSide(color: maroonTheme, width: 3),
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text(
-              "Cancel",
-              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
-            ),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: maroonTheme,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-                side: const BorderSide(color: Colors.black, width: 2.5),
-              ),
-            ),
-            onPressed: () {
-              Navigator.pop(context);
-              _joinClass(codeController.text);
-            },
-            child: const Text(
-              "Unlock Now!",
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.w900,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _joinClass(String classCode) async {
-    if (classCode.trim().isEmpty) return;
-    try {
-      final studentId = await _getStudentId();
-      if (studentId == null) return;
-      final response = await http.post(
-        Uri.parse("$baseUrl/api/student/join-class"),
-        headers: {
-          ...networkHeaders,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-        },
-        body: jsonEncode({
-          'class_code': classCode.trim(),
-          'student_id': studentId,
-        }),
-      );
-      final decoded = jsonDecode(response.body);
-      if ((response.statusCode == 200 || response.statusCode == 201) &&
-          mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text("New mission unlocked successfully"),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30),
-            ),
-            margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
-            duration: const Duration(seconds: 2),
-          ),
-        );
-        _fetchMyClasses();
-        BgmService().startBgm();
-      }
-    } catch (e) {
-      debugPrint("Error joining class: $e");
-    }
-  }
-
   // Opens the currently selected class's story/mission list -- reuses the
   // same navigation as tapping a class card. Assumption: "Adventure Map"
   // means "browse this class's missions" -- point me elsewhere if not.
   Future<void> _openAdventureMap() async {
     if (_myClasses.isEmpty) {
-      _showJoinClassDialog();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("No class yet. Your admin will add you soon!"),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
       return;
     }
     final currentStudentId = await _getStudentId();
@@ -505,34 +403,6 @@ class _StudentDashboardState extends State<StudentDashboard>
           ),
         ),
       ),
-      floatingActionButton: SafeArea(
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(30),
-            boxShadow: const [
-              BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-            ],
-          ),
-          child: FloatingActionButton.extended(
-            onPressed: _showJoinClassDialog,
-            backgroundColor: accentTheme,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30),
-              side: const BorderSide(color: Colors.black, width: 3),
-            ),
-            elevation: 0,
-            icon: const Icon(Icons.key_rounded, color: Colors.black, size: 24),
-            label: const Text(
-              "UNLOCK MISSION",
-              style: TextStyle(
-                color: Colors.black,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 0.5,
-              ),
-            ),
-          ),
-        ),
-      ),
       body: ComicBackground(
         child: RefreshIndicator(
           onRefresh: _fetchMyClasses,
@@ -633,8 +503,8 @@ class _StudentDashboardState extends State<StudentDashboard>
         _buildSectionTitle("🚀 YOUR MISSIONS"),
         const SizedBox(height: 10),
         _buildInstructionNote(
-          "Tap your class below to open its stories. To join a new class, "
-          "tap UNLOCK MISSION and type the secret code from your teacher.",
+          "Tap your class below to open its stories. New classes will show "
+          "up here once your admin adds you.",
         ),
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -776,13 +646,6 @@ class _StudentDashboardState extends State<StudentDashboard>
                     icon: Icons.emoji_events_rounded,
                     color: accentTheme,
                     onTap: _openProgress,
-                  ),
-                  const SizedBox(width: 10),
-                  _buildStickerButton(
-                    icon: Icons.key_rounded,
-                    color: Colors.white,
-                    label: "UNLOCK MISSION",
-                    onTap: _showJoinClassDialog,
                   ),
                 ],
               ),
@@ -932,11 +795,6 @@ class _StudentDashboardState extends State<StudentDashboard>
               Icons.map_rounded,
               "Adventure Map",
               _openAdventureMap,
-            ),
-            _buildNavItem(
-              Icons.key_rounded,
-              "Unlock Mission",
-              _showJoinClassDialog,
             ),
             const Spacer(),
             const Padding(
@@ -1285,6 +1143,7 @@ class _StudentDashboardState extends State<StudentDashboard>
                           baseUrl: baseUrl,
                           studentId: widget.studentId ?? 0,
                           testType: "practice",
+                          isPracticeOnly: true,
                         ),
                       ),
                     );
@@ -1336,7 +1195,7 @@ class _StudentDashboardState extends State<StudentDashboard>
             ),
             const SizedBox(height: 6),
             const Text(
-              "Ask your teacher for a secret code and tap 'Unlock Mission' below to begin.",
+              "Your admin will add you to a class soon. Pull down to refresh!",
               textAlign: TextAlign.center,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
