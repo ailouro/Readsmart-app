@@ -121,7 +121,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   ),
                   _StudentsTab(teacherId: widget.teacherId),
                   _AlertsTab(teacherId: widget.teacherId),
-                  TeacherProfileScreen(userName: widget.userName),
+                  TeacherProfileScreen(
+                    userName: widget.userName,
+                    teacherId: widget.teacherId,
+                  ),
                 ],
               ),
             ),
@@ -263,7 +266,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   ),
                   _StudentsTab(teacherId: widget.teacherId),
                   _AlertsTab(teacherId: widget.teacherId),
-                  TeacherProfileScreen(userName: widget.userName),
+                  TeacherProfileScreen(
+                    userName: widget.userName,
+                    teacherId: widget.teacherId,
+                  ),
                 ],
               ),
             ),

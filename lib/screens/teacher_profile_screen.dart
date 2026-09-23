@@ -11,11 +11,13 @@ import '../widgets/guide_comic_background.dart';
 class TeacherProfileScreen extends StatefulWidget {
   final String userName;
   final String userEmail;
+  final dynamic teacherId;
 
   const TeacherProfileScreen({
     super.key,
     required this.userName,
     this.userEmail = "teacher@school.edu",
+    this.teacherId,
   });
 
   @override
@@ -38,6 +40,7 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     _currentName = widget.userName;
     _currentEmail = widget.userEmail;
     _loadProfileData();
+    _fetchLatestEmailFromServer();
   }
 
   // Kukunin ang naitagong profile info at image sa SharedPreferences
@@ -53,6 +56,50 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
         _imageBytes = base64Decode(savedBase64Image);
       }
     });
+  }
+
+  // 📧 Kunin ang TOTOONG registered email ng teacher mula sa backend,
+  // hindi lang yung locally-cached/placeholder value. Silent refresh ito:
+  // ipapakita muna yung naka-cache (o default) habang kinukuha ito sa likod,
+  // tapos ia-update lang yung UI kapag may nakuhang tunay na email.
+  //
+  // NOTE: i-adjust yung endpoint path ("/api/teachers/{id}") at yung mga key
+  // na sinusubukang basahin (email / teacher.email / data.email / user.email)
+  // kung iba ang actual na route o response shape ng Laravel backend mo.
+  Future<void> _fetchLatestEmailFromServer() async {
+    if (widget.teacherId == null) return;
+
+    try {
+      final response = await http.get(
+        Uri.parse("$baseUrl/api/teachers/${widget.teacherId}"),
+        headers: networkHeaders,
+      );
+
+      if (response.statusCode != 200) {
+        debugPrint(
+          "Could not fetch teacher email (status ${response.statusCode})",
+        );
+        return;
+      }
+
+      final data = jsonDecode(response.body);
+      final String? serverEmail =
+          (data['email'] ??
+                  data['teacher']?['email'] ??
+                  data['data']?['email'] ??
+                  data['user']?['email'])
+              ?.toString();
+
+      if (serverEmail == null || serverEmail.trim().isEmpty) return;
+      if (!mounted) return;
+
+      setState(() => _currentEmail = serverEmail.trim());
+
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString('user_email', serverEmail.trim());
+    } catch (e) {
+      debugPrint("Could not refresh teacher email from server: $e");
+    }
   }
 
   // 📷 PICK AND SAVE IMAGE FUNCTION
