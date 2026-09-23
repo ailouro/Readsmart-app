@@ -133,8 +133,6 @@ class _LoginScreenState extends State<LoginScreen> {
   String _reqGradeLevel = 'Grade 5'; // Default grade
   bool _isRequestingAccount = false;
 
-  // Which required fields failed validation on the last submit attempt in
-  // the Request Account dialog — drives the red border until fixed.
   Set<String> _reqFieldErrors = {};
 
   @override
@@ -144,6 +142,95 @@ class _LoginScreenState extends State<LoginScreen> {
     _checkSavedSession();
   }
 
+  // ============================================================================
+  // 🛡️ DATA PRIVACY ACT OF 2012 (RA 10173) CONSENT DIALOG
+  // Returns `true` if accepted, `false` if declined or closed.
+  // ============================================================================
+  Future<bool> _showDpaDialog() async {
+    final bool? agreed = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(18),
+          side: const BorderSide(color: Colors.black, width: 3.5),
+        ),
+        backgroundColor: Colors.white,
+        title: Row(
+          children: const [
+            Icon(Icons.privacy_tip_rounded, color: Color(0xFF9B0505), size: 28),
+            SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                "Data Privacy Notice 🔒",
+                style: TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                  color: Color(0xFF9B0505),
+                ),
+              ),
+            ),
+          ],
+        ),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: const [
+              Text(
+                "Republic Act No. 10173 (Data Privacy Act of 2012)",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  color: Colors.black,
+                ),
+              ),
+              SizedBox(height: 10),
+              Text(
+                "Before accessing the ReadSmart portal, please confirm your agreement to our Data Privacy Notice:\n\n"
+                "1. Data Collection: We collect and process account details (Name, LRN, Grade & Section, Email, and Reading Records) exclusively for educational monitoring, reading progress tracking, and school management.\n\n"
+                "2. Protection & Confidentiality: Your information is secured in compliance with RA 10173 and will not be shared with unauthorized third parties.\n\n"
+                "3. User Rights: You reserve the right to review or request corrections to your personal data through your school administrator.\n\n"
+                "Do you accept these terms to access ReadSmart?",
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.black87,
+                  height: 1.4,
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text(
+              "Decline",
+              style: TextStyle(color: Colors.grey, fontWeight: FontWeight.bold),
+            ),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF9B0505),
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: const BorderSide(color: Colors.black, width: 2),
+              ),
+            ),
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text(
+              "I Agree & Continue",
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return agreed ?? false;
+  }
+
   Future<void> _checkSavedSession() async {
     final prefs = await SharedPreferences.getInstance();
     final String? savedToken = prefs.getString('auth_token');
@@ -151,11 +238,37 @@ class _LoginScreenState extends State<LoginScreen> {
     final String? savedName = prefs.getString('user_name');
     final int? savedId = prefs.getInt('user_id') ?? prefs.getInt('id');
     final bool savedRememberMe = prefs.getBool('remember_me') ?? false;
+    final bool dpaAccepted = prefs.getBool('dpa_accepted') ?? false;
 
     if (savedToken != null &&
         savedRole != null &&
         savedName != null &&
         mounted) {
+      // Check DPA acceptance before redirecting
+      if (!dpaAccepted) {
+        final bool agreed = await _showDpaDialog();
+        if (!agreed) {
+          await prefs.remove('auth_token');
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  "You must accept the Data Privacy Act (RA 10173) policy to access the portal.",
+                ),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+              ),
+            );
+          }
+          return;
+        }
+        await prefs.setBool('dpa_accepted', true);
+      }
+
       final String cleanRole = savedRole.trim().toLowerCase();
       if (cleanRole == 'teacher') {
         Navigator.pushReplacement(
@@ -200,7 +313,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (_loginController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Please fill in all fields."),
+          content: const Text("Please fill in all fields."),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -271,7 +384,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text("Sending email..."),
+                      content: const Text("Sending email..."),
                       backgroundColor: Colors.green,
                       behavior: SnackBarBehavior.floating,
                       shape: RoundedRectangleBorder(
@@ -292,7 +405,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   );
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text(
+                      content: const Text(
                         "Verification link resent! Check your inbox.",
                       ),
                       backgroundColor: Colors.green,
@@ -351,8 +464,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 .trim()
                 .toLowerCase();
 
-        // Account mismatch: the account's real role must match whichever
-        // portal box (Student / Teacher / Parent) was used to log in.
+        // Mismatch check
         if (role != _loginRole) {
           setState(() => _isLoading = false);
           const roleLabels = {
@@ -380,6 +492,32 @@ class _LoginScreenState extends State<LoginScreen> {
         }
 
         final prefs = await SharedPreferences.getInstance();
+
+        // 🛡️ DPA 2012 CHECK BEFORE ALLOWING ACCESS TO DASHBOARD
+        final bool dpaAccepted = prefs.getBool('dpa_accepted') ?? false;
+        if (!dpaAccepted) {
+          final bool agreed = await _showDpaDialog();
+          if (!agreed) {
+            setState(() => _isLoading = false);
+            if (!mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: const Text(
+                  "You must accept the Data Privacy Act (RA 10173) policy to access the portal.",
+                ),
+                backgroundColor: Colors.red,
+                behavior: SnackBarBehavior.floating,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30),
+                ),
+                margin: const EdgeInsets.only(bottom: 24, left: 16, right: 16),
+                duration: const Duration(seconds: 3),
+              ),
+            );
+            return;
+          }
+          await prefs.setBool('dpa_accepted', true);
+        }
 
         if (userId != null) {
           await prefs.setInt('user_id', userId);
@@ -428,7 +566,7 @@ class _LoginScreenState extends State<LoginScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Invalid credentials. Please try again."),
+            content: const Text("Invalid credentials. Please try again."),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
@@ -476,7 +614,7 @@ class _LoginScreenState extends State<LoginScreen> {
       setDialogState(() => _reqFieldErrors = errors);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text("Please fill in all details."),
+          content: const Text("Please fill in all details."),
           backgroundColor: Colors.green,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
@@ -522,7 +660,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
       if (response.statusCode == 201 || response.statusCode == 200) {
         if (!mounted) return;
-        Navigator.pop(context); // Isara ang dialog
+        Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(data['message'] ?? "Request submitted!"),
@@ -536,7 +674,6 @@ class _LoginScreenState extends State<LoginScreen> {
           ),
         );
 
-        // Linisin ang form para sa susunod
         _reqFirstNameController.clear();
         _reqLastNameController.clear();
         _reqLrnController.clear();
@@ -638,7 +775,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Grade Level Dropdown
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 12,
@@ -891,7 +1027,6 @@ class _LoginScreenState extends State<LoginScreen> {
       ),
     );
   }
-  // ============================================================================
 
   Widget _buildLogoAndTitle() {
     return Column(
@@ -1003,8 +1138,6 @@ class _LoginScreenState extends State<LoginScreen> {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        // TABS: Student / Teacher / Parent — three separate login boxes,
-        // each routing to the matching backend role check above.
         Container(
           height: 55,
           decoration: BoxDecoration(
@@ -1043,7 +1176,6 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 20),
 
-        // FORM CONTAINER
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
@@ -1197,7 +1329,6 @@ class _LoginScreenState extends State<LoginScreen> {
         ),
         const SizedBox(height: 25),
 
-        // LOGIN BUTTON
         _isLoading
             ? const CircularProgressIndicator(color: Color(0xFF9B0505))
             : Container(
