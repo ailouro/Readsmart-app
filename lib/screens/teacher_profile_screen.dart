@@ -34,6 +34,9 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
   Uint8List? _imageBytes;
   bool _isUploadingImage = false;
 
+  // Para sa change password
+  bool _isChangingPassword = false;
+
   @override
   void initState() {
     super.initState();
@@ -311,6 +314,242 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
     );
   }
 
+  // 🔒 CHANGE PASSWORD DIALOG
+  void _showChangePasswordDialog() {
+    final currentPassController = TextEditingController();
+    final newPassController = TextEditingController();
+    final confirmPassController = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    bool obscureCurrent = true, obscureNew = true, obscureConfirm = true;
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              title: const Text(
+                "Change Password",
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  color: maroonTheme,
+                ),
+              ),
+              content: Form(
+                key: formKey,
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextFormField(
+                        controller: currentPassController,
+                        obscureText: obscureCurrent,
+                        decoration: InputDecoration(
+                          labelText: "Current Password",
+                          prefixIcon: const Icon(
+                            Icons.lock_outline,
+                            color: maroonTheme,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureCurrent
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () => setDialogState(
+                              () => obscureCurrent = !obscureCurrent,
+                            ),
+                          ),
+                        ),
+                        validator: (v) => (v == null || v.isEmpty)
+                            ? "Enter your current password"
+                            : null,
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: newPassController,
+                        obscureText: obscureNew,
+                        decoration: InputDecoration(
+                          labelText: "New Password",
+                          prefixIcon: const Icon(
+                            Icons.lock_reset,
+                            color: maroonTheme,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureNew
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () =>
+                                setDialogState(() => obscureNew = !obscureNew),
+                          ),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) {
+                            return "Enter a new password";
+                          }
+                          if (v.length < 6) {
+                            return "Password must be at least 6 characters";
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 12),
+                      TextFormField(
+                        controller: confirmPassController,
+                        obscureText: obscureConfirm,
+                        decoration: InputDecoration(
+                          labelText: "Confirm New Password",
+                          prefixIcon: const Icon(
+                            Icons.lock_outline,
+                            color: maroonTheme,
+                          ),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              obscureConfirm
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () => setDialogState(
+                              () => obscureConfirm = !obscureConfirm,
+                            ),
+                          ),
+                        ),
+                        validator: (v) {
+                          if (v != newPassController.text) {
+                            return "Passwords do not match";
+                          }
+                          return null;
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: _isChangingPassword
+                      ? null
+                      : () => Navigator.pop(context),
+                  child: const Text(
+                    "Cancel",
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: maroonTheme),
+                  onPressed: _isChangingPassword
+                      ? null
+                      : () async {
+                          if (!formKey.currentState!.validate()) return;
+                          setDialogState(() => _isChangingPassword = true);
+                          setState(() => _isChangingPassword = true);
+
+                          final error = await _submitPasswordChange(
+                            currentPassword: currentPassController.text,
+                            newPassword: newPassController.text,
+                          );
+
+                          setDialogState(() => _isChangingPassword = false);
+                          if (mounted) {
+                            setState(() => _isChangingPassword = false);
+                          }
+
+                          if (!mounted) return;
+
+                          if (error == null) {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text("Password changed successfully!"),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(error),
+                                backgroundColor: Colors.redAccent,
+                              ),
+                            );
+                          }
+                        },
+                  child: _isChangingPassword
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Text(
+                          "Update",
+                          style: TextStyle(color: Colors.white),
+                        ),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  // Submits the password change to the backend. Returns null on success, or
+  // a user-facing error message on failure (e.g. wrong current password).
+  //
+  // NOTE: i-adjust yung endpoint path at yung mga field name kung iba ang
+  // ginamit ng Laravel route/controller mo (hal. "old_password" imbes na
+  // "current_password", o "password"/"password_confirmation" imbes na
+  // "new_password"/"new_password_confirmation" — karaniwang default ng
+  // Laravel 'confirmed' validation rule ay "{field}_confirmation").
+  Future<String?> _submitPasswordChange({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    if (widget.teacherId == null) {
+      return "Missing teacher account info. Please log in again.";
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse("$baseUrl/api/teachers/${widget.teacherId}/change-password"),
+        headers: {...networkHeaders, "Content-Type": "application/json"},
+        body: jsonEncode({
+          "current_password": currentPassword,
+          "new_password": newPassword,
+          "new_password_confirmation": newPassword,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        return null;
+      }
+
+      // Try to surface the backend's own error message (e.g. Laravel
+      // validation errors or a "current password incorrect" message).
+      try {
+        final data = jsonDecode(response.body);
+        final msg =
+            data['message'] ??
+            (data['errors'] != null
+                ? (data['errors'] as Map).values.first[0]
+                : null);
+        return msg?.toString() ?? "Failed to change password.";
+      } catch (_) {
+        return "Failed to change password (${response.statusCode}).";
+      }
+    } catch (e) {
+      debugPrint("Change password error: $e");
+      return "Something went wrong. Please check your connection.";
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -515,6 +754,42 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                           ),
                         ),
                         onPressed: _showEditProfileDialog,
+                      ),
+                    ),
+
+                    const SizedBox(height: 15),
+
+                    Container(
+                      width: double.infinity,
+                      height: 52,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: const [
+                          BoxShadow(color: Colors.black, offset: Offset(4, 4)),
+                        ],
+                      ),
+                      child: ElevatedButton.icon(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.white,
+                          foregroundColor: maroonTheme,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            side: const BorderSide(
+                              color: Colors.black,
+                              width: 3,
+                            ),
+                          ),
+                        ),
+                        icon: const Icon(Icons.lock_outline),
+                        label: const Text(
+                          "Change Password",
+                          style: TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
+                          ),
+                        ),
+                        onPressed: _showChangePasswordDialog,
                       ),
                     ),
 
