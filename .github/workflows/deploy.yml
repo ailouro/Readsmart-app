@@ -26,7 +26,7 @@ jobs:
           channel: stable
           flutter-version: 'latest'
           environment:
-            sdk: ">=3.5.4 <4.0.0"
+          sdk: ">=3.5.4 <4.0.0"
 
       - name: Install dependencies
         run: flutter pub get
