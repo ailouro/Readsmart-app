@@ -51,6 +51,7 @@ class _StudentDashboardState extends State<StudentDashboard>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _fetchMyClasses();
+    _fetchMyLibrary(); // was defined but never called -> library always empty
     _loadLrn();
     BgmService().startBgm();
   }
@@ -60,23 +61,32 @@ class _StudentDashboardState extends State<StudentDashboard>
 
   Future<void> _fetchMyLibrary() async {
     try {
-      setState(() => _isLoadingLibrary = true);
-      final studentId =
-          await _getStudentId(); // Kunin ang ID ng nakalogin na estudyante
+      // Only show the spinner on the first load, so a refresh after
+      // finishing a story doesn't flash the list away.
+      if (_myLibraryStories.isEmpty && mounted) {
+        setState(() => _isLoadingLibrary = true);
+      }
+      final studentId = await _getStudentId();
       if (studentId == null) return;
 
       final response = await http.get(
         Uri.parse("$baseUrl/api/student/$studentId/completed-stories"),
-        headers:
-            networkHeaders, // Siguraduhing kasama ang Authorization token kung kinakailangan
+        headers: networkHeaders,
       );
 
-      if (response.statusCode == 200 && mounted) {
+      if (response.statusCode == 200) {
         final decoded = jsonDecode(response.body);
-        setState(() {
-          // Depende sa JSON response mo, kunin ang 'data'
-          _myLibraryStories = decoded['data'] ?? [];
-        });
+        final data = decoded['data'];
+        if (mounted) {
+          setState(() {
+            _myLibraryStories = (data is List) ? data : [];
+          });
+        }
+      } else {
+        // Was silently ignored before, which hid the server-side 500.
+        debugPrint(
+          "Library fetch failed: ${response.statusCode} ${response.body}",
+        );
       }
     } catch (e) {
       debugPrint("Error fetching library: $e");
@@ -352,7 +362,7 @@ class _StudentDashboardState extends State<StudentDashboard>
 
     final myClass =
         _myClasses[_selectedClassIndex.clamp(0, _myClasses.length - 1)];
-    Navigator.push(
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ClassDashboardScreen(
@@ -362,6 +372,8 @@ class _StudentDashboardState extends State<StudentDashboard>
         ),
       ),
     );
+    // A story may have just been finished -- refresh My Library.
+    if (mounted) _fetchMyLibrary();
   }
 
   Future<void> _openProgress() async {
@@ -1099,7 +1111,7 @@ class _StudentDashboardState extends State<StudentDashboard>
             final currentStudentId = await _getStudentId();
             if (!mounted) return;
 
-            Navigator.push(
+            await Navigator.push(
               context,
               MaterialPageRoute(
                 builder: (_) => ClassDashboardScreen(
@@ -1110,6 +1122,8 @@ class _StudentDashboardState extends State<StudentDashboard>
                 ),
               ),
             );
+            // A story may have just been finished -- refresh My Library.
+            if (mounted) _fetchMyLibrary();
           },
           child: Padding(
             padding: const EdgeInsets.all(16.0),
