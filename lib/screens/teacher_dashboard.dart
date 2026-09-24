@@ -3924,6 +3924,22 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
   bool _isLoadingStories = true;
   bool _isLoadingStudents = true;
 
+  // The Phil-IRI reading-test flow (GST / Stage 2) is switched off: teachers
+  // assign library stories to the class again (see _showAssignStorySheet).
+  // Flip to true to bring the reading-test buttons back.
+  static const bool _usePhilIriAssessments = false;
+
+  // Only stories of this grade are offered when assigning.
+  static const int _storyGradeNumber = 5;
+
+  // Same style as the existing unassign-story route. If the server names
+  // this route differently, this is the only place to change it.
+  static const String _assignStoryPath = 'assign-story';
+
+  // "<story_id>:<test_type>" -> how many students of this class finished it
+  Map<String, int> _storyTakenCounts = {};
+  int? _tallyTotalStudents;
+
   // Reading-test assignments (Phil-IRI GST flow), fetched class-wide so the
   // Stories tab can show WHO already has a test assigned instead of just
   // "No stories assigned to this class yet." — that old message only ever
@@ -3935,9 +3951,12 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
   @override
   void initState() {
     super.initState();
-    _fetchClassStories();
-    _fetchClassStudents();
-    _fetchClassAssessments();
+    if (!_usePhilIriAssessments) _isLoadingAssessments = false;
+    // The tally needs both the assigned stories and the student list.
+    Future.wait([_fetchClassStories(), _fetchClassStudents()]).then((_) {
+      if (mounted) _fetchStoryTally();
+    });
+    if (_usePhilIriAssessments) _fetchClassAssessments();
   }
 
   Future<void> _fetchClassAssessments() async {
@@ -4910,6 +4929,531 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
     gstController.dispose();
   }
 
+  // ---------------------------------------------------------------------
+  // Story assignment (the original setup, restored).
+  // The teacher picks library stories for this class: Pre-Test first, Grade 5
+  // stories only. Every card shows how many of the class's students already
+  // finished that story (e.g. 9/12). Post-Test stories unlock for a student
+  // once they finish every Pre-Test story (that gate lives in
+  // ClassDashboardScreen).
+  // ---------------------------------------------------------------------
+
+  // One request: the server counts, per assigned story, how many enrolled
+  // students finished it (see getClassStoryTally in the backend).
+  Future<void> _fetchStoryTally() async {
+    final classId =
+        widget.item['id'] ?? widget.item['_id'] ?? widget.item['class_id'];
+    try {
+      final res = await http.get(
+        Uri.parse("$baseUrl/api/classes/$classId/story-tally"),
+        headers: networkHeaders,
+      );
+      if (res.statusCode != 200 || !mounted) return;
+      final decoded = jsonDecode(res.body);
+      if (decoded is! Map) return;
+
+      final Map<String, int> counts = {};
+      final rawTally = decoded['tally'];
+      if (rawTally is Map) {
+        rawTally.forEach((k, v) {
+          counts[k.toString()] = int.tryParse(v.toString()) ?? 0;
+        });
+      }
+      setState(() {
+        _storyTakenCounts = counts;
+        _tallyTotalStudents = int.tryParse('${decoded['total_students']}');
+      });
+    } catch (e) {
+      debugPrint("Error fetching story tally: $e");
+    }
+  }
+
+  String _coverUrlFor(Map<String, dynamic> story) {
+    String raw = _safeString(story['cover_image']);
+    if (raw.isEmpty) return "";
+    if (raw.startsWith('http')) return raw;
+    if (raw.startsWith('public/')) raw = raw.replaceFirst('public/', '');
+    final String cleanBaseUrl = baseUrl.endsWith('/api')
+        ? baseUrl.substring(0, baseUrl.length - 4)
+        : baseUrl;
+    return "$cleanBaseUrl/api/get-image?path=$raw";
+  }
+
+  /// Slim vertical bar for the side of a cover image: fills up as more of the
+  /// class finishes the story, with "9/12 students" written along it.
+  Widget _buildTallyBar(int taken, int total) {
+    final double fraction = total <= 0
+        ? 0.0
+        : (taken / total).clamp(0.0, 1.0).toDouble();
+    final String label = total <= 0 ? "0 students" : "$taken/$total students";
+    return SizedBox(
+      width: 26,
+      height: double.infinity,
+      child: Container(
+        decoration: BoxDecoration(
+          color: const Color(0x8C000000),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.white, width: 1.5),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(6),
+          child: Stack(
+            children: [
+              Align(
+                alignment: Alignment.bottomCenter,
+                child: FractionallySizedBox(
+                  heightFactor: fraction,
+                  widthFactor: 1,
+                  child: const ColoredBox(color: Color(0xFF4CAF50)),
+                ),
+              ),
+              Center(
+                child: RotatedBox(
+                  quarterTurns: 3,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text(
+                        label,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Returns null on success, otherwise a message to show the teacher.
+  Future<String?> _assignStoryToClass(
+    Map<String, dynamic> story,
+    String testType,
+  ) async {
+    final classId =
+        widget.item['id'] ?? widget.item['_id'] ?? widget.item['class_id'];
+    try {
+      final Map<String, String> headers = Map<String, String>.from(
+        networkHeaders,
+      )..['Content-Type'] = 'application/json';
+
+      final res = await http.post(
+        Uri.parse("$baseUrl/api/classes/$classId/$_assignStoryPath"),
+        headers: headers,
+        body: jsonEncode({
+          "story_id": story['id'] ?? story['_id'],
+          "test_type": testType,
+        }),
+      );
+
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        await _fetchClassStories();
+        _fetchStoryTally();
+        return null;
+      }
+
+      String detail = '';
+      try {
+        final d = jsonDecode(res.body);
+        if (d is Map && d['message'] != null) detail = " ${d['message']}";
+      } catch (_) {}
+      final String routeHint = (res.statusCode == 404 || res.statusCode == 405)
+          ? " (The server may not have the $_assignStoryPath route.)"
+          : "";
+      return "Server replied ${res.statusCode}.$detail$routeHint";
+    } catch (e) {
+      return "Could not reach the server.";
+    }
+  }
+
+  Future<void> _confirmAndAssignStory(
+    BuildContext dialogContext,
+    Map<String, dynamic> story,
+    String testType,
+  ) async {
+    final String label = testType == 'pre_test' ? 'Pre-Test' : 'Post-Test';
+    final String title = _safeString(story['title'], 'Untitled');
+
+    final bool? ok = await showDialog<bool>(
+      context: dialogContext,
+      builder: (c) => AlertDialog(
+        title: const Text("Assign Story"),
+        content: Text("Assign \"$title\" to this class as a $label story?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(c, false),
+            child: const Text("CANCEL"),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: maroonTheme),
+            onPressed: () => Navigator.pop(c, true),
+            child: const Text("ASSIGN", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (ok != true || !mounted) return;
+
+    final String? error = await _assignStoryToClass(story, testType);
+    if (error != null && mounted) {
+      await showDialog<void>(
+        context: dialogContext,
+        builder: (c) => AlertDialog(
+          title: const Text("Could not assign story"),
+          content: Text(error),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(c),
+              child: const Text("OK"),
+            ),
+          ],
+        ),
+      );
+    }
+  }
+
+  Widget _buildAssignPickerCard({
+    required Map<String, dynamic> story,
+    required bool assigned,
+    required String testType,
+    required VoidCallback onTap,
+  }) {
+    final String id = _safeString(story['id'] ?? story['_id']);
+    final String coverUrl = _coverUrlFor(story);
+    final List pages = story['pages'] is List ? story['pages'] : [];
+    final int taken = _storyTakenCounts["$id:$testType"] ?? 0;
+
+    Widget placeholder() => Container(
+      color: accentTheme,
+      child: const Icon(Icons.image, color: Colors.black87, size: 35),
+    );
+
+    return BouncyTap(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: assigned ? const Color(0xFF2E7D32) : Colors.black,
+            width: 3,
+          ),
+          boxShadow: const [
+            BoxShadow(color: Colors.black, offset: Offset(4, 4)),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              flex: 3,
+              child: ClipRRect(
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(13),
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    coverUrl.isNotEmpty
+                        ? Image.network(
+                            coverUrl,
+                            fit: BoxFit.cover,
+                            headers: const {
+                              "ngrok-skip-browser-warning": "69420",
+                            },
+                            errorBuilder: (_, __, ___) => placeholder(),
+                          )
+                        : placeholder(),
+                    Positioned(
+                      top: 6,
+                      bottom: 6,
+                      right: 6,
+                      child: _buildTallyBar(
+                        taken,
+                        _tallyTotalStudents ?? _students.length,
+                      ),
+                    ),
+                    if (assigned)
+                      Positioned(
+                        top: 6,
+                        left: 6,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 6,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF2E7D32),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.black, width: 2),
+                          ),
+                          child: const Text(
+                            "ASSIGNED ✓",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w900,
+                              fontSize: 10,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+            const Divider(color: Colors.black, thickness: 3, height: 3),
+            Expanded(
+              flex: 1,
+              child: Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      _safeString(story['title'], 'Untitled'),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w900,
+                        fontSize: 14,
+                        color: Colors.black,
+                      ),
+                    ),
+                    Text(
+                      "${pages.length} Pages",
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// "Assign Story" picker. Opens on Pre-Test and lists every published
+  /// Grade 5 pre-test story; the Post-Test tab lists the post-test ones.
+  Future<void> _showAssignStorySheet() async {
+    String testType = 'pre_test';
+    bool isLoading = true;
+    String? loadError;
+    List<Map<String, dynamic>> library = [];
+    bool fetchStarted = false;
+
+    await showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          if (!fetchStarted) {
+            fetchStarted = true;
+            () async {
+              try {
+                final res = await http.get(
+                  Uri.parse("$baseUrl/api/stories"),
+                  headers: networkHeaders,
+                );
+                if (res.statusCode == 200) {
+                  final dynamic decoded = jsonDecode(res.body);
+                  final dynamic raw = decoded is Map
+                      ? (decoded['data'] ?? decoded['stories'] ?? [])
+                      : decoded;
+                  if (raw is List) {
+                    library = [
+                      for (final s in raw)
+                        if (s is Map) Map<String, dynamic>.from(s),
+                    ];
+                  }
+                } else {
+                  loadError =
+                      "Could not load the story library (${res.statusCode}).";
+                }
+              } catch (e) {
+                loadError = "Could not reach the server.";
+              }
+              isLoading = false;
+              if (mounted) {
+                try {
+                  setSheetState(() {});
+                } catch (_) {}
+              }
+            }();
+          }
+
+          final Set<String> assignedIds = _assignedStories
+              .map((s) => _safeString(s['id'] ?? s['_id']))
+              .toSet();
+          final bool wantPost = testType == 'post_test';
+          final List<Map<String, dynamic>> visible = library.where((s) {
+            final int? grade = int.tryParse(
+              RegExp(
+                    r'\d+',
+                  ).firstMatch(_safeString(s['grade_level']))?.group(0) ??
+                  '',
+            );
+            if (grade != _storyGradeNumber) return false;
+            final bool isPost =
+                _safeString(s['story_type'], 'pre_test') == 'post_test';
+            return wantPost ? isPost : !isPost;
+          }).toList();
+
+          return SizedBox(
+            height: MediaQuery.of(sheetContext).size.height * 0.85,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: const BorderRadius.vertical(
+                  top: Radius.circular(24),
+                ),
+                border: Border.all(color: Colors.black, width: 3.5),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Expanded(
+                        child: Text(
+                          "Assign Story",
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: Colors.black),
+                        onPressed: () => Navigator.pop(sheetContext),
+                      ),
+                    ],
+                  ),
+                  Text(
+                    "Grade $_storyGradeNumber stories only • "
+                    "${_students.length} students in this class",
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: Colors.black54,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  SegmentedButton<String>(
+                    segments: const [
+                      ButtonSegment(value: 'pre_test', label: Text('Pre-Test')),
+                      ButtonSegment(
+                        value: 'post_test',
+                        label: Text('Post-Test'),
+                      ),
+                    ],
+                    selected: {testType},
+                    onSelectionChanged: (v) =>
+                        setSheetState(() => testType = v.first),
+                  ),
+                  if (wantPost) ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      "Students can only open Post-Test stories after they "
+                      "finish every Pre-Test story.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 12),
+                  Expanded(
+                    child: isLoading
+                        ? const Center(
+                            child: CircularProgressIndicator(
+                              color: Color(0xFF940D0D),
+                            ),
+                          )
+                        : loadError != null
+                        ? Center(
+                            child: Text(
+                              loadError!,
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          )
+                        : visible.isEmpty
+                        ? Center(
+                            child: Text(
+                              "No Grade $_storyGradeNumber "
+                              "${wantPost ? 'post-test' : 'pre-test'} "
+                              "stories published yet.",
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          )
+                        : GridView.builder(
+                            padding: const EdgeInsets.only(
+                              right: 6,
+                              bottom: 12,
+                            ),
+                            itemCount: visible.length,
+                            gridDelegate:
+                                const SliverGridDelegateWithMaxCrossAxisExtent(
+                                  maxCrossAxisExtent: 220,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  childAspectRatio: 0.72,
+                                ),
+                            itemBuilder: (context, index) {
+                              final story = visible[index];
+                              final bool assigned = assignedIds.contains(
+                                _safeString(story['id'] ?? story['_id']),
+                              );
+                              return _buildAssignPickerCard(
+                                story: story,
+                                assigned: assigned,
+                                testType: testType,
+                                onTap: assigned
+                                    ? () {}
+                                    : () async {
+                                        await _confirmAndAssignStory(
+                                          sheetContext,
+                                          story,
+                                          testType,
+                                        );
+                                        if (mounted) setSheetState(() {});
+                                      },
+                              );
+                            },
+                          ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   Future<void> _unassignStory(dynamic storyId, String testType) async {
     final classId =
         widget.item['id'] ?? widget.item['_id'] ?? widget.item['class_id'];
@@ -5212,55 +5756,93 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                   // TAB 1: ASSIGNED STORIES
                   Column(
                     children: [
-                      // Pre-test / post-test assignment now goes through the
-                      // Phil-IRI GST flow on the Students tab, so a story can no
-                      // longer be assigned by hand here (that bypassed GST
-                      // scoring, the starting grade and the branching search).
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 12,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFBAE6FD),
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.black, width: 2),
-                        ),
-                        child: const Text(
-                          "Assign a Reading Test from the Students tab. It "
-                          "walks through the GST score and the Phil-IRI "
-                          "passage set automatically.",
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black87,
+                      if (_usePhilIriAssessments) ...[
+                        // Pre-test / post-test assignment now goes through the
+                        // Phil-IRI GST flow on the Students tab, so a story can no
+                        // longer be assigned by hand here (that bypassed GST
+                        // scoring, the starting grade and the branching search).
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 12,
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: OutlinedButton.icon(
-                          onPressed: _isLoadingStudents || _students.isEmpty
-                              ? null
-                              : _showBulkShuffleAssignDialog,
-                          icon: const Icon(Icons.shuffle),
-                          label: Text(
-                            _students.isEmpty
-                                ? "No students in this class yet"
-                                : "Randomly Assign to Class (${_students.length} students)",
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBAE6FD),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.black, width: 2),
                           ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: maroonTheme,
-                            side: const BorderSide(
-                              color: maroonTheme,
-                              width: 2,
+                          child: const Text(
+                            "Assign a Reading Test from the Students tab. It "
+                            "walks through the GST score and the Phil-IRI "
+                            "passage set automatically.",
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                              color: Colors.black87,
                             ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
-                      ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _isLoadingStudents || _students.isEmpty
+                                ? null
+                                : _showBulkShuffleAssignDialog,
+                            icon: const Icon(Icons.shuffle),
+                            label: Text(
+                              _students.isEmpty
+                                  ? "No students in this class yet"
+                                  : "Randomly Assign to Class (${_students.length} students)",
+                            ),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: maroonTheme,
+                              side: const BorderSide(
+                                color: maroonTheme,
+                                width: 2,
+                              ),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _showAssignStorySheet,
+                            icon: const Icon(Icons.add_circle_outline),
+                            label: const Text(
+                              "Assign Story",
+                              style: TextStyle(fontWeight: FontWeight.w900),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: accentTheme,
+                              foregroundColor: Colors.black,
+                              elevation: 0,
+                              padding: const EdgeInsets.symmetric(vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                                side: const BorderSide(
+                                  color: Colors.black,
+                                  width: 2.5,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text(
+                          "Pre-test stories (Grade 5) come first. Post-test "
+                          "unlocks for a student once they finish every "
+                          "pre-test story.",
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 15),
                       Expanded(
                         child: (_isLoadingStories || _isLoadingAssessments)
@@ -5572,6 +6154,43 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                                           ),
                                         ),
                                       ),
+                                      // Side bar: how many students finished this story.
+                                      Positioned.fill(
+                                        child: IgnorePointer(
+                                          child: Padding(
+                                            padding: const EdgeInsets.all(3),
+                                            child: Column(
+                                              children: [
+                                                Expanded(
+                                                  flex: 3,
+                                                  child: Align(
+                                                    alignment:
+                                                        Alignment.centerRight,
+                                                    child: Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                            top: 44,
+                                                            right: 3,
+                                                            bottom: 3,
+                                                          ),
+                                                      child: _buildTallyBar(
+                                                        _storyTakenCounts["${_safeString(story['id'] ?? story['_id'])}:$storyTestType"] ??
+                                                            0,
+                                                        _tallyTotalStudents ??
+                                                            _students.length,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                                const Expanded(
+                                                  flex: 1,
+                                                  child: SizedBox.shrink(),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
                                       Positioned(
                                         top: 5,
                                         left: 5,
@@ -5862,37 +6481,39 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                                         email,
                                         style: const TextStyle(fontSize: 12),
                                       ),
-                                      trailing: ElevatedButton(
-                                        style: ElevatedButton.styleFrom(
-                                          backgroundColor: accentTheme,
-                                          foregroundColor: Colors.black,
-                                          elevation: 0,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 10,
-                                            vertical: 8,
-                                          ),
-                                          shape: RoundedRectangleBorder(
-                                            borderRadius: BorderRadius.circular(
-                                              8,
+                                      trailing: !_usePhilIriAssessments
+                                          ? null
+                                          : ElevatedButton(
+                                              style: ElevatedButton.styleFrom(
+                                                backgroundColor: accentTheme,
+                                                foregroundColor: Colors.black,
+                                                elevation: 0,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 10,
+                                                      vertical: 8,
+                                                    ),
+                                                shape: RoundedRectangleBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(8),
+                                                  side: const BorderSide(
+                                                    color: Colors.black,
+                                                    width: 2,
+                                                  ),
+                                                ),
+                                              ),
+                                              onPressed: () =>
+                                                  _showAssignAssessmentDialog(
+                                                    student,
+                                                  ),
+                                              child: const Text(
+                                                "Assign Test",
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w900,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
                                             ),
-                                            side: const BorderSide(
-                                              color: Colors.black,
-                                              width: 2,
-                                            ),
-                                          ),
-                                        ),
-                                        onPressed: () =>
-                                            _showAssignAssessmentDialog(
-                                              student,
-                                            ),
-                                        child: const Text(
-                                          "Assign Test",
-                                          style: TextStyle(
-                                            fontWeight: FontWeight.w900,
-                                            fontSize: 11,
-                                          ),
-                                        ),
-                                      ),
                                     ),
                                   );
                                 },
