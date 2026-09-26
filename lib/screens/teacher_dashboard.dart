@@ -1033,7 +1033,7 @@ class _LibraryTabState extends State<_LibraryTab> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: accentTheme,
+                              color: const Color.fromARGB(255, 95, 27, 27),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
                                 color: Colors.black,
