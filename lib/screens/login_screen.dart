@@ -567,7 +567,7 @@ class _LoginScreenState extends State<LoginScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text("Invalid credentials. Please try again."),
-            backgroundColor: Colors.green,
+            backgroundColor: const Color.fromARGB(255, 141, 25, 4),
             behavior: SnackBarBehavior.floating,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(30),

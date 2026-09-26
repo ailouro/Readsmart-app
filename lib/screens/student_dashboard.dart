@@ -324,43 +324,53 @@ class _StudentDashboardState extends State<StudentDashboard>
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      _buildAvatarIndicator(45),
-                      const SizedBox(width: 10),
-                      Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            "HERO PROFILE",
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: accentTheme,
-                              fontWeight: FontWeight.w900,
-                              letterSpacing: 1,
-                            ),
-                          ),
-                          Text(
-                            widget.userName,
-                            style: const TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
-                            ),
-                          ),
-                          if (_lrn != null)
-                            Text(
-                              "LRN: $_lrn",
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.white70,
-                                fontWeight: FontWeight.w600,
+                  // Wrapped in Expanded so a long name shrinks/truncates
+                  // instead of pushing past the trophy/logout buttons.
+                  Expanded(
+                    child: Row(
+                      children: [
+                        _buildAvatarIndicator(45),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "HERO PROFILE",
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  color: accentTheme,
+                                  fontWeight: FontWeight.w900,
+                                  letterSpacing: 1,
+                                ),
                               ),
-                            ),
-                        ],
-                      ),
-                    ],
+                              Text(
+                                widget.userName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w900,
+                                  color: Colors.white,
+                                ),
+                              ),
+                              if (_lrn != null)
+                                Text(
+                                  "LRN: $_lrn",
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white70,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Container(
@@ -516,29 +526,6 @@ class _StudentDashboardState extends State<StudentDashboard>
           "Tap your class below to open its stories. New classes will show "
           "up here once your admin adds you.",
         ),
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16.0),
-          child: Row(
-            children: const [
-              Icon(
-                Icons.collections_bookmark_rounded,
-                color: maroonTheme,
-                size: 24,
-              ),
-              SizedBox(width: 8),
-              Text(
-                "📚 Aking Silid-Aklatan (My Library)",
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87, // O anong kulay ng text ang gamit mo
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 10),
-
         _buildLibrarySection(),
         const SizedBox(height: 15),
         if (_isLoading)
@@ -619,36 +606,42 @@ class _StudentDashboardState extends State<StudentDashboard>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    "WELCOME BACK, HERO",
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: maroonTheme,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  Text(
-                    widget.userName,
-                    style: const TextStyle(
-                      fontSize: 28,
-                      fontWeight: FontWeight.w900,
-                      color: Colors.black,
-                    ),
-                  ),
-                  if (_lrn != null)
-                    Text(
-                      "LRN: $_lrn",
-                      style: const TextStyle(
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      "WELCOME BACK, HERO",
+                      style: TextStyle(
                         fontSize: 12,
-                        color: Colors.black54,
-                        fontWeight: FontWeight.w600,
+                        color: maroonTheme,
+                        fontWeight: FontWeight.w900,
+                        letterSpacing: 2,
                       ),
                     ),
-                ],
+                    Text(
+                      widget.userName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        fontSize: 28,
+                        fontWeight: FontWeight.w900,
+                        color: Colors.black,
+                      ),
+                    ),
+                    if (_lrn != null)
+                      Text(
+                        "LRN: $_lrn",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                  ],
+                ),
               ),
               Row(
                 children: [
@@ -1135,6 +1128,8 @@ class _StudentDashboardState extends State<StudentDashboard>
                   ),
                   title: Text(
                     story['title'] ?? 'Kuwento',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   subtitle: Text("Score: ${story['quiz_score'] ?? 'N/A'}"),
