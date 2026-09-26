@@ -194,6 +194,11 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
               'apikey': 'helloworld',
               'language': 'eng',
               'base64Image': 'data:image/jpeg;base64,$base64Img',
+              // Engine 1 (the default if this is left out) is the one that
+              // throws "E502: Error during OCR" on a lot of otherwise-fine
+              // images. Engine 2 is a different underlying OCR pipeline and
+              // is the documented workaround for that error.
+              'OCREngine': '2',
             },
           );
           if (response.statusCode != 503) break;
