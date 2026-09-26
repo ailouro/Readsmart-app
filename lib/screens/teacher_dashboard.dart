@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:fl_chart/fl_chart.dart';
 import 'package:theapp/screens/story_view_screen.dart';
 import 'package:theapp/screens/upload_story_screen.dart';
 import 'package:theapp/screens/story_editor_screen.dart';
@@ -2467,6 +2468,8 @@ class _StudentsTabState extends State<_StudentsTab> {
                       ],
                     ),
                     const SizedBox(height: 20),
+                    _buildClassLevelChart(),
+                    const SizedBox(height: 10),
                   ],
                 ),
               Wrap(
@@ -2747,6 +2750,200 @@ class _StudentsTabState extends State<_StudentsTab> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  // Distinct color per class/section bar in the chart below. Cycles if
+  // there are more classes than colors.
+  static const List<Color> _classChartPalette = [
+    Color(0xFF7CB342), // green
+    Color(0xFFEC80CB), // pink
+    Color(0xFF9FA8DA), // lavender
+    Color(0xFFFFC107), // amber
+    Color(0xFF4FC3F7), // sky blue
+    Color(0xFFFF8A65), // coral
+    Color(0xFFBA68C8), // purple
+    Color(0xFF4DB6AC), // teal
+  ];
+
+  /// "Reading Level by Class & Section" chart: one group per Phil-IRI level
+  /// (Frustration / Instructional / Independent), one colored bar per class
+  /// inside each group — same shape as the PHIL-IRI results chart teachers
+  /// already use in their reports. Hovering (web/desktop) or tapping
+  /// (mobile) a bar shows which class/section it belongs to and the count,
+  /// e.g. "Grade 5 - Magsaysay: 12 students".
+  Widget _buildClassLevelChart() {
+    final List classBreakdown =
+        (_summaryData['class_breakdown'] as List?) ?? [];
+
+    if (classBreakdown.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    const levelKeys = ['frustration', 'instructional', 'independent'];
+    const levelLabels = ['Frustration', 'Instructional', 'Independent'];
+
+    double maxY = 1;
+    for (final c in classBreakdown) {
+      for (final key in levelKeys) {
+        final v = ((c[key] ?? 0) as num).toDouble();
+        if (v > maxY) maxY = v;
+      }
+    }
+    maxY = (maxY * 1.25).ceilToDouble();
+
+    final barGroups = List<BarChartGroupData>.generate(levelKeys.length, (
+      levelIndex,
+    ) {
+      final rods = List<BarChartRodData>.generate(classBreakdown.length, (
+        classIndex,
+      ) {
+        final c = classBreakdown[classIndex];
+        final value = ((c[levelKeys[levelIndex]] ?? 0) as num).toDouble();
+        return BarChartRodData(
+          toY: value,
+          width: 14,
+          color: _classChartPalette[classIndex % _classChartPalette.length],
+          borderRadius: BorderRadius.circular(3),
+        );
+      });
+      return BarChartGroupData(x: levelIndex, barRods: rods, barsSpace: 4);
+    });
+
+    String labelFor(dynamic c) {
+      final label = _safeString(c['label']);
+      if (label.isNotEmpty) return label;
+      final grade = _safeString(c['grade_level'], 'N/A');
+      final section = _safeString(c['section']);
+      return section.isEmpty ? "Grade $grade" : "Grade $grade - $section";
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.black, width: 3),
+        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Reading Level by Class & Section",
+            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            "Hover or tap a bar to see the class/section and count.",
+            style: TextStyle(fontSize: 11, color: Colors.black54),
+          ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 240,
+            child: BarChart(
+              BarChartData(
+                maxY: maxY,
+                barGroups: barGroups,
+                groupsSpace: 24,
+                gridData: const FlGridData(show: true, drawVerticalLine: false),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  leftTitles: AxisTitles(
+                    sideTitles: SideTitles(showTitles: true, reservedSize: 32),
+                  ),
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) {
+                        final i = value.toInt();
+                        if (i < 0 || i >= levelLabels.length) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(
+                            levelLabels[i],
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                barTouchData: BarTouchData(
+                  enabled: true,
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipColor: (_) => Colors.black87,
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final c = classBreakdown[rodIndex];
+                      final levelLabel = levelLabels[group.x.toInt()];
+                      final count = rod.toY.toInt();
+                      return BarTooltipItem(
+                        "${labelFor(c)}\n",
+                        const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 12,
+                        ),
+                        children: [
+                          TextSpan(
+                            text:
+                                "$levelLabel: $count student${count == 1 ? '' : 's'}",
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontWeight: FontWeight.normal,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            children: List.generate(classBreakdown.length, (i) {
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 12,
+                    height: 12,
+                    decoration: BoxDecoration(
+                      color: _classChartPalette[i % _classChartPalette.length],
+                      borderRadius: BorderRadius.circular(3),
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    labelFor(classBreakdown[i]),
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              );
+            }),
+          ),
+        ],
       ),
     );
   }

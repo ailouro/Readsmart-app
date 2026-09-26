@@ -10,6 +10,7 @@ import '../services/bgm_service.dart';
 import 'class_dashboard_screen.dart';
 import 'student_progress_screen.dart';
 import '../widgets/bouncy_tap.dart';
+import '../widgets/badge_system.dart';
 
 // ==========================================
 // 1. STUDENT DASHBOARD SCREEN
@@ -81,6 +82,9 @@ class _StudentDashboardState extends State<StudentDashboard>
           setState(() {
             _myLibraryStories = (data is List) ? data : [];
           });
+          // Fire-and-forget: shows a small "Badge Unlocked!" dialog for any
+          // badge the student just crossed the XP threshold for.
+          maybeShowBadgeUnlockedDialog(context, studentId, _myLibraryStories);
         }
       } else {
         // Was silently ignored before, which hid the server-side 500.
@@ -499,6 +503,12 @@ class _StudentDashboardState extends State<StudentDashboard>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildHeaderBanner(),
+        const SizedBox(height: 20),
+        XpAndBadgesSection(
+          progressLogs: _myLibraryStories,
+          accentColor: accentTheme,
+          themeColor: maroonTheme,
+        ),
         const SizedBox(height: 25),
         _buildSectionTitle("🚀 YOUR MISSIONS"),
         const SizedBox(height: 10),
