@@ -166,16 +166,27 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
         }
 
         final String base64Img = base64Encode(slide.bytes);
-        final response = await http.post(
-          Uri.parse('https://api.ocr.space/parse/image'),
-          body: {
-            'apikey': 'helloworld',
-            'language': 'eng',
-            'base64Image': 'data:image/jpeg;base64,$base64Img',
-          },
-        );
 
-        if (response.statusCode == 200) {
+        // The 'helloworld' key is OCR.space's shared public demo key --
+        // free, but pooled across every app that uses it worldwide, so it
+        // returns 503 ("busy") fairly often even though the request itself
+        // is fine. One quick retry clears most of those transient hits
+        // instead of failing the teacher's very first attempt.
+        http.Response? response;
+        for (int attempt = 0; attempt < 2; attempt++) {
+          response = await http.post(
+            Uri.parse('https://api.ocr.space/parse/image'),
+            body: {
+              'apikey': 'helloworld',
+              'language': 'eng',
+              'base64Image': 'data:image/jpeg;base64,$base64Img',
+            },
+          );
+          if (response.statusCode != 503) break;
+          if (attempt == 0) await Future.delayed(const Duration(seconds: 2));
+        }
+
+        if (response!.statusCode == 200) {
           final data = jsonDecode(response.body);
           if (data['IsErroredOnProcessing'] == false &&
               data['ParsedResults'] != null) {
@@ -196,6 +207,11 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
           } else {
             throw Exception("Could not read text from image.");
           }
+        } else if (response.statusCode == 503) {
+          throw Exception(
+            "The free OCR service is busy right now. Please try again in "
+            "a moment, or type the text in manually.",
+          );
         } else {
           throw Exception("Cloud OCR failed (${response.statusCode})");
         }
@@ -660,11 +676,31 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
   }
 
   Widget _sectionLabel(String text) {
+    // Wrapped in an opaque white "sticker" -- GuideComicBackground paints
+    // its zigzag/ray artwork directly behind this screen's content, and
+    // plain unfilled text sitting on top of it gets visually crossed out
+    // by those shapes (see "Cover Image" / "Story Quiz" in the screenshot).
+    // A solid backing box guarantees the label stays legible regardless of
+    // what the background is doing underneath.
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: Text(
-        text,
-        style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.black, width: 2),
+            boxShadow: const [
+              BoxShadow(color: Colors.black, offset: Offset(2, 2)),
+            ],
+          ),
+          child: Text(
+            text,
+            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+          ),
+        ),
       ),
     );
   }
