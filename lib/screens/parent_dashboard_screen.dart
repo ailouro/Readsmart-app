@@ -586,7 +586,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
             borderRadius: BorderRadius.circular(16),
             side: const BorderSide(color: Colors.black, width: 3.5),
           ),
-
+          title: const Text(
+            "Request to Join Class",
+            style: TextStyle(color: maroonTheme, fontWeight: FontWeight.w900),
+          ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -802,7 +805,13 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       ),
                     ),
                     onPressed: _showEnrollDialog,
-                    child: null,
+                    child: const Text(
+                      "JOIN",
+                      style: TextStyle(
+                        color: Colors.black,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -876,6 +885,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             ),
                           ),
                           const SizedBox(height: 6),
+                          const Text(
+                            "Click 'Join' above to enroll your child.",
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black87,
+                            ),
+                          ),
                         ],
                       ),
                     ),
