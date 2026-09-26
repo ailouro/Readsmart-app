@@ -15,6 +15,7 @@ class DeepgramService {
   StreamSubscription<List<int>>? _audioStreamSubscription;
   List<int> _audioBuffer = [];
   Timer? _keepAliveTimer;
+  DateTime? _micStartedAt;
 
   void clearAudioBuffer() {
     _audioBuffer.clear();
@@ -155,11 +156,23 @@ class DeepgramService {
           ),
         );
 
+        _micStartedAt = DateTime.now();
         _audioStreamSubscription = audioStream.listen((chunk) {
           _audioBuffer.addAll(
             chunk,
           ); // Keep in memory for struggle word recording
-          if (_channel != null) {
+
+          // Mute the very start of the mic feed. Right after a TTS prompt
+          // (e.g. "It's your turn!") finishes, there can be a brief tail of
+          // speaker audio still leaking into the mic before the child has
+          // actually said anything — without this, Deepgram sometimes ends
+          // up transcribing the app's own prompt instead of the child.
+          final bool warmedUp =
+              _micStartedAt == null ||
+              DateTime.now().difference(_micStartedAt!) >=
+                  const Duration(milliseconds: 250);
+
+          if (_channel != null && warmedUp) {
             _channel!.sink.add(chunk);
           }
         });
@@ -174,6 +187,7 @@ class DeepgramService {
   Future<void> stopListening() async {
     _keepAliveTimer?.cancel();
     _keepAliveTimer = null;
+    _micStartedAt = null;
     await _audioStreamSubscription?.cancel();
     await _audioRecorder.stop();
     await _channel?.sink.close();

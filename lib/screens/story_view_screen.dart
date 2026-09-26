@@ -101,8 +101,39 @@ String _normalizeNumbers(String text) {
   });
 }
 
+// Story text often has abbreviations ("Mr.", "Dr.") that get punctuation-stripped
+// down to something like "mr", but the child actually SAYS (and Deepgram
+// transcribes) the full spoken form ("mister"). Without this, a perfectly
+// correct "Mister" gets rejected because "mr" vs "mister" fails both the
+// exact-match and the close-enough Levenshtein check.
+const Map<String, String> _abbreviationSpokenForms = {
+  'mr': 'mister',
+  'mrs': 'missus',
+  'ms': 'miss',
+  'dr': 'doctor',
+  'jr': 'junior',
+  'sr': 'senior',
+  'st': 'saint',
+  'prof': 'professor',
+  'capt': 'captain',
+  'gov': 'governor',
+  'rev': 'reverend',
+  'gen': 'general',
+  'col': 'colonel',
+  'sgt': 'sergeant',
+};
+
 bool isWordMatch(String targetClean, String spokenClean) {
   if (targetClean == spokenClean) return true;
+
+  final String? targetSpokenForm = _abbreviationSpokenForms[targetClean];
+  if (targetSpokenForm != null && targetSpokenForm == spokenClean) {
+    return true;
+  }
+  final String? spokenAsAbbrev = _abbreviationSpokenForms[spokenClean];
+  if (spokenAsAbbrev != null && spokenAsAbbrev == targetClean) {
+    return true;
+  }
 
   if (int.tryParse(targetClean) != null) {
     String words = _normalizeNumbers(targetClean).replaceAll(' ', '');
@@ -1937,6 +1968,11 @@ class _RemediationDialogState extends State<RemediationDialog> {
     });
 
     await widget.flutterTts.speak("It's your turn!");
+
+    // Small buffer before the mic goes live. TTS "completion" can fire a beat
+    // before the speaker actually finishes outputting audio, so without this
+    // gap Deepgram sometimes picks up the tail of "...your turn!" itself.
+    await Future.delayed(const Duration(milliseconds: 500));
 
     if (!mounted) return;
     setState(() {
