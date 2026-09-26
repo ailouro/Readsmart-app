@@ -241,9 +241,10 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Failed to extract text: $e")));
+        final message = e.toString().replaceAll("Exception: ", "");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to extract text: $message")),
+        );
       }
     }
   }
