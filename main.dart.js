@@ -112954,7 +112954,7 @@ j=null
 i=0,a6=t.z
 case 8:if(!(i<2)){s=10
 break}s=11
-return A.h(A.eC(A.bg("https://api.ocr.space/parse/image",0,null),A.ab(["apikey","helloworld","language","eng","base64Image","data:image/jpeg;base64,"+A.i(k)],a5,a5),null),$async$un)
+return A.h(A.eC(A.bg("https://api.ocr.space/parse/image",0,null),A.ab(["apikey","helloworld","language","eng","base64Image","data:image/jpeg;base64,"+A.i(k),"OCREngine","2"],a5,a5),null),$async$un)
 case 11:j=a9
 if(j.b!==503){s=10
 break}s=J.c(i,0)?12:13
@@ -118090,7 +118090,7 @@ l=null
 k=0,d=t.N,c=t.z
 case 7:if(!(k<2)){s=9
 break}s=10
-return A.h(A.eC(A.bg("https://api.ocr.space/parse/image",0,null),A.ab(["apikey","helloworld","language","eng","base64Image","data:image/jpeg;base64,"+A.i(m)],d,d),null),$async$yF)
+return A.h(A.eC(A.bg("https://api.ocr.space/parse/image",0,null),A.ab(["apikey","helloworld","language","eng","base64Image","data:image/jpeg;base64,"+A.i(m),"OCREngine","2"],d,d),null),$async$yF)
 case 10:l=a7
 if(l.b!==503){s=9
 break}s=J.c(k,0)?11:12
