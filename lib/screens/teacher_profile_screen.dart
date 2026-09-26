@@ -268,9 +268,13 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
               TextField(
                 controller: emailController,
                 keyboardType: TextInputType.emailAddress,
+                enabled: false,
                 decoration: const InputDecoration(
                   labelText: "Email Address",
                   prefixIcon: Icon(Icons.email_outlined, color: maroonTheme),
+                  helperText:
+                      "This is tied to your login account and can't be changed here.",
+                  helperMaxLines: 2,
                 ),
               ),
             ],
@@ -284,18 +288,15 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
               style: ElevatedButton.styleFrom(backgroundColor: maroonTheme),
               onPressed: () async {
                 final newName = nameController.text.trim();
-                final newEmail = emailController.text.trim();
 
                 if (newName.isNotEmpty) {
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.setString('user_name', newName);
-                  await prefs.setString('user_email', newEmail);
 
                   if (!mounted) return;
 
                   setState(() {
                     _currentName = newName;
-                    _currentEmail = newEmail;
                   });
 
                   Navigator.pop(context);
