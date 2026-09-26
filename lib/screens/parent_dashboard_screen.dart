@@ -736,7 +736,6 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. WELCOME CARD & JOIN CLASS BUTTON
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -745,6 +744,67 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               boxShadow: const [
                 BoxShadow(color: Colors.black, offset: Offset(5, 5)),
               ],
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(18.0),
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: cyanAccent,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.black, width: 2.5),
+                    ),
+                    child: const Icon(
+                      Icons.family_restroom,
+                      color: Colors.black,
+                      size: 36,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          "Link to Teacher's Class",
+                          style: TextStyle(
+                            color: Colors.black,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 18,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          "Enter the code given by your child's teacher to view their progress.",
+                          style: TextStyle(
+                            color: Colors.black87,
+                            fontWeight: FontWeight.bold,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: accentTheme,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 12,
+                      ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(30),
+                        side: const BorderSide(color: Colors.black, width: 2.5),
+                      ),
+                    ),
+                    onPressed: _showEnrollDialog,
+                    child: null,
+                  ),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 30),
