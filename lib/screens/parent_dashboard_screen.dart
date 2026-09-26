@@ -736,6 +736,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // 1. WELCOME CARD & JOIN CLASS BUTTON
           Container(
             decoration: BoxDecoration(
               color: Colors.white,
@@ -1252,7 +1253,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                   ),
                   const SizedBox(height: 8),
                   _buildNavItem(Icons.dashboard_rounded, "Dashboard", () {}),
-
+                  _buildNavItem(
+                    Icons.add_link_rounded,
+                    "Join Class",
+                    _showEnrollDialog,
+                  ),
                   _buildNavItem(
                     Icons.lock_reset_rounded,
                     "Change Password",
