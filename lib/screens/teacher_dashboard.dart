@@ -1045,7 +1045,7 @@ class _LibraryTabState extends State<_LibraryTab> {
                               style: TextStyle(
                                 fontSize: 10,
                                 fontWeight: FontWeight.w900,
-                                color: Colors.black,
+                                color: Color.fromARGB(255, 255, 255, 255),
                               ),
                             ),
                           ),
