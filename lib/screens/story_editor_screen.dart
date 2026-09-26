@@ -287,17 +287,39 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
             const SnackBar(content: Text("Extracting text via Cloud OCR...")),
           );
         }
-        final String base64Img = base64Encode(response.bodyBytes);
-        final ocrResponse = await http.post(
-          Uri.parse('https://api.ocr.space/parse/image'),
-          body: {
-            'apikey': 'helloworld',
-            'language': 'eng',
-            'base64Image': 'data:image/jpeg;base64,$base64Img',
-          },
-        );
+        // The free/demo OCR.space key rejects anything over ~1MB outright.
+        // The original uploaded photo (downloaded here from storage) may
+        // well be above that even though it displays fine in the app --
+        // catching it here surfaces a clear reason instead of a silent,
+        // generic failure.
+        if (response.bodyBytes.lengthInBytes > 1024 * 1024) {
+          throw Exception(
+            "This image is too large to scan (over 1MB). Try re-uploading "
+            "a lower-resolution version of this page.",
+          );
+        }
 
-        if (ocrResponse.statusCode == 200) {
+        final String base64Img = base64Encode(response.bodyBytes);
+
+        // The 'helloworld' key is OCR.space's shared public demo key --
+        // free, but pooled across every app that uses it worldwide, so it
+        // returns 503 ("busy") fairly often even though the request itself
+        // is fine. One quick retry clears most of those transient hits.
+        http.Response? ocrResponse;
+        for (int attempt = 0; attempt < 2; attempt++) {
+          ocrResponse = await http.post(
+            Uri.parse('https://api.ocr.space/parse/image'),
+            body: {
+              'apikey': 'helloworld',
+              'language': 'eng',
+              'base64Image': 'data:image/jpeg;base64,$base64Img',
+            },
+          );
+          if (ocrResponse.statusCode != 503) break;
+          if (attempt == 0) await Future.delayed(const Duration(seconds: 2));
+        }
+
+        if (ocrResponse!.statusCode == 200) {
           final data = jsonDecode(ocrResponse.body);
           if (data['IsErroredOnProcessing'] == false &&
               data['ParsedResults'] != null) {
@@ -316,8 +338,19 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
               );
             }
           } else {
-            throw Exception("Could not read text from image.");
+            final err = data['ErrorMessage'];
+            final detail = err is List
+                ? err.join(', ')
+                : (err?.toString() ?? '');
+            throw Exception(
+              detail.isNotEmpty ? detail : "Could not read text from image.",
+            );
           }
+        } else if (ocrResponse.statusCode == 503) {
+          throw Exception(
+            "The free OCR service is busy right now. Please try again in "
+            "a moment, or type the text in manually.",
+          );
         } else {
           throw Exception("Cloud OCR failed (${ocrResponse.statusCode})");
         }
@@ -361,9 +394,10 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text("Failed to extract text: $e")));
+        final message = e.toString().replaceAll("Exception: ", "");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Failed to extract text: $message")),
+        );
       }
     }
   }

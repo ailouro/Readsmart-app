@@ -165,6 +165,20 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
           );
         }
 
+        // The free/demo OCR.space key rejects anything over ~1MB outright.
+        // image_picker's imageQuality: 50 only re-compresses the JPEG --
+        // it doesn't resize dimensions, so a normal phone photo (often
+        // several MB at full resolution) can easily still land above that
+        // limit even after compression. Catching it here, before the
+        // network call, is what was silently failing every time on real
+        // photos (the API's own rejection was getting swallowed below).
+        if (slide.bytes.lengthInBytes > 1024 * 1024) {
+          throw Exception(
+            "This image is too large to scan (over 1MB). Try retaking the "
+            "photo at a lower resolution, or crop it closer to the page.",
+          );
+        }
+
         final String base64Img = base64Encode(slide.bytes);
 
         // The 'helloworld' key is OCR.space's shared public demo key --
@@ -205,7 +219,13 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
               );
             }
           } else {
-            throw Exception("Could not read text from image.");
+            final err = data['ErrorMessage'];
+            final detail = err is List
+                ? err.join(', ')
+                : (err?.toString() ?? '');
+            throw Exception(
+              detail.isNotEmpty ? detail : "Could not read text from image.",
+            );
           }
         } else if (response.statusCode == 503) {
           throw Exception(
