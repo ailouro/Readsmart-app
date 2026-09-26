@@ -497,6 +497,22 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   Future<void> _showWordDefinition(String originalWord) async {
+    // Tapping a word plays it out loud via TTS. If oral-reading assessment is
+    // still actively listening, that TTS audio can bleed into the live mic
+    // stream (no hardware echo-cancel on a lot of budget Android tablets) and
+    // Deepgram ends up "hearing" the app's own voice, corrupting the word
+    // matching / highlighting. So block taps while the mic is live, same as
+    // the other audio actions already do.
+    if (_isListening) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text("Please stop oral reading first to check a word."),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
     String cleanWord = originalWord.toLowerCase().replaceAll(
       RegExp(r'[^\w\s]'),
       '',
@@ -1884,6 +1900,11 @@ class _RemediationDialogState extends State<RemediationDialog> {
   String _remediationSpokenText = "";
   String _finalRemediationText = "";
   String _statusMessage = "Listen closely to the correct pronunciation!";
+  // Guards against duplicate advances: Deepgram keeps delivering buffered
+  // interim/final messages for a brief moment after stopListening() is
+  // called (it's async), so without this a single word could match twice
+  // and silently skip the next practice word.
+  bool _resultLocked = false;
 
   @override
   void initState() {
@@ -1927,6 +1948,7 @@ class _RemediationDialogState extends State<RemediationDialog> {
   }
 
   void _listenStudentRetry(WordStatus word) async {
+    _resultLocked = false;
     setState(() {
       _isListeningRemediation = true;
       _remediationSpokenText = "";
@@ -1936,7 +1958,7 @@ class _RemediationDialogState extends State<RemediationDialog> {
     await widget.deepgramService.startListening(
       targetKeywords: [word.cleanWord],
       onResult: (transcript, isFinal) {
-        if (!mounted) return;
+        if (!mounted || _resultLocked) return;
 
         setState(() {
           if (isFinal) {
@@ -1957,6 +1979,7 @@ class _RemediationDialogState extends State<RemediationDialog> {
         );
 
         if (isMatch) {
+          _resultLocked = true;
           word.isCorrect = true;
           widget.deepgramService.stopListening();
           setState(() {
@@ -1970,6 +1993,7 @@ class _RemediationDialogState extends State<RemediationDialog> {
             }
           });
         } else if (isFinal) {
+          _resultLocked = true;
           word.isCorrect = false;
           widget.deepgramService.stopListening();
           setState(() {
@@ -1988,6 +2012,7 @@ class _RemediationDialogState extends State<RemediationDialog> {
   }
 
   void _skipToNextWord() {
+    _resultLocked = true;
     widget.deepgramService.stopListening();
     setState(() {
       _isListeningRemediation = false;
