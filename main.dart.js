@@ -110707,7 +110707,7 @@ ajL(){var s,r=this,q=null
 if(J.e2(r.r)&&r.w.length===0){s=r.c
 s.toString
 s=A.bs(s,q,t.w).w
-return A.q7(A.dO(A.cM(A.cr(A.ag(A.b([A.Q(q,B.Ul,B.i,q,q,new A.S(B.ce,q,A.a9(B.d,2.5),q,q,q,B.T),q,q,q,q,B.aL,q,q,q),B.av,B.ag5,B.b8,B.aeF],t.p),B.p,B.aT,B.k),q,q),s.a.b*0.5,q),q,B.v,q,B.cN,B.F),B.I,r.gKX())}return A.q7(A.b3O(new A.aCC(r),A.dN(),t.cZ),B.I,r.gKX())},
+return A.q7(A.dO(A.cM(A.cr(A.ag(A.b([A.Q(q,B.Ul,B.i,q,q,new A.S(B.ce,q,A.a9(B.d,2.5),q,q,q,B.T),q,q,q,q,B.aL,q,q,q),B.av,B.ag4,B.b8,B.aeF],t.p),B.p,B.aT,B.k),q,q),s.a.b*0.5,q),q,B.v,q,B.cN,B.F),B.I,r.gKX())}return A.q7(A.b3O(new A.aCC(r),A.dN(),t.cZ),B.I,r.gKX())},
 VN(a,b,c,d,e){var s=null,r=e?B.jB:B.h,q=A.I(10),p=A.a9(B.d,2.5),o=t.p,n=A.b([A.K(a,s,s,s,s,A.cy(s,s,e?B.eu:B.d,s,s,s,s,s,s,s,s,15,s,s,B.x,s,s,!0,s,s,s,s,s,s,s,s),s,s)],o)
 if(e)B.b.S(n,A.b([B.aZ,B.U5],o))
 r=A.b([A.Q(s,A.aT(n,B.p,B.j,B.k,0),B.i,s,s,new A.S(r,s,p,q,B.bm,s,B.n),s,s,s,s,B.uN,s,s,s),B.b7],o)
@@ -110751,7 +110751,7 @@ return a1?A.Gr(h,0.55):h},
 VM(a,b){var s=null,r=this.as===a,q=r?B.O:B.h,p=A.I(20),o=A.a9(B.d,2),n=r?B.ch:s
 return A.eF(s,A.Q(s,A.K(b,s,s,s,s,B.lT,s,s),B.i,s,s,new A.S(q,s,o,p,n,s,B.n),s,s,s,s,B.uN,s,s,s),B.v,!1,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,new A.aCp(this,a),s,s,s,s,s,s,!1,B.aV)},
 ajO(a){var s,r=this,q=null,p=A.I(12),o=A.a9(B.d,3.5),n=A.I(6),m=t.p
-p=A.Q(q,A.aT(A.b([A.bo(A.ag(A.b([A.Q(q,B.aha,B.i,q,q,new A.S(B.ce,q,A.a9(B.d,1.5),n,q,q,B.n),q,q,q,q,B.Se,q,q,q),B.d0,A.K(a,q,q,q,q,B.acf,q,q)],m),B.u,B.j,B.k),1,q),A.fs(B.U_,B.aeM,new A.aCE(r,a),A.c2(q,q,B.O,q,q,q,0,q,q,B.d,q,q,B.fy,q,new A.aI(A.I(8),B.cn),q,q,q,q,q))],m),B.p,B.aQ,B.k,0),B.i,q,q,new A.S(B.h,q,o,p,B.c4,q,B.n),q,q,q,q,B.aL,q,q,q)
+p=A.Q(q,A.aT(A.b([A.bo(A.ag(A.b([A.Q(q,B.ah9,B.i,q,q,new A.S(B.ce,q,A.a9(B.d,1.5),n,q,q,B.n),q,q,q,q,B.Se,q,q,q),B.d0,A.K(a,q,q,q,q,B.acf,q,q)],m),B.u,B.j,B.k),1,q),A.fs(B.U_,B.aeM,new A.aCE(r,a),A.c2(q,q,B.O,q,q,q,0,q,q,B.d,q,q,B.fy,q,new A.aI(A.I(8),B.cn),q,q,q,q,q))],m),B.p,B.aQ,B.k,0),B.i,q,q,new A.S(B.h,q,o,p,B.c4,q,B.n),q,q,q,q,B.aL,q,q,q)
 o=A.aT(A.b([B.Vf,B.aZ,A.K("FELLOW HEROES ("+J.b0(r.gKZ())+")",q,q,q,q,B.Ie,q,q)],m),B.p,B.j,B.k,0)
 n=A.I(12)
 s=A.a9(B.d,3)
@@ -110789,7 +110789,7 @@ A.e0(!1,new A.aCP(r),s,t.z)},
 $S:4}
 A.aCP.prototype={
 $1(a){var s,r=null,q=A.I(20),p=t.p
-q=A.eC(A.b([A.cr(A.dz(B.aep,new A.aCO(a),A.c2(r,r,B.I,r,r,r,r,r,r,r,r,r,r,r,new A.aI(A.I(12),B.cn),r,r,r,r,r)),r,r)],p),r,B.O,B.agb,new A.aI(q,B.bU),B.aeZ)
+q=A.eC(A.b([A.cr(A.dz(B.aep,new A.aCO(a),A.c2(r,r,B.I,r,r,r,r,r,r,r,r,r,r,r,new A.aI(A.I(12),B.cn),r,r,r,r,r)),r,r)],p),r,B.O,B.aga,new A.aI(q,B.bU),B.aeZ)
 s=this.a.at
 s===$&&A.a()
 return A.dj(B.dW,A.b([q,new A.DK(s,25,5,B.rJ,0.05,25,B.Yv,r)],p),B.o,B.ar,r)},
@@ -110990,7 +110990,7 @@ g=B.a18}else{h=""
 g=B.aU}if(h.length===0)return B.aA
 a=A.I(12)
 a0=A.a9(B.d,2)
-return new A.dm(B.Jk,e,e,A.Q(e,A.K(h,e,e,e,e,B.lZ,e,e),B.i,e,e,new A.S(g,e,a0,a,e,e,B.n),e,e,e,B.b3,B.hP,e,e,e),e)},
+return new A.dm(B.Jk,e,e,A.Q(e,A.K(h,e,e,e,e,B.qJ,e,e),B.i,e,e,new A.S(g,e,a0,a,e,e,B.n),e,e,e,B.b3,B.hP,e,e,e),e)},
 $S:702}
 A.aCp.prototype={
 $0(){var s=this.a
@@ -111301,7 +111301,7 @@ s.r=B.d.gn()
 r=t.p
 s=A.dj(B.aG,A.b([A.K("ReadSmart",p,p,p,p,A.cy(p,p,p,p,p,p,p,p,p,p,p,40,p,p,B.x,s,p,!0,p,2,p,p,p,p,p,p),p,p),B.aeK],r),B.o,B.ar,p)
 q=A.I(8)
-return A.ag(A.b([o,B.bx,s,A.Q(p,B.agp,B.i,p,p,new A.S(B.h,p,A.a9(B.d,2),q,p,p,B.n),p,p,p,p,B.uL,p,p,p)],r),B.p,B.aT,B.k)},
+return A.ag(A.b([o,B.bx,s,A.Q(p,B.ago,B.i,p,p,new A.S(B.h,p,A.a9(B.d,2),q,p,p,B.n),p,p,p,p,B.uL,p,p,p)],r),B.p,B.aT,B.k)},
 JP(a,b,c,d,e){var s=null,r=this.x===e,q=r?a:B.w,p=A.I(25)
 return A.bo(A.eF(s,A.Q(s,A.cr(A.K(c+" "+d,s,s,s,s,A.cy(s,s,r?b:B.fr,s,s,s,s,s,s,s,s,13,s,s,B.x,s,s,!0,s,s,s,s,s,s,s,s),s,s),s,s),B.i,s,s,new A.S(q,s,s,p,s,s,B.n),s,s,s,s,s,s,s,s),B.v,!1,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,new A.aIs(this,e),s,s,s,s,s,s,!1,B.aV),1,s)},
 VD(){var s,r,q,p,o,n,m,l=this,k=null,j=A.I(30),i=A.a9(B.d,3),h=t.p
@@ -111319,14 +111319,14 @@ n=A.dL(p?B.oN:B.ku,B.I,k,k,k)
 n=A.dD(k,B.al,!1,k,!0,B.o,k,A.dR(),l.d,k,k,k,k,k,2,A.eG(k,k,k,k,k,k,k,k,!0,new A.cQ(4,A.I(12),B.c2),k,k,k,k,k,B.jt,!0,k,k,k,k,new A.cQ(4,A.I(12),B.rR),k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,B.cv,o,!0,!0,!1,k,n,k,k,k,k,k,k,k,k,k,k,k,k),B.v,!0,k,!0,k,!1,k,B.ao,k,k,k,k,k,k,k,k,1,k,k,!1,"\u2022",k,k,k,k,k,!1,k,k,!1,k,!0,k,B.a1,k,k,k,k,k,k,k,k,k,k,k,k,!0,B.a3,k,B.aJ,k,B.HP,k,k)
 o=l.f
 p=A.cI(k,k,k,A.dL(o?B.hZ:B.i_,B.P,k,k,k),k,k,new A.aIl(l),k,k,k,k)
-i=A.Q(k,A.ag(A.b([q,B.av,n,B.iM,A.dD(k,B.al,!1,k,!0,B.o,k,A.dR(),l.e,k,k,k,k,k,2,A.eG(k,k,k,k,k,k,k,k,!0,new A.cQ(4,A.I(12),B.c2),k,k,k,k,k,B.jt,!0,k,k,k,k,new A.cQ(4,A.I(12),B.rR),k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,B.cv,"Password",!0,!0,!1,k,B.UP,k,k,k,k,k,k,p,k,k,k,k,k),B.v,!0,k,!0,k,!1,k,B.ao,k,k,k,k,k,k,k,k,1,k,k,o,"\u2022",k,k,k,new A.aIm(l),k,!1,k,k,!1,k,!0,k,B.a1,k,k,k,k,k,k,k,k,k,k,k,k,!0,B.a3,k,B.aJ,k,B.qw,k,k),B.ak,A.aT(A.b([A.eF(k,A.aT(A.b([A.cM(A.b2q(B.I,!1,k,k,k,!1,k,k,new A.aIn(l),k,k,k,k,k,!1,l.w),24,24),B.aZ,B.agW],h),B.p,B.j,B.k,0),B.v,!1,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,new A.aIo(l),k,k,k,k,k,k,!1,B.aV),A.eF(k,B.a2U,B.v,!1,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,new A.aIp(l),k,k,k,k,k,k,!1,B.aV)],h),B.p,B.aQ,B.k,0)],h),B.u,B.j,B.k),B.i,k,k,new A.S(B.h,k,s,i,B.c4,k,B.n),k,k,k,k,B.a1,k,k,k)
+i=A.Q(k,A.ag(A.b([q,B.av,n,B.iM,A.dD(k,B.al,!1,k,!0,B.o,k,A.dR(),l.e,k,k,k,k,k,2,A.eG(k,k,k,k,k,k,k,k,!0,new A.cQ(4,A.I(12),B.c2),k,k,k,k,k,B.jt,!0,k,k,k,k,new A.cQ(4,A.I(12),B.rR),k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,B.cv,"Password",!0,!0,!1,k,B.UP,k,k,k,k,k,k,p,k,k,k,k,k),B.v,!0,k,!0,k,!1,k,B.ao,k,k,k,k,k,k,k,k,1,k,k,o,"\u2022",k,k,k,new A.aIm(l),k,!1,k,k,!1,k,!0,k,B.a1,k,k,k,k,k,k,k,k,k,k,k,k,!0,B.a3,k,B.aJ,k,B.qw,k,k),B.ak,A.aT(A.b([A.eF(k,A.aT(A.b([A.cM(A.b2q(B.I,!1,k,k,k,!1,k,k,new A.aIn(l),k,k,k,k,k,!1,l.w),24,24),B.aZ,B.agV],h),B.p,B.j,B.k,0),B.v,!1,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,new A.aIo(l),k,k,k,k,k,k,!1,B.aV),A.eF(k,B.a2U,B.v,!1,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,new A.aIp(l),k,k,k,k,k,k,!1,B.aV)],h),B.p,B.aQ,B.k,0)],h),B.u,B.j,B.k),B.i,k,k,new A.S(B.h,k,s,i,B.c4,k,B.n),k,k,k,k,B.a1,k,k,k)
 if(l.r)s=B.jl
 else{s=A.I(15)
 s=A.Q(k,A.dz(B.ahj,l.gaqi(),A.c2(k,k,B.I,k,k,k,0,k,k,B.h,k,B.a6V,k,k,new A.aI(A.I(15),B.bM),k,k,k,k,k)),B.i,k,k,new A.S(k,k,k,s,B.ap,k,B.n),k,k,k,k,k,k,k,k)}m=l.x
 B:{if("student"===m){q=A.I(10)
 q=A.Q(k,B.aek,B.i,k,k,new A.S(B.h,k,A.a9(B.d,2),q,k,k,B.n),k,k,k,k,B.hQ,k,k,k)
 break B}if("parent"===m){q=A.I(10)
-q=A.Q(k,B.ah3,B.i,k,k,new A.S(B.h,k,A.a9(B.d,2),q,k,k,B.n),k,k,k,k,B.hQ,k,k,k)
+q=A.Q(k,B.ah2,B.i,k,k,new A.S(B.h,k,A.a9(B.d,2),q,k,k,B.n),k,k,k,k,B.hQ,k,k,k)
 break B}if("teacher"===m){q=A.I(6)
 q=A.aT(A.b([B.aej,A.eF(k,A.Q(k,B.afz,B.i,k,k,new A.S(B.O,k,A.a9(B.d,1.5),q,k,k,B.n),k,k,k,k,B.hP,k,k,k),B.v,!1,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,new A.aIq(l),k,k,k,k,k,k,!1,B.aV)],h),B.p,B.aT,B.k,0)
 break B}q=B.aA
@@ -111378,7 +111378,7 @@ $S:0}
 A.aIB.prototype={
 $1(a){var s=null,r=A.I(16),q=this.a,p=J.a8(q,"message")
 p=A.K(p==null?"Please verify your email address to continue.":p,s,s,s,s,s,s,s)
-return A.eC(A.b([A.ed(B.aet,s,s,new A.aIx(a),s,s),A.dz(B.ahb,new A.aIy(a,q),A.c2(s,s,B.I,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s))],t.p),s,s,p,new A.aI(r,B.bM),B.ah1)},
+return A.eC(A.b([A.ed(B.aet,s,s,new A.aIx(a),s,s),A.dz(B.ahb,new A.aIy(a,q),A.c2(s,s,B.I,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s))],t.p),s,s,p,new A.aI(r,B.bM),B.ah0)},
 $S:20}
 A.aIx.prototype={
 $0(){A.aS(this.a,!1).ba(null)
@@ -111395,7 +111395,7 @@ o=A.bk("https://readsmart-api-production.up.railway.app/api/email/resend",0,null
 n=$.dt
 s=2
 return A.h(A.eR(o,B.A.dZ(A.ab(["email",J.a8(q.b,"email")],t.N,t.z),null),n),$async$$0)
-case 2:m.N(p).f.aQ(A.c5(null,null,null,B.aU,B.aw,B.o,null,B.afI,null,B.ay,null,null,null,B.aP,null,null,null,new A.aI(A.I(30),B.r),null,null))
+case 2:m.N(p).f.aQ(A.c5(null,null,null,B.aU,B.aw,B.o,null,B.afH,null,B.ay,null,null,null,B.aP,null,null,null,new A.aI(A.I(30),B.r),null,null))
 return A.q(null,r)}})
 return A.r($async$$0,r)},
 $S:3}
@@ -111423,9 +111423,9 @@ A.aIQ.prototype={
 $1(a){return new A.hT(new A.aIP(this.a,this.b,this.c),null)},
 $S:55}
 A.aIP.prototype={
-$2(a,b){var s=null,r=A.I(16),q=this.b,p=t.p,o=A.ag(A.b([B.afK,B.ak,A.dD(s,B.al,!1,s,!0,B.o,s,A.dR(),q,s,s,s,s,s,2,A.eG(s,new A.cQ(4,A.I(12),B.c2),s,s,s,s,s,s,!0,s,s,s,s,s,s,B.jE,!0,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,"LRN / Username",!0,!0,!1,s,s,s,s,s,s,s,s,s,s,s,s,s,s),B.v,!0,s,!0,s,!1,s,B.ao,s,s,s,s,s,s,s,s,1,s,s,!1,"\u2022",s,s,s,s,s,!1,s,s,!1,s,!0,s,B.a1,s,s,s,s,s,s,s,s,s,s,s,s,!0,B.a3,s,B.aJ,s,s,s,s)],p),B.u,B.j,B.a_),n=A.ed(B.iW,s,s,new A.aIN(a),s,s),m=A.c2(s,s,B.I,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s),l=this.a,k=l.a
+$2(a,b){var s=null,r=A.I(16),q=this.b,p=t.p,o=A.ag(A.b([B.afJ,B.ak,A.dD(s,B.al,!1,s,!0,B.o,s,A.dR(),q,s,s,s,s,s,2,A.eG(s,new A.cQ(4,A.I(12),B.c2),s,s,s,s,s,s,!0,s,s,s,s,s,s,B.jE,!0,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,"LRN / Username",!0,!0,!1,s,s,s,s,s,s,s,s,s,s,s,s,s,s),B.v,!0,s,!0,s,!1,s,B.ao,s,s,s,s,s,s,s,s,1,s,s,!1,"\u2022",s,s,s,s,s,!1,s,s,!1,s,!0,s,B.a1,s,s,s,s,s,s,s,s,s,s,s,s,!0,B.a3,s,B.aJ,s,s,s,s)],p),B.u,B.j,B.a_),n=A.ed(B.iW,s,s,new A.aIN(a),s,s),m=A.c2(s,s,B.I,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s),l=this.a,k=l.a
 q=k?s:new A.aIO(l,q,b,a,this.c)
-return A.eC(A.b([n,A.dz(k?B.qm:B.aeD,q,m)],p),s,s,o,new A.aI(r,B.bU),B.ags)},
+return A.eC(A.b([n,A.dz(k?B.qm:B.aeD,q,m)],p),s,s,o,new A.aI(r,B.bU),B.agr)},
 $S:103}
 A.aIN.prototype={
 $0(){A.aS(this.a,!1).ba(null)
@@ -111574,7 +111574,7 @@ r=k.gaAg()
 q=A.I(16)
 p=A.a9(B.d,3)
 o=t.p
-n=A.b([B.agf,B.b8],o)
+n=A.b([B.age,B.b8],o)
 if(s!=null){m=J.aC(s)
 l=m.h(s,"reading_level")
 l=A.b([A.aYL(B.ce,A.K("Level: "+A.i(l==null?"N/A":l),j,j,j,j,B.ae,j,j))],o)
@@ -111759,12 +111759,12 @@ if(n.z)s=B.mX
 else if(n.x.length===0){s=A.I(20)
 r=A.a9(B.d,3.5)
 q=A.a9(B.d,2.5)
-s=A.cr(A.Q(m,A.ag(A.b([A.Q(m,A.dL(B.ky,B.bl,m,m,50),B.i,m,m,new A.S(B.ce,m,q,m,m,m,B.T),m,m,m,m,B.aL,m,m,m),B.av,B.age,B.d0,B.agF],h),B.p,B.j,B.a_),B.i,m,m,new A.S(B.h,m,r,s,B.c4,m,B.n),m,m,m,m,B.dC,m,m,m),m,m)}else{s=n.w
+s=A.cr(A.Q(m,A.ag(A.b([A.Q(m,A.dL(B.ky,B.bl,m,m,50),B.i,m,m,new A.S(B.ce,m,q,m,m,m,B.T),m,m,m,m,B.aL,m,m,m),B.av,B.agd,B.d0,B.agE],h),B.p,B.j,B.a_),B.i,m,m,new A.S(B.h,m,r,s,B.c4,m,B.n),m,m,m,m,B.dC,m,m,m),m,m)}else{s=n.w
 s=A.b([new A.al(B.S9,A.aT(A.b([B.V7,B.aZ,A.K(s==null?"Your child":s,m,m,m,m,B.acU,m,m)],h),B.p,B.j,B.k,0),m),n.ajF(),B.qn],h)
 r=n.x
 B.b.S(s,new A.U(r,new A.aK6(n,a),A.W(r).i("U<1,e>")))
 s=A.alb(s,B.uT,m,!1)}p=new A.al(B.dC,A.ag(A.b([k,B.dO,j,B.bx,A.bo(s,1,m)],h),B.u,B.j,B.k),m)
-s=A.b([B.afX],h)
+s=A.b([B.afW],h)
 k=n.ax
 if(k!=null)s.push(A.K(k,m,m,m,m,B.Ia,m,m))
 k=A.aT(A.b([B.Vn,B.ct,A.ag(s,B.u,B.j,B.a_)],h),B.p,B.j,B.k,0)
@@ -111883,7 +111883,7 @@ if(a.h(0,p)!=null||a.h(0,o)!=null){s=A.b([],t.p)
 if(a.h(0,p)!=null)s.push(A.K("Username (LRN): "+A.i(a.h(0,p)),q,q,q,q,q,q,q))
 if(a.h(0,o)!=null)s.push(A.K("Password: "+A.i(a.h(0,o)),q,q,q,q,q,q,q))
 s.push(B.cG)
-s.push(B.agt)
+s.push(B.ags)
 s=new A.al(B.uK,A.ag(s,B.u,B.j,B.k),q)}else s=q
 r=a.h(0,p)!=null||a.h(0,o)!=null
 return A.aYK(A.l3(!1,q,q,q,!0,q,q,!0,r,B.V0,q,q,q,q,q,!1,q,q,q,q,s,q,m,q,A.ed(B.afA,q,q,new A.aJV(this.a,a,this.b,this.c),q,q),q),q,B.e1,new A.aI(n,B.c2))},
@@ -111938,10 +111938,10 @@ r.push(B.c_)
 p=A.I(6)
 o=A.a9(B.d,1.5)
 n=a.h(0,"class_code")
-r.push(A.Q(m,A.K("Code: "+A.i(n==null?"\u2014":n),m,m,m,m,B.qJ,m,m),B.i,m,m,new A.S(B.ev,m,o,p,m,m,B.n),m,m,m,m,B.hS,m,m,m))
+r.push(A.Q(m,A.K("Code: "+A.i(n==null?"\u2014":n),m,m,m,m,B.qK,m,m),B.i,m,m,new A.S(B.ev,m,o,p,m,m,B.n),m,m,m,m,B.hS,m,m,m))
 r=A.bo(A.ag(r,B.u,B.aT,B.k),1,m)
 p=A.I(10)
-return A.Q(m,A.dC(!1,B.S,!0,m,A.ea(!1,i,!0,new A.al(B.aL,A.aT(A.b([s,B.iL,r,A.Q(m,B.agc,B.i,m,m,new A.S(B.O,m,A.a9(B.d,2.5),p,m,m,B.n),m,m,m,m,B.hQ,m,m,m)],q),B.p,B.j,B.k,0),m),m,!0,m,m,m,m,m,m,m,m,m,h,m,m,m,m,m,m,m),B.i,B.w,0,m,m,m,m,m,B.bn),B.i,m,m,new A.S(B.h,m,j,k,B.c4,m,B.n),m,m,m,B.hO,m,m,m,m)},
+return A.Q(m,A.dC(!1,B.S,!0,m,A.ea(!1,i,!0,new A.al(B.aL,A.aT(A.b([s,B.iL,r,A.Q(m,B.agb,B.i,m,m,new A.S(B.O,m,A.a9(B.d,2.5),p,m,m,B.n),m,m,m,m,B.hQ,m,m,m)],q),B.p,B.j,B.k,0),m),m,!0,m,m,m,m,m,m,m,m,m,h,m,m,m,m,m,m,m),B.i,B.w,0,m,m,m,m,m,B.bn),B.i,m,m,new A.S(B.h,m,j,k,B.c4,m,B.n),m,m,m,B.hO,m,m,m,m)},
 $S:718}
 A.aK5.prototype={
 $0(){var s=A.dM(new A.aK2(this.a),null,t.z)
@@ -112072,8 +112072,8 @@ p=A.K(r?"Saving...":"Save Quiz",m,m,m,m,m,m,m)
 o=t.p
 l=A.oR(A.b([new A.al(B.k5,A.fs(q,p,r?m:n.gaxQ(),s),m)],o),B.u1,m,m,2,B.h,m,m,l,m)
 if(n.d)s=B.MZ
-else s=n.f.length===0?A.cr(A.ag(A.b([B.Vd,B.av,B.agA,B.dk,A.fs(B.vV,B.ahl,n.gV2(),A.c2(m,m,B.bc,m,m,m,m,m,m,B.d,m,m,m,m,m,m,m,m,m,m))],o),B.p,B.aT,B.k),m,m):n.ajG()
-return A.fS(l,B.tB,s,m,!1,new A.y_(B.vV,B.d,B.bc,n.gV2(),B.ah5,m))},
+else s=n.f.length===0?A.cr(A.ag(A.b([B.Vd,B.av,B.agz,B.dk,A.fs(B.vV,B.ahl,n.gV2(),A.c2(m,m,B.bc,m,m,m,m,m,m,B.d,m,m,m,m,m,m,m,m,m,m))],o),B.p,B.aT,B.k),m,m):n.ajG()
+return A.fS(l,B.tB,s,m,!1,new A.y_(B.vV,B.d,B.bc,n.gV2(),B.ah4,m))},
 ajG(){return A.l4(null,new A.aLf(this),this.f.length,B.RP,null,B.F,!1)}}
 A.aLh.prototype={
 $0(){var s,r,q,p,o,n,m,l,k,j,i,h
@@ -112132,7 +112132,7 @@ p=J.fO(q,t.l)
 for(o=0;o<q;o=n){n=o+1
 p[o]=new A.al(B.k2,A.aT(A.b([A.Q(B.E,A.K(A.eJ(65+o),m,m,m,m,B.dm,m,m),B.i,m,m,new A.S(B.bl,m,m,m,m,m,B.T),m,32,m,m,m,m,m,32),B.dN,new A.fM(1,B.cp,A.dD(m,B.al,!1,m,!0,B.o,m,A.dR(),j[o],m,m,m,m,m,2,new A.hP(m,m,m,m,m,m,m,m,m,m,"Option "+n,m,B.qI,m,m,m,!0,!0,!1,m,m,m,m,m,m,!0,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,!0,B.jA,m,m,m,m,m,m,m,B.px,!0,m,m,m,m),B.v,!0,m,!0,m,!1,m,B.ao,m,m,m,m,m,m,m,m,1,m,m,!1,"\u2022",m,new A.aLc(l),m,m,m,!1,m,m,!1,m,!0,m,B.a1,m,m,m,m,m,m,m,m,m,m,m,B.Ii,!0,B.a3,m,B.aJ,m,m,m,m),m)],s),B.p,B.j,B.k,0),m)}B.b.S(r,p)
 r.push(B.av)
-r.push(B.afL)
+r.push(B.afK)
 r.push(B.b8)
 j=B.b.q(h,k.c)?k.c:m
 s=A.W(h).i("U<1,kT<n>>")
@@ -112307,7 +112307,7 @@ n=g.c
 n.toString
 A.e0(!1,new A.aLB(f,g,l,a,s,k,i,p,h,j,b),n,t.z)},
 G(a){var s=null
-return A.fS(A.oR(s,B.w,s,!0,0,s,B.vO,s,B.agP,s),s,A.ej(A.iU(!0,new A.fv(new A.aLE(this),s),B.ac,!0),s,s,new A.VP(s),B.L,!1),s,!0,s)},
+return A.fS(A.oR(s,B.w,s,!0,0,s,B.vO,s,B.agO,s),s,A.ej(A.iU(!0,new A.fv(new A.aLE(this),s),B.ac,!0),s,s,new A.VP(s),B.L,!1),s,!0,s)},
 ajI(){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d,c=this,b=null,a={}
 if(c.f)return B.MI
 s=t.a.a(J.a8(c.d,c.r))
@@ -112646,9 +112646,9 @@ ajP(a){return this.VV(32,a)},
 ajj(a,b){var s=null,r=A.I(22),q=A.a9(B.d,3)
 return A.ea(!1,r,!0,A.Q(s,A.dL(B.Tm,b,s,s,s),B.i,s,s,new A.S(a,s,q,s,B.bm,s,B.T),s,44,s,s,s,s,s,44),s,!0,s,s,s,s,s,s,s,s,s,new A.aMc(this),s,s,s,s,s,s,s)},
 VE(){var s=this,r=null,q=A.I(12),p=t.p
-return A.ag(A.b([A.Q(r,B.agg,B.i,r,r,new A.S(B.h,r,A.a9(B.d,2.5),q,r,r,B.n),r,r,r,r,B.eA,r,r,1/0),B.bx,s.JK(s.d,"firstName","First Name",B.oN),B.bx,s.JK(s.e,"lastName","Last Name",B.oN),B.bx,s.JK(s.f,"login","Email Address",B.ku),B.bx,s.JL(s.r,"password","Password",B.oL,!0),B.bx,s.JL(s.w,"confirmPassword","Confirm Password",B.TQ,!0),B.av,A.aT(A.b([A.cM(A.b2q(B.aC,!1,r,r,r,!1,r,r,new A.aMi(s),r,r,r,r,r,!1,s.y),24,24),B.aZ,A.bo(A.eF(r,A.b6c(A.ee(A.b([A.ee(r,r,r,r,r,r,r,r,r,A.cy(r,r,B.aC,r,B.h5,r,r,r,r,r,r,r,r,r,B.x,r,r,!0,r,r,r,r,r,r,r,r),"Data Privacy Policy (RA 10173)")],t.VO),r,r,r,r,r,r,r,r,B.qJ,"I agree to the "),r,r),B.v,!1,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,new A.aMj(s),r,r,r,r,r,r,!1,B.aV),1,r)],p),B.p,B.j,B.k,0)],p),B.p,B.j,B.k)},
+return A.ag(A.b([A.Q(r,B.agf,B.i,r,r,new A.S(B.h,r,A.a9(B.d,2.5),q,r,r,B.n),r,r,r,r,B.eA,r,r,1/0),B.bx,s.JK(s.d,"firstName","First Name",B.oN),B.bx,s.JK(s.e,"lastName","Last Name",B.oN),B.bx,s.JK(s.f,"login","Email Address",B.ku),B.bx,s.JL(s.r,"password","Password",B.oL,!0),B.bx,s.JL(s.w,"confirmPassword","Confirm Password",B.TQ,!0),B.av,A.aT(A.b([A.cM(A.b2q(B.aC,!1,r,r,r,!1,r,r,new A.aMi(s),r,r,r,r,r,!1,s.y),24,24),B.aZ,A.bo(A.eF(r,A.b6c(A.ee(A.b([A.ee(r,r,r,r,r,r,r,r,r,A.cy(r,r,B.aC,r,B.h5,r,r,r,r,r,r,r,r,r,B.x,r,r,!0,r,r,r,r,r,r,r,r),"Data Privacy Policy (RA 10173)")],t.VO),r,r,r,r,r,r,r,r,B.qK,"I agree to the "),r,r),B.v,!1,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,new A.aMj(s),r,r,r,r,r,r,!1,B.aV),1,r)],p),B.p,B.j,B.k,0)],p),B.p,B.j,B.k)},
 VT(){var s=null
-return this.z?B.jh:A.cM(A.dz(B.ag4,this.gax3(),A.c2(s,s,B.aC,s,s,s,0,s,s,B.h,s,s,s,s,new A.aI(A.I(15),B.rP),s,s,s,s,s).aDS(new A.bE(0,t.YI))),60,1/0)},
+return this.z?B.jh:A.cM(A.dz(B.ag3,this.gax3(),A.c2(s,s,B.aC,s,s,s,0,s,s,B.h,s,s,s,s,new A.aI(A.I(15),B.rP),s,s,s,s,s).aDS(new A.bE(0,t.YI))),60,1/0)},
 G(a){return new A.fv(new A.aMq(this),null)}}
 A.aMp.prototype={
 $1(a){var s=null,r=A.I(16),q=A.dO(A.ag(B.ZB,B.u,B.j,B.k),s,B.v,s,s,B.F)
@@ -113024,7 +113024,7 @@ case 6:case 1:return A.q(q,r)
 case 2:return A.p(o.at(-1),r)}})
 return A.r($async$CZ,r)},
 a1P(){var s=new A.aPi(this),r=t.p
-return A.ag(A.b([B.agq,B.b8,A.aT(A.b([s.$3("pre_test","Pre Test",B.oR),B.ct,s.$3("post_test","Post Test",B.oP)],r),B.p,B.j,B.k,0)],r),B.u,B.j,B.k)},
+return A.ag(A.b([B.agp,B.b8,A.aT(A.b([s.$3("pre_test","Pre Test",B.oR),B.ct,s.$3("post_test","Post Test",B.oP)],r),B.p,B.j,B.k,0)],r),B.u,B.j,B.k)},
 YM(){var s=t.vr
 s=A.X(new A.U(B.i4,new A.aP6(this),s),s.i("ap.E"))
 return A.ag(A.b([B.aeq,B.b8,A.kt(B.c6,s,B.cK,10,10)],t.p),B.u,B.j,B.k)},
@@ -113042,7 +113042,7 @@ f=A.bo(A.Q(j,A.aZP(k.d,new A.aOR(k,a,b),k.at.length,new A.aOS(k),j,j),B.aO,j,j,n
 h=A.I(12)
 g=A.a9(B.jx,1)
 s=k.f>0?k.gYK():j
-s=A.fs(B.Ut,B.ah7,s,A.c2(j,j,B.bl,B.js,j,j,j,j,j,B.h,j,j,j,j,j,j,j,j,j,j))
+s=A.fs(B.Ut,B.ah6,s,A.c2(j,j,B.bl,B.js,j,j,j,j,j,B.h,j,j,j,j,j,j,j,j,j,j))
 r=k.f
 q=k.at.length
 p=A.K("Slide "+(r+1)+" of "+q,j,j,j,j,B.a8P,j,j)
@@ -113056,7 +113056,7 @@ s=A.a9(B.jx,1)
 p=A.Q(j,A.ag(A.b([k.a1P(),B.av,k.YM(),B.av,k.a1g()],q),B.u,B.j,B.k),B.i,j,j,new A.S(B.ui,j,s,p,j,j,B.n),j,j,j,j,B.aL,j,j,j)
 s=A.I(12)
 f=A.a9(B.jx,1)
-s=A.Q(j,A.ag(A.b([A.aT(A.b([B.agu,A.aT(A.b([A.cI(j,j,j,B.w_,j,j,k.ga0J(),j,j,j,"Extract Text from Image (OCR)"),A.cI(j,j,j,B.vU,j,j,k.gV8(),j,j,j,"Add Text Segment")],q),B.p,B.j,B.k,0)],q),B.p,B.aQ,B.k,0),B.ak,A.l4(j,new A.aOT(k),k.y.length,j,B.cZ,B.F,!0)],q),B.u,B.j,B.k),B.i,j,j,new A.S(B.ui,j,f,s,j,j,B.n),j,j,j,j,B.aL,j,j,j)
+s=A.Q(j,A.ag(A.b([A.aT(A.b([B.agt,A.aT(A.b([A.cI(j,j,j,B.w_,j,j,k.ga0J(),j,j,j,"Extract Text from Image (OCR)"),A.cI(j,j,j,B.vU,j,j,k.gV8(),j,j,j,"Add Text Segment")],q),B.p,B.j,B.k,0)],q),B.p,B.aQ,B.k,0),B.ak,A.l4(j,new A.aOT(k),k.y.length,j,B.cZ,B.F,!0)],q),B.u,B.j,B.k),B.i,j,j,new A.S(B.ui,j,f,s,j,j,B.n),j,j,j,j,B.aL,j,j,j)
 i=k.as?B.nn:B.tG
 i=A.c2(j,j,i,j,j,j,j,j,j,B.h,j,j,B.nQ,j,new A.aI(A.I(10),B.r),j,j,j,j,j)
 f=k.as
@@ -113941,7 +113941,7 @@ r=q}else r=q}else r=q
 n=r.length!==0?r[0]:""
 if(g.cy.length===0&&n.length!==0)g.a1t(n)
 r=g.e>0?new A.aQr(g):f
-r=A.fs(B.Uk,B.ah0,r,A.c2(f,f,B.e5,f,f,f,f,f,f,f,f,f,f,f,new A.aI(A.I(12),B.c2),f,f,f,f,f))
+r=A.fs(B.Uk,B.ah_,r,A.c2(f,f,B.e5,f,f,f,f,f,f,f,f,f,f,f,new A.aI(A.I(12),B.c2),f,f,f,f,f))
 m=g.gaiH()
 l=A.c2(f,f,B.aU,f,f,f,f,f,f,f,f,f,f,f,new A.aI(A.I(12),B.c2),f,f,f,f,f)
 k=t.p
@@ -114159,7 +114159,7 @@ $1(a){return a.b},
 $S:160}
 A.aPE.prototype={
 $1(a){var s=null,r=A.I(20)
-return A.eC(A.b([A.ed(B.In,s,s,new A.aPy(this.a,a),s,s)],t.p),s,s,B.ahE,new A.aI(r,B.r),B.ag6)},
+return A.eC(A.b([A.ed(B.In,s,s,new A.aPy(this.a,a),s,s)],t.p),s,s,B.ahE,new A.aI(r,B.r),B.ag5)},
 $S:20}
 A.aPy.prototype={
 $0(){A.aS(this.b,!1).ba(null)
@@ -114450,7 +114450,7 @@ p=l.r
 if(p.length!==0)B.b.S(q,A.b([B.ak,A.K('Heard: "'+p+'"',k,k,k,k,B.ace,k,k)],r))
 q.push(B.dk)
 if(!l.e){r=A.I(12)
-q.push(A.Q(k,A.dz(B.ago,l.gazl(),A.c2(k,k,B.h,k,k,k,0,k,k,B.d,k,k,k,k,new A.aI(A.I(12),B.bM),k,k,k,k,k)),B.i,k,k,new A.S(k,k,k,r,B.bm,k,B.n),k,50,k,k,k,k,k,1/0))}return A.aem(k,B.w,A.b5V(A.oO(A.Q(k,A.ag(q,B.p,B.j,B.a_),B.i,k,k,new A.S(B.bc,k,i,j,B.p1,k,B.n),k,k,k,k,B.dC,k,k,k),k,k),1,B.nD,A.d6(4e5,0,0),0),k,k,0,k,B.pZ,k,k,k)}}
+q.push(A.Q(k,A.dz(B.agn,l.gazl(),A.c2(k,k,B.h,k,k,k,0,k,k,B.d,k,k,k,k,new A.aI(A.I(12),B.bM),k,k,k,k,k)),B.i,k,k,new A.S(k,k,k,r,B.bm,k,B.n),k,50,k,k,k,k,k,1/0))}return A.aem(k,B.w,A.b5V(A.oO(A.Q(k,A.ag(q,B.p,B.j,B.a_),B.i,k,k,new A.S(B.bc,k,i,j,B.p1,k,B.n),k,k,k,k,B.dC,k,k,k),k,k),1,B.nD,A.d6(4e5,0,0),0),k,k,0,k,B.pZ,k,k,k)}}
 A.aMC.prototype={
 $1(a){return!a.c},
 $S:49}
@@ -114789,7 +114789,7 @@ case 1:return A.q(q,r)}})
 return A.r($async$DN,r)},
 VA(a){var s=null
 return A.Q(s,B.U3,B.i,s,s,new A.S(B.O,s,A.a9(B.d,2.5),s,B.ch,s,B.T),s,a,s,s,s,s,s,a)},
-G(a){var s,r,q,p,o,n,m=this,l=null,k=m.VA(45),j=t.p,i=A.b([B.agN,A.K(m.a.c,1,B.ai,l,l,B.lS,l,l)],j),h=m.r
+G(a){var s,r,q,p,o,n,m=this,l=null,k=m.VA(45),j=t.p,i=A.b([B.agM,A.K(m.a.c,1,B.ai,l,l,B.lS,l,l)],j),h=m.r
 if(h!=null)i.push(A.K("LRN: "+h,1,B.ai,l,l,B.Ia,l,l))
 k=A.bo(A.aT(A.b([k,B.ct,A.bo(A.ag(i,B.u,B.aT,B.k),1,l)],j),B.p,B.j,B.k,0),1,l)
 i=A.a9(B.d,2)
@@ -114799,7 +114799,7 @@ s=A.a9(B.d,2)
 r=m.gane()
 q=A.fS(new A.z_(A.Q(l,A.iU(!0,new A.al(B.e2,A.aT(A.b([k,B.aZ,i,B.aZ,A.Q(l,A.cI(l,l,l,B.vX,l,l,m.ga_3(),l,l,l,l),B.i,l,l,new A.S(B.h,l,s,l,B.ch,l,B.T),l,l,l,l,l,l,l,l)],j),B.p,B.aQ,B.k,0),l),B.ac,!0),B.i,l,l,B.rZ,l,l,l,l,l,l,l,l),B.H6,l),l,new A.p3(A.q7(A.dO(m.VO(),l,B.v,B.a1,B.cN,B.F),B.I,r),l),l,!1,l)
 s=m.ajJ()
-i=A.b([B.agL,A.K(m.a.c,1,B.ai,l,l,B.acW,l,l)],j)
+i=A.b([B.agK,A.K(m.a.c,1,B.ai,l,l,B.acW,l,l)],j)
 k=m.r
 if(k!=null)i.push(A.K("LRN: "+k,1,B.ai,l,l,B.Ib,l,l))
 k=A.ag(i,B.u,B.j,B.k)
@@ -114821,12 +114821,12 @@ if(r.e)n.push(B.MH)
 else if(J.e2(r.d)){p=A.I(20)
 o=A.a9(B.d,3.5)
 m=A.a9(B.d,2.5)
-n.push(A.cr(A.Q(q,A.ag(A.b([A.Q(q,A.dL(B.ky,B.bl,q,q,50),B.i,q,q,new A.S(B.ce,q,m,q,q,q,B.T),q,q,q,q,B.aL,q,q,q),B.av,B.agB,B.d0,B.agD],l),B.p,B.j,B.k),B.i,q,q,new A.S(B.h,q,o,p,B.c4,q,B.n),q,q,q,B.Rx,B.dC,q,q,q),q,q))}else{p=r.ajn()
+n.push(A.cr(A.Q(q,A.ag(A.b([A.Q(q,A.dL(B.ky,B.bl,q,q,50),B.i,q,q,new A.S(B.ce,q,m,q,q,q,B.T),q,q,q,q,B.aL,q,q,q),B.av,B.agA,B.d0,B.agC],l),B.p,B.j,B.k),B.i,q,q,new A.S(B.h,q,o,p,B.c4,q,B.n),q,q,q,B.Rx,B.dC,q,q,q),q,q))}else{p=r.ajn()
 o=r.d
 m=J.aC(o)
 n.push(A.ag(A.b([p,B.bs,r.ajk(m.h(o,B.l.d0(r.f,0,m.gE(o)-1)))],l),B.u,B.j,B.k))}return A.ag(n,B.u,B.j,B.k)},
 ajn(){return A.kt(B.c6,A.u7(J.b0(this.d),new A.aQL(this),!0,t.l),B.cK,10,10)},
-ajJ(){var s=this,r=null,q=A.b([B.dk,A.Q(r,A.TP("assets/sves_logo.jpg",B.c3,r,r),B.aO,r,r,B.mQ,r,64,r,r,r,r,r,64),B.b7,B.agd,B.iM,s.VA(72),new A.al(B.k4,A.K(s.a.c,2,B.ai,r,r,B.lS,B.U,r),r)],t.p),p=s.r
+ajJ(){var s=this,r=null,q=A.b([B.dk,A.Q(r,A.TP("assets/sves_logo.jpg",B.c3,r,r),B.aO,r,r,B.mQ,r,64,r,r,r,r,r,64),B.b7,B.agc,B.iM,s.VA(72),new A.al(B.k4,A.K(s.a.c,2,B.ai,r,r,B.lS,B.U,r),r)],t.p),p=s.r
 if(p!=null)q.push(new A.al(B.k4,A.K("LRN: "+p,r,r,r,r,B.I7,B.U,r),r))
 q.push(B.bx)
 q.push(B.l6)
@@ -114852,9 +114852,9 @@ q=A.I(6)
 p=A.a9(B.d,1.5)
 s=s.h(a,"grade_level")
 o=t.p
-q=A.bo(A.ag(A.b([r,B.c_,A.Q(n,A.K("Level "+A.i(s==null?"N/A":s)+" Zone",1,B.ai,n,n,B.qJ,n,n),B.i,n,n,new A.S(B.ev,n,p,q,n,n,B.n),n,n,n,n,B.hS,n,n,n)],o),B.u,B.aT,B.k),1,n)
+q=A.bo(A.ag(A.b([r,B.c_,A.Q(n,A.K("Level "+A.i(s==null?"N/A":s)+" Zone",1,B.ai,n,n,B.qK,n,n),B.i,n,n,new A.S(B.ev,n,p,q,n,n,B.n),n,n,n,n,B.hS,n,n,n)],o),B.u,B.aT,B.k),1,n)
 p=A.I(10)
-return A.Q(n,A.dC(!1,B.S,!0,n,A.ea(!1,k,!0,new A.al(B.aL,A.aT(A.b([j,B.iL,q,A.Q(n,B.ah8,B.i,n,n,new A.S(B.O,n,A.a9(B.d,2.5),p,n,n,B.n),n,n,n,n,B.hQ,n,n,n)],o),B.p,B.j,B.k,0),n),n,!0,n,n,n,n,n,n,n,n,n,new A.aQI(this,a),n,n,n,n,n,n,n),B.i,B.w,0,n,n,n,n,n,B.bn),B.i,n,n,new A.S(B.h,n,l,m,B.c4,n,B.n),n,n,n,B.uT,n,n,n,n)},
+return A.Q(n,A.dC(!1,B.S,!0,n,A.ea(!1,k,!0,new A.al(B.aL,A.aT(A.b([j,B.iL,q,A.Q(n,B.ah7,B.i,n,n,new A.S(B.O,n,A.a9(B.d,2.5),p,n,n,B.n),n,n,n,n,B.hQ,n,n,n)],o),B.p,B.j,B.k,0),n),n,!0,n,n,n,n,n,n,n,n,n,new A.aQI(this,a),n,n,n,n,n,n,n),B.i,B.w,0,n,n,n,n,n,B.bn),B.i,n,n,new A.S(B.h,n,l,m,B.c4,n,B.n),n,n,n,B.uT,n,n,n,n)},
 ajt(){var s=this,r=null,q=A.I(12),p=A.a9(B.d,2),o=A.b([A.aT(B.YF,B.p,B.j,B.k,0),B.QS],t.p)
 if(s.y)o.push(B.mY)
 else if(J.e2(s.x))o.push(B.afa)
@@ -114876,7 +114876,7 @@ $0(){return this.a.r=this.b},
 $S:0}
 A.aR0.prototype={
 $1(a){var s=null,r=A.I(16)
-return A.eC(A.b([A.ed(B.agH,s,s,new A.aQZ(a),s,s),A.dz(B.qO,new A.aR_(a),A.c2(s,s,B.I,s,s,s,s,s,s,s,s,s,s,s,new A.aI(A.I(8),B.cn),s,s,s,s,s))],t.p),s,s,B.aeA,new A.aI(r,B.bU),B.afh)},
+return A.eC(A.b([A.ed(B.agG,s,s,new A.aQZ(a),s,s),A.dz(B.qO,new A.aR_(a),A.c2(s,s,B.I,s,s,s,s,s,s,s,s,s,s,s,new A.aI(A.I(8),B.cn),s,s,s,s,s))],t.p),s,s,B.aeA,new A.aI(r,B.bU),B.afh)},
 $S:20}
 A.aQZ.prototype={
 $0(){A.aS(this.a,!1).ba(!1)
@@ -115049,7 +115049,7 @@ case 6:case 1:return A.q(q,r)
 case 2:return A.p(o.at(-1),r)}})
 return A.r($async$Cn,r)},
 G(a){var s=this,r=null,q=A.I(16),p=t.p,o=A.dO(A.ag(A.b([A.dD(r,B.al,!1,r,!0,B.o,r,A.dR(),s.d,r,r,r,r,r,2,B.VQ,B.v,!0,r,!0,r,!1,r,B.ao,r,r,r,r,r,r,r,r,1,r,r,!0,"\u2022",r,r,r,r,r,!1,r,r,!1,r,!0,r,B.a1,r,r,r,r,r,r,r,r,r,r,r,r,!0,B.a3,r,B.aJ,r,r,r,r),B.ak,A.dD(r,B.al,!1,r,!0,B.o,r,A.dR(),s.e,r,r,r,r,r,2,B.VU,B.v,!0,r,!0,r,!1,r,B.ao,r,r,r,r,r,r,r,r,1,r,r,!0,"\u2022",r,r,r,r,r,!1,r,r,!1,r,!0,r,B.a1,r,r,r,r,r,r,r,r,r,r,r,r,!0,B.a3,r,B.aJ,r,r,r,r),B.ak,A.dD(r,B.al,!1,r,!0,B.o,r,A.dR(),s.f,r,r,r,r,r,2,B.VT,B.v,!0,r,!0,r,!1,r,B.ao,r,r,r,r,r,r,r,r,1,r,r,!0,"\u2022",r,r,r,r,r,!1,r,r,!1,r,!0,r,B.a1,r,r,r,r,r,r,r,r,r,r,r,r,!0,B.a3,r,B.aJ,r,r,r,r)],p),B.p,B.j,B.a_),r,B.v,r,r,B.F),n=A.ed(B.iW,r,r,new A.aBY(a),r,r),m=A.c2(r,r,B.I,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r,r),l=s.r,k=l?r:s.gaka()
-return A.eC(A.b([n,A.dz(l?B.qm:B.agi,k,m)],p),r,r,o,new A.aI(q,B.bU),B.aeG)}}
+return A.eC(A.b([n,A.dz(l?B.qm:B.agh,k,m)],p),r,r,o,new A.aI(q,B.bU),B.aeG)}}
 A.aBW.prototype={
 $0(){return this.a.r=!0},
 $S:0}
@@ -115357,7 +115357,7 @@ k=t.p
 j=A.aT(A.b([g.JO("\ud83d\udfe2 Independent Explorer",s,p,B.dw),g.JO("\ud83d\udfe1 Growing Reader",r,p,B.dZ),g.JO("\ud83d\udd34 Needs Practice",q,p,B.ew)],k),B.u,B.j,B.k,0)
 i=A.I(14)
 h=A.a9(B.cR,2)
-return g.xj(A.ag(A.b([m,B.ak,l,B.ak,j,B.av,A.Q(e,A.ag(A.b([B.agQ,B.c_,A.K(o,e,e,e,e,A.cy(e,e,n,e,e,e,e,e,e,e,e,22,e,e,B.x,e,e,!0,e,e,e,e,e,e,e,e),B.U,e)],k),B.p,B.j,B.k),B.i,e,e,new A.S(B.fp,e,h,i,e,e,B.n),e,e,e,e,B.uM,e,e,1/0)],k),B.u,B.j,B.k))},
+return g.xj(A.ag(A.b([m,B.ak,l,B.ak,j,B.av,A.Q(e,A.ag(A.b([B.agP,B.c_,A.K(o,e,e,e,e,A.cy(e,e,n,e,e,e,e,e,e,e,e,22,e,e,B.x,e,e,!0,e,e,e,e,e,e,e,e),B.U,e)],k),B.p,B.j,B.k),B.i,e,e,new A.S(B.fp,e,h,i,e,e,B.n),e,e,e,e,B.uM,e,e,1/0)],k),B.u,B.j,B.k))},
 ajW(){var s,r,q,p,o,n,m,l,k,j,i,h,g,f,e,d=this,c=null,b="Words to Defeat \u2694\ufe0f",a=d.a1D(),a0=a.length
 if(a0===0)return d.xj(A.ag(A.b([d.a14(b),B.ak,B.MK,B.b8,B.MS],t.p),B.u,B.j,B.k))
 s=a0>8
@@ -115383,7 +115383,7 @@ return d.xj(A.ag(p,B.u,B.j,B.k))},
 G(a){var s,r,q,p,o,n=this,m=null,l=t.w,k=A.bs(a,m,l).w
 l=A.bs(a,m,l).w
 s=t.p
-r=A.ag(A.b([B.ah6,A.K(n.a.e,1,B.ai,m,m,B.acp,m,m)],s),B.u,B.j,B.a_)
+r=A.ag(A.b([B.ah5,A.K(n.a.e,1,B.ai,m,m,B.acp,m,m)],s),B.u,B.j,B.a_)
 r=A.oR(A.b([A.cI(m,m,m,B.Uj,m,m,new A.aRf(n),m,m,m,"Refresh"),B.ql],s),B.I,m,m,0,B.h,m,m,r,64)
 if(n.d)l=B.mX
 else{k=k.a.a>=800?900:1/0
@@ -115457,7 +115457,7 @@ n=A.iU(!0,A.ag(A.b([new A.O4(p,q,o,q),A.bo(A.aZt(B.aG,A.b([new A.B5(p,q),new A.B
 p=r.d
 s=A.fS(q,B.fm,n,A.Q(q,new A.D6(B.XK,r.gauC(),p,0,B.h,B.aC,B.P,B.h9,B.ae,q),B.i,q,q,B.Kx,q,q,q,q,q,q,q,q),!1,q)
 n=A.a9(B.d,3)
-o=A.Q(q,A.ag(A.b([B.dl,A.Q(q,A.xi(A.TP("assets/sves_logo.jpg",B.c3,70,70)),B.i,q,q,new A.S(B.h,q,n,q,q,q,B.T),q,q,q,q,B.nW,q,q,q),B.av,B.agV,A.K(r.a.c,q,q,q,q,B.a98,B.U,q),B.dl,r.xe(B.vt,p===0,"Library",new A.aT_(r)),B.av,r.xe(B.vz,r.d===1,"Students",new A.aT0(r)),r.xe(B.vM,r.d===2,"Alerts",new A.aT1(r)),B.av,r.xe(B.fI,r.d===3,"Profile",new A.aT2(r)),B.lK,r.xe(B.vw,!1,"Log Out",o),B.qp],m),B.p,B.j,B.k),B.i,q,q,B.Ku,q,q,q,q,q,q,q,260)
+o=A.Q(q,A.ag(A.b([B.dl,A.Q(q,A.xi(A.TP("assets/sves_logo.jpg",B.c3,70,70)),B.i,q,q,new A.S(B.h,q,n,q,q,q,B.T),q,q,q,q,B.nW,q,q,q),B.av,B.agU,A.K(r.a.c,q,q,q,q,B.a98,B.U,q),B.dl,r.xe(B.vt,p===0,"Library",new A.aT_(r)),B.av,r.xe(B.vz,r.d===1,"Students",new A.aT0(r)),r.xe(B.vM,r.d===2,"Alerts",new A.aT1(r)),B.av,r.xe(B.fI,r.d===3,"Profile",new A.aT2(r)),B.lK,r.xe(B.vw,!1,"Log Out",o),B.qp],m),B.p,B.j,B.k),B.i,q,q,B.Ku,q,q,q,q,q,q,q,260)
 p=r.d
 n=r.a.c
 return A.b5x(A.fS(q,B.fm,A.aT(A.b([o,A.bo(A.fS(q,B.w,A.aZt(B.aG,A.b([new A.B5(n,q),new A.BN(q,q),new A.Au(q,q),A.b69(q,n)],m),p),q,!1,q),1,q)],m),B.p,B.j,B.k,0),q,!1,q),s)},
@@ -115571,12 +115571,12 @@ G(a){var s,r,q,p,o,n=this,m=null,l=A.a9(B.d,2.5)
 l=A.Q(m,A.xi(A.TP("assets/sves_logo.jpg",B.c3,32,32)),B.i,m,m,new A.S(B.h,m,l,m,m,m,B.T),m,m,m,m,B.Sh,m,m,m)
 s=n.a.c
 r=t.p
-s=A.bo(A.ag(A.b([B.ah_,A.K(s.length!==0?s:"Teacher",m,B.ai,m,m,B.lS,m,m)],r),B.u,B.j,B.a_),1,m)
+s=A.bo(A.ag(A.b([B.agZ,A.K(s.length!==0?s:"Teacher",m,B.ai,m,m,B.lS,m,m)],r),B.u,B.j,B.a_),1,m)
 q=A.a9(B.d,2.5)
 q=A.b([A.Q(m,A.cI(m,m,m,B.UM,m,m,n.gavh(),m,m,m,m),B.i,m,m,new A.S(B.h,m,q,m,m,m,B.T),m,m,m,m,m,m,m,m)],r)
 p=n.d.length
 if(p!==0){o=A.a9(B.h,1.5)
-q.push(A.fh(m,A.Q(m,A.K(""+p,m,m,m,m,B.qL,B.U,m),B.i,m,B.Kp,new A.S(B.cX,m,o,m,m,m,B.T),m,m,m,m,B.Sa,m,m,m),m,m,m,2,2,m))}q=A.dj(B.aG,q,B.i,B.ar,m)
+q.push(A.fh(m,A.Q(m,A.K(""+p,m,m,m,m,B.lZ,B.U,m),B.i,m,B.Kp,new A.S(B.cX,m,o,m,m,m,B.T),m,m,m,m,B.Sa,m,m,m),m,m,m,2,2,m))}q=A.dj(B.aG,q,B.i,B.ar,m)
 p=A.a9(B.d,2.5)
 return A.Q(m,A.aT(A.b([l,B.dN,s,q,B.aZ,A.Q(m,A.cI(m,m,m,B.UX,m,m,n.a.e,m,m,m,m),B.i,m,m,new A.S(B.h,m,p,m,m,m,B.T),m,m,m,m,m,m,m,m)],r),B.p,B.j,B.k,0),B.i,m,m,B.Kr,m,m,m,m,B.hQ,m,m,1/0)}}
 A.aUg.prototype={
@@ -115785,7 +115785,7 @@ G(a){var s,r,q,p,o,n=this,m=null,l=A.I(18),k=A.a9(B.d,3),j=A.I(12)
 j=A.Q(m,B.Ub,B.i,m,m,new A.S(B.ft,m,A.a9(B.d,2.5),j,m,m,B.n),m,m,m,m,B.cg,m,m,m)
 s=A.I(6)
 r=t.p
-l=A.Q(m,A.aT(A.b([j,B.qk,A.bo(A.ag(A.b([A.Q(m,B.afE,B.i,m,m,new A.S(B.NX,m,A.a9(B.d,1.5),s,m,m,B.n),m,m,m,m,B.uU,m,m,m),B.c_,A.K("Ready to Teach, "+n.a.c+"?",m,m,m,m,B.m_,m,m)],r),B.u,B.j,B.k),1,m)],r),B.p,B.j,B.k,0),B.i,m,m,new A.S(B.h,m,k,l,B.ap,m,B.n),m,m,m,m,B.aL,m,m,1/0)
+l=A.Q(m,A.aT(A.b([j,B.qk,A.bo(A.ag(A.b([A.Q(m,B.aha,B.i,m,m,new A.S(B.NX,m,A.a9(B.d,1.5),s,m,m,B.n),m,m,m,m,B.uU,m,m,m),B.c_,A.K("Ready to Teach, "+n.a.c+"?",m,m,m,m,B.m_,m,m)],r),B.u,B.j,B.k),1,m)],r),B.p,B.j,B.k,0),B.i,m,m,new A.S(B.h,m,k,l,B.ap,m,B.n),m,m,m,m,B.aL,m,m,1/0)
 k=A.I(20)
 s=A.a9(B.d,3)
 k=A.Q(m,A.dC(!1,B.S,!0,m,A.ea(!1,A.I(20),!0,new A.al(B.k7,A.aT(A.b([A.Q(m,B.Un,B.i,m,m,new A.S(B.h,m,A.a9(B.d,2.5),m,m,m,B.T),m,m,m,m,B.nR,m,m,m),B.a72,B.Sp,B.Uu],r),B.p,B.j,B.k,0),m),m,!0,m,m,m,m,m,m,m,m,m,new A.aHU(n,a),m,m,m,m,m,m,m),B.i,B.w,0,m,m,m,m,m,B.bn),B.i,m,m,new A.S(B.O,m,s,k,B.ap,m,B.n),m,m,m,m,m,m,m,m)
@@ -115823,7 +115823,7 @@ VF(a,b,c){var s=null,r=A.I(8),q=A.a9(B.d,2)
 r=A.b([A.Q(s,A.K(a,s,s,s,s,B.acJ,s,s),B.i,s,s,new A.S(B.h,s,q,r,s,s,B.n),s,s,s,s,B.hP,s,s,s),B.b7],t.p)
 q=b.length
 if(q===0){q=A.I(12)
-r.push(A.Q(s,B.afY,B.i,s,s,new A.S(B.a8,s,A.a9(B.jw,2),q,s,s,B.n),s,s,s,s,B.aL,s,s,s))}else r.push(A.aiV(new A.zD(350,15,15,0.72),new A.aHE(this,b),q,s,B.cZ,!0))
+r.push(A.Q(s,B.afX,B.i,s,s,new A.S(B.a8,s,A.a9(B.jw,2),q,s,s,B.n),s,s,s,s,B.aL,s,s,s))}else r.push(A.aiV(new A.zD(350,15,15,0.72),new A.aHE(this,b),q,s,B.cZ,!0))
 return A.ag(r,B.u,B.j,B.k)},
 ajM(a){var s,r,q,p,o,n,m,l,k,j=null,i=u.D,h=t.j.b(a.h(0,"pages"))?a.h(0,"pages"):[],g=A.bJ(a.h(0,"cover_image"),"")
 if(g.length!==0)if(B.c.bp(g,"http"))s=g
@@ -115858,7 +115858,7 @@ $0(){return this.a.e=!1},
 $S:0}
 A.aHQ.prototype={
 $1(a){var s=null
-return A.eC(A.b([A.ed(B.qM,s,s,new A.aHO(a),s,s),A.dz(B.aeV,new A.aHP(a),A.c2(s,s,B.aC,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s))],t.p),s,s,B.agG,s,B.ahB)},
+return A.eC(A.b([A.ed(B.qM,s,s,new A.aHO(a),s,s),A.dz(B.aeV,new A.aHP(a),A.c2(s,s,B.aC,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s))],t.p),s,s,B.agF,s,B.ahB)},
 $S:20}
 A.aHO.prototype={
 $0(){A.aS(this.a,!1).ba(!1)
@@ -116305,7 +116305,7 @@ j=A.ed(B.Ip,m,m,f.b?m:new A.aSa(a),m,m)
 h=A.c2(m,m,B.aC,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m)
 e=f.b
 k=e?m:new A.aSb(f,n.b,b,k,i,g,p,a)
-return A.eC(A.b([j,A.dz(e?B.lJ:B.afj,k,h)],o),B.aQ,B.O,s,new A.aI(l,B.bU),B.agl)},
+return A.eC(A.b([j,A.dz(e?B.lJ:B.afj,k,h)],o),B.aQ,B.O,s,new A.aI(l,B.bU),B.agk)},
 $S:103}
 A.aS8.prototype={
 $1(a){var s=null
@@ -116328,7 +116328,7 @@ s=p}for(;;)switch(s){case 0:a=n.c
 a0=n.a
 a.$1(new A.aS1(a0))
 h=n.d
-if(B.c.bg(h.a.a).length===0||B.c.bg(n.e.a.a).length===0||B.c.bg(n.f.a.a).length===0||B.c.bg(n.r.a.a).length===0){n.w.N(t.q).f.aQ(A.c5(null,null,null,B.P7,B.aw,B.o,null,B.ag3,null,B.ay,null,null,null,B.aP,null,null,null,new A.aI(A.I(30),B.r),null,null))
+if(B.c.bg(h.a.a).length===0||B.c.bg(n.e.a.a).length===0||B.c.bg(n.f.a.a).length===0||B.c.bg(n.r.a.a).length===0){n.w.N(t.q).f.aQ(A.c5(null,null,null,B.P7,B.aw,B.o,null,B.ag2,null,B.ay,null,null,null,B.aP,null,null,null,new A.aI(A.I(30),B.r),null,null))
 s=1
 break}a.$1(new A.aS2(a0))
 p=4
@@ -116383,7 +116383,7 @@ $0(){return this.a.b=!0},
 $S:0}
 A.aS3.prototype={
 $1(a){var s=null,r=A.I(20),q=A.K("LRN (login): "+B.c.bg(this.a.a.a)+"\nDefault password: readsmart123\n\nPlease share these with the student securely.",s,s,s,s,s,s,s)
-return A.eC(A.b([A.ed(B.agZ,s,s,new A.aS0(a),s,s)],t.p),s,s,q,new A.aI(r,B.bU),B.aeE)},
+return A.eC(A.b([A.ed(B.agY,s,s,new A.aS0(a),s,s)],t.p),s,s,q,new A.aI(r,B.bU),B.aeE)},
 $S:20}
 A.aS0.prototype={
 $0(){A.aS(this.a,!1).ba(null)
@@ -116417,7 +116417,7 @@ m=A.ed(B.Ip,p,p,l.b?p:new A.aSo(a),p,p)
 j=A.c2(p,p,B.aC,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p,p)
 i=l.b
 n=i?p:new A.aSp(l,q.b,n,a,b,s)
-return A.eC(A.b([m,A.dz(i?B.qm:B.af9,n,j)],r),B.aQ,B.O,k,new A.aI(o,B.bU),B.afN)},
+return A.eC(A.b([m,A.dz(i?B.qm:B.af9,n,j)],r),B.aQ,B.O,k,new A.aI(o,B.bU),B.afM)},
 $S:103}
 A.aSm.prototype={
 $1(a){var s=null
@@ -116664,7 +116664,7 @@ s=A.aT(A.b([A.Q(k,A.K(l.c,k,k,k,k,B.I5,k,k),B.i,k,k,new A.S(B.O,k,r,s,B.bm,k,B.n
 r=J.aC(i)
 o=r.gE(i)
 n=r.gE(i)===1?"":"s"
-n=A.K(""+o+" student"+n+" \u2022 sorted A\u2013Z",k,k,k,k,B.qK,k,k)
+n=A.K(""+o+" student"+n+" \u2022 sorted A\u2013Z",k,k,k,k,B.qL,k,k)
 o=A.I(12)
 m=A.a9(B.d,2.5)
 o=A.Q(k,A.dD(k,B.al,!1,k,!0,B.o,k,A.dR(),k,k,k,k,k,k,2,A.eG(k,B.ej,k,B.eA,k,k,k,k,!0,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,k,B.If,"Search student name...",k,k,k,k,k,k,k,k,k,!0,!0,!1,k,B.vQ,k,k,k,k,k,k,j.x.length!==0?A.cI(k,k,k,B.vR,k,k,new A.aRS(j,b),k,k,k,k):k,k,k,k,k,k),B.v,!0,k,!0,k,!1,k,B.ao,k,k,k,k,k,k,k,k,1,k,k,!1,"\u2022",k,new A.aRT(j,b),k,k,k,!1,k,k,!1,k,!0,k,B.a1,k,k,k,k,k,k,k,k,k,k,k,B.I6,!0,B.a3,k,B.aJ,k,k,k,k),B.i,k,k,new A.S(B.h,k,m,o,B.bm,k,B.n),k,k,k,B.k1,k,k,k,k)
@@ -116703,7 +116703,7 @@ $1(a){var s,r,q=null,p="avatar",o=A.I(20),n=A.a9(B.d,3.5),m=A.a9(B.d,2.5),l=this
 if(l.h(0,p)!=null&&J.b1(l.h(0,p)).length!==0){s=B.c.bp(J.b1(l.h(0,p)),"http")?l.h(0,p):u.D+A.i(l.h(0,p))
 s=A.tU(s,new A.aRY(),B.c3,B.bE,q,q,q)}else s=B.Uo
 r=t.p
-return A.aem(q,B.w,A.Q(q,A.ag(A.b([A.aT(A.b([A.Q(q,A.xi(s),B.i,q,q,new A.S(B.O,q,m,q,q,q,B.T),q,44,q,q,q,q,q,44),B.ct,A.bo(A.ag(A.b([A.K(A.bJ(l.h(0,"name"),"Student"),q,B.ai,q,q,B.dn,q,q),A.K("Grade "+A.bJ(l.h(0,"grade"),"N/A")+" \u2022 "+A.bJ(l.h(0,"section"),"N/A"),q,q,q,q,B.qK,q,q)],r),B.u,B.j,B.k),1,q),A.ea(!1,q,!0,A.Q(q,B.UC,B.i,q,q,B.rY,q,32,q,q,q,q,q,32),q,!0,q,q,q,q,q,q,q,q,q,new A.aRZ(a),q,q,q,q,q,q,q)],r),B.p,B.j,B.k,0),B.ak,new A.eY(1,B.cC,A.dO(this.a.VJ(l),q,B.v,q,q,B.F),q)],r),B.u,B.j,B.a_),B.i,q,B.Kg,new A.S(B.fm,q,n,o,B.c4,q,B.n),q,q,q,q,B.aL,q,q,q),q,q,q,B.RR,B.pZ,q,q,q)},
+return A.aem(q,B.w,A.Q(q,A.ag(A.b([A.aT(A.b([A.Q(q,A.xi(s),B.i,q,q,new A.S(B.O,q,m,q,q,q,B.T),q,44,q,q,q,q,q,44),B.ct,A.bo(A.ag(A.b([A.K(A.bJ(l.h(0,"name"),"Student"),q,B.ai,q,q,B.dn,q,q),A.K("Grade "+A.bJ(l.h(0,"grade"),"N/A")+" \u2022 "+A.bJ(l.h(0,"section"),"N/A"),q,q,q,q,B.qL,q,q)],r),B.u,B.j,B.k),1,q),A.ea(!1,q,!0,A.Q(q,B.UC,B.i,q,q,B.rY,q,32,q,q,q,q,q,32),q,!0,q,q,q,q,q,q,q,q,q,new A.aRZ(a),q,q,q,q,q,q,q)],r),B.p,B.j,B.k,0),B.ak,new A.eY(1,B.cC,A.dO(this.a.VJ(l),q,B.v,q,q,B.F),q)],r),B.u,B.j,B.a_),B.i,q,B.Kg,new A.S(B.fm,q,n,o,B.c4,q,B.n),q,q,q,q,B.aL,q,q,q),q,q,q,B.RR,B.pZ,q,q,q)},
 $S:782}
 A.aRY.prototype={
 $3(a,b,c){return B.oV},
@@ -116993,7 +116993,7 @@ p=n.x
 o=t.p
 p=A.b([l,A.fh(6,n.VU(h,p==null?n.e.length:p),m,m,m,6,6,m)],o)
 if(a){l=A.I(8)
-p.push(A.fh(m,A.Q(m,B.agE,B.i,m,m,new A.S(B.fq,m,A.a9(B.d,2),l,m,m,B.n),m,m,m,m,B.fA,m,m,m),m,m,6,m,6,m))}return A.ac7(s,A.Q(m,A.ag(A.b([A.bo(A.kP(B.mN,A.dj(B.aG,p,B.o,B.a7I,m),B.aO),3,m),B.nL,A.bo(new A.al(B.b3,A.ag(A.b([A.K(A.bJ(c.h(0,"title"),"Untitled"),1,B.ai,m,m,B.iQ,m,m),A.K(""+J.b0(i)+" Pages",m,m,m,m,B.h7,m,m)],o),B.u,B.aT,B.k),m),1,m)],o),B.bt,B.j,B.k),B.i,m,m,new A.S(B.h,m,q,r,B.ap,m,B.n),m,m,m,m,m,m,m,m),b)},
+p.push(A.fh(m,A.Q(m,B.agD,B.i,m,m,new A.S(B.fq,m,A.a9(B.d,2),l,m,m,B.n),m,m,m,m,B.fA,m,m,m),m,m,6,m,6,m))}return A.ac7(s,A.Q(m,A.ag(A.b([A.bo(A.kP(B.mN,A.dj(B.aG,p,B.o,B.a7I,m),B.aO),3,m),B.nL,A.bo(new A.al(B.b3,A.ag(A.b([A.K(A.bJ(c.h(0,"title"),"Untitled"),1,B.ai,m,m,B.iQ,m,m),A.K(""+J.b0(i)+" Pages",m,m,m,m,B.h7,m,m)],o),B.u,B.aT,B.k),m),1,m)],o),B.bt,B.j,B.k),B.i,m,m,new A.S(B.h,m,q,r,B.ap,m,B.n),m,m,m,m,m,m,m,m),b)},
 E9(){return this.az1()},
 az1(){var s=0,r=A.t(t.H),q=this,p,o
 var $async$E9=A.o(function(a,b){if(a===1)return A.p(b,r)
@@ -117106,7 +117106,7 @@ q.push(B.bs)
 if(m.f||m.z)n=B.jh
 else{n=m.d.length
 if(n===0)if(m.gNc().length===0){n=A.I(16)
-n=A.cr(A.Q(l,B.afS,B.i,l,l,new A.S(B.ft,l,A.a9(B.d,2.5),n,l,l,B.n),l,l,l,l,B.a1,l,l,l),l,l)}else n=A.l4(l,new A.aDJ(m),m.gNc().length,l,l,B.F,!1)
+n=A.cr(A.Q(l,B.afR,B.i,l,l,new A.S(B.ft,l,A.a9(B.d,2.5),n,l,l,B.n),l,l,l,l,B.a1,l,l,l),l,l)}else n=A.l4(l,new A.aDJ(m),m.gNc().length,l,l,B.F,!1)
 else n=A.aiV(B.a79,new A.aDK(m),n,l,l,!1)}q.push(A.bo(n,1,l))
 q=A.ag(q,B.p,B.j,B.k)
 if(m.r)n=B.jh
@@ -117157,7 +117157,7 @@ s.x=A.eb(A.i(this.c.h(0,"total_students")),null)},
 $S:0}
 A.aD1.prototype={
 $1(a){var s=null,r=A.K('Assign "'+this.a+'" to this class as a '+this.b+" story?",s,s,s,s,s,s,s)
-return A.eC(A.b([A.ed(B.qM,s,s,new A.aD_(a),s,s),A.dz(B.ag8,new A.aD0(a),A.c2(s,s,B.aC,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s))],t.p),s,s,r,s,B.agX)},
+return A.eC(A.b([A.ed(B.qM,s,s,new A.aD_(a),s,s),A.dz(B.ag7,new A.aD0(a),A.c2(s,s,B.aC,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s))],t.p),s,s,r,s,B.agW)},
 $S:20}
 A.aD_.prototype={
 $0(){A.aS(this.a,!1).ba(!1)
@@ -117200,7 +117200,7 @@ o=A.a9(B.d,3.5)
 m=t.p
 l=t.N
 l=A.b([A.aT(A.b([B.Sq,A.cI(k,k,k,B.U9,k,k,new A.aDo(a),k,k,k,k)],m),B.p,B.j,B.k,0),A.K("Grade 5 stories only \u2022 "+s.e.length+" students in this class",k,k,k,k,B.lY,k,k),B.ak,A.bjj(new A.aDp(j,b),B.WT,A.cD([j.a],l),l)],m)
-if(p)B.b.S(l,A.b([B.b8,B.agS],m))
+if(p)B.b.S(l,A.b([B.b8,B.agR],m))
 l.push(B.ak)
 if(j.b)j=B.jh
 else{m=j.c
@@ -117292,7 +117292,7 @@ $0(){},
 $S:0}
 A.aDv.prototype={
 $1(a){var s=null,r=A.K("Are you sure you want to unassign this story ("+(this.a==="pre_test"?"Pre-test":"Post-test")+") from this class?",s,s,s,s,s,s,s)
-return A.eC(A.b([A.ed(B.qM,s,s,new A.aDt(a),s,s),A.dz(B.ahk,new A.aDu(a),A.c2(s,s,B.aC,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s))],t.p),s,s,r,s,B.ag_)},
+return A.eC(A.b([A.ed(B.qM,s,s,new A.aDt(a),s,s),A.dz(B.ahk,new A.aDu(a),A.c2(s,s,B.aC,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s))],t.p),s,s,r,s,B.afZ)},
 $S:20}
 A.aDt.prototype={
 $0(){A.aS(this.a,!1).ba(!1)
@@ -117304,7 +117304,7 @@ return null},
 $S:0}
 A.aD5.prototype={
 $1(a){var s=null,r=A.I(16),q=A.K("Are you sure you want to delete '"+this.a.a.d+"'?",s,s,s,s,s,s,s)
-return A.eC(A.b([A.ed(B.afF,s,s,new A.aD3(a),s,s),A.dz(B.agr,new A.aD4(a),A.c2(s,s,B.aC,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s))],t.p),s,s,q,new A.aI(r,B.bM),B.afg)},
+return A.eC(A.b([A.ed(B.afE,s,s,new A.aD3(a),s,s),A.dz(B.agq,new A.aD4(a),A.c2(s,s,B.aC,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s))],t.p),s,s,q,new A.aI(r,B.bM),B.afg)},
 $S:20}
 A.aD3.prototype={
 $0(){A.aS(this.a,!1).ba(!1)
@@ -117355,7 +117355,7 @@ n=q==="pre_test"
 l=n?B.PJ:B.tD
 k=A.I(8)
 j=A.a9(B.d,2)
-l=A.b([A.Q(i,A.K(n?"PRE-TEST":"POST-TEST",i,i,i,i,B.qL,i,i),B.i,i,i,new A.S(l,i,j,k,i,i,B.n),i,i,i,i,B.fA,i,i,i)],m)
+l=A.b([A.Q(i,A.K(n?"PRE-TEST":"POST-TEST",i,i,i,i,B.lZ,i,i),B.i,i,i,new A.S(l,i,j,k,i,i,B.n),i,i,i,i,B.fA,i,i,i)],m)
 if(f.h(0,"quiz")!=null)l.push(B.c_)
 if(f.h(0,"quiz")!=null){n=A.bd(4287351428)
 k=A.I(8)
@@ -117639,9 +117639,9 @@ s=A.Q(o,new A.al(B.aL,A.ag(A.b([n,B.uy,p.JM(B.ku,"Email",q),B.uy,p.JM(B.Tk,"Role
 l=A.I(12)
 l=A.Q(o,A.fs(B.Vh,B.ahy,p.gaz6(),A.c2(o,o,B.h,o,o,o,0,o,o,B.I,o,o,o,o,new A.aI(A.I(12),B.bM),o,o,o,o,o)),B.i,o,o,new A.S(o,o,o,l,B.ap,o,B.n),o,52,o,o,o,o,o,1/0)
 q=A.I(12)
-q=A.Q(o,A.fs(B.Ue,B.agT,p.gaz2(),A.c2(o,o,B.h,o,o,o,0,o,o,B.I,o,o,o,o,new A.aI(A.I(12),B.bM),o,o,o,o,o)),B.i,o,o,new A.S(o,o,o,q,B.ap,o,B.n),o,52,o,o,o,o,o,1/0)
+q=A.Q(o,A.fs(B.Ue,B.agS,p.gaz2(),A.c2(o,o,B.h,o,o,o,0,o,o,B.I,o,o,o,o,new A.aI(A.I(12),B.bM),o,o,o,o,o)),B.i,o,o,new A.S(o,o,o,q,B.ap,o,B.n),o,52,o,o,o,o,o,1/0)
 n=A.I(12)
-return A.fS(o,B.w,new A.F3(A.dO(A.ag(A.b([m,B.eY,new A.al(B.RU,A.ag(A.b([s,B.a76,l,B.bs,q,B.bs,A.Q(o,A.fs(B.V4,B.agm,p.gazT(),A.c2(o,o,B.I,o,o,o,0,o,o,B.h,o,o,o,o,new A.aI(A.I(12),B.bM),o,o,o,o,o)),B.i,o,o,new A.S(o,o,o,n,B.ap,o,B.n),o,52,o,o,o,o,o,1/0),B.dO],r),B.p,B.j,B.k),o)],r),B.p,B.j,B.k),o,B.v,o,o,B.F),o),o,!1,o)},
+return A.fS(o,B.w,new A.F3(A.dO(A.ag(A.b([m,B.eY,new A.al(B.RU,A.ag(A.b([s,B.a76,l,B.bs,q,B.bs,A.Q(o,A.fs(B.V4,B.agl,p.gazT(),A.c2(o,o,B.I,o,o,o,0,o,o,B.h,o,o,o,o,new A.aI(A.I(12),B.bM),o,o,o,o,o)),B.i,o,o,new A.S(o,o,o,n,B.ap,o,B.n),o,52,o,o,o,o,o,1/0),B.dO],r),B.p,B.j,B.k),o)],r),B.p,B.j,B.k),o,B.v,o,o,B.F),o),o,!1,o)},
 JM(a,b,c){var s=null,r=t.p
 return A.aT(A.b([A.b2u(A.aD(B.e.aJ(25.5),B.I.A()>>>16&255,B.I.A()>>>8&255,B.I.A()&255),s,A.dL(a,B.I,s,s,18),18),B.qk,A.ag(A.b([A.K(b,s,s,s,s,B.abw,s,s),B.cG,A.K(c,s,s,s,s,B.adn,s,s)],r),B.u,B.j,B.k)],r),B.p,B.j,B.k,0)}}
 A.aT3.prototype={
@@ -117655,7 +117655,7 @@ if(r!=null&&r.length!==0)s.f=B.t4.cS(r)},
 $S:0}
 A.aTb.prototype={
 $1(a){var s=null
-return A.Q(s,A.ag(A.b([B.aen,B.bs,A.l3(!1,s,s,s,!0,s,s,!0,s,B.Uf,s,s,s,s,new A.aT9(a),!1,s,s,s,s,s,s,B.afm,s,s,s),A.l3(!1,s,s,s,!0,s,s,!0,s,B.UO,s,s,s,s,new A.aTa(a),!1,s,s,s,s,s,s,B.agR,s,s,s)],t.p),B.p,B.j,B.a_),B.i,s,s,s,s,s,s,s,B.a1,s,s,s)},
+return A.Q(s,A.ag(A.b([B.aen,B.bs,A.l3(!1,s,s,s,!0,s,s,!0,s,B.Uf,s,s,s,s,new A.aT9(a),!1,s,s,s,s,s,s,B.afm,s,s,s),A.l3(!1,s,s,s,!0,s,s,!0,s,B.UO,s,s,s,s,new A.aTa(a),!1,s,s,s,s,s,s,B.agQ,s,s,s)],t.p),B.p,B.j,B.a_),B.i,s,s,s,s,s,s,s,B.a1,s,s,s)},
 $S:792}
 A.aT9.prototype={
 $0(){A.aS(this.a,!1).ba(B.wb)
@@ -117693,7 +117693,7 @@ $1(a){return!1},
 $S:96}
 A.aTy.prototype={
 $1(a){var s=null,r=A.I(16),q=this.b,p=t.p,o=A.ag(A.b([A.dD(s,B.al,!1,s,!0,B.o,s,A.dR(),q,s,s,s,s,s,2,B.VS,B.v,!0,s,!0,s,!1,s,B.ao,s,s,s,s,s,s,s,s,1,s,s,!1,"\u2022",s,s,s,s,s,!1,s,s,!1,s,!0,s,B.a1,s,s,s,s,s,s,s,s,s,s,s,s,!0,B.a3,s,B.aJ,s,s,s,s),B.ak,A.dD(s,B.al,!1,s,!0,B.o,s,A.dR(),this.c,s,s,s,s,s,2,B.VP,B.v,!0,s,!0,!1,!1,s,B.ao,s,s,s,s,B.HR,s,s,s,1,s,s,!1,"\u2022",s,s,s,s,s,!1,s,s,!1,s,!0,s,B.a1,s,s,s,s,s,s,s,s,s,s,s,s,!0,B.a3,s,B.aJ,s,s,s,s)],p),B.p,B.j,B.a_)
-return A.eC(A.b([A.ed(B.iW,s,s,new A.aTw(a),s,s),A.dz(B.af3,new A.aTx(this.a,q,a),A.c2(s,s,B.I,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s))],p),s,s,o,new A.aI(r,B.r),B.ag1)},
+return A.eC(A.b([A.ed(B.iW,s,s,new A.aTw(a),s,s),A.dz(B.af3,new A.aTx(this.a,q,a),A.c2(s,s,B.I,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s))],p),s,s,o,new A.aI(r,B.r),B.ag0)},
 $S:20}
 A.aTw.prototype={
 $0(){A.aS(this.a,!1).ba(null)
@@ -117739,7 +117739,7 @@ h=A.ed(B.iW,m,m,i.w?m:new A.aTr(a),m,m)
 r=A.c2(m,m,B.I,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m,m)
 o=i.w
 j=o?m:new A.aTs(i,k,b,j,s,a)
-return A.eC(A.b([h,A.dz(o?B.lJ:B.ag9,j,r)],p),m,m,new A.EY(q,B.ja,k),new A.aI(l,B.r),B.aee)},
+return A.eC(A.b([h,A.dz(o?B.lJ:B.ag8,j,r)],p),m,m,new A.EY(q,B.ja,k),new A.aI(l,B.r),B.aee)},
 $S:103}
 A.aTl.prototype={
 $0(){return this.b.$1(new A.aTk(this.a))},
@@ -118067,7 +118067,7 @@ n.X$=p
 n.a_$=0}}m.aq()},
 xn(a){var s=null
 return A.eG(s,s,s,s,s,s,s,s,!0,new A.cQ(4,A.I(12),B.bM),s,s,s,s,s,B.h,!0,s,s,s,s,new A.cQ(4,A.I(12),B.mO),s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,s,B.cv,a,!0,!0,!1,s,s,s,s,s,s,s,s,s,s,s,s,s,s)},
-G(a){var s,r=null,q=A.oR(r,B.e5,new A.z_(A.Q(r,r,B.i,B.d,r,r,r,4,r,r,r,r,r,r),B.a6Z,r),r,0,B.h,r,r,B.ah4,r)
+G(a){var s,r=null,q=A.oR(r,B.e5,new A.z_(A.Q(r,r,B.i,B.d,r,r,r,4,r,r,r,r,r,r),B.a6Z,r),r,0,B.h,r,r,B.ah3,r)
 if(this.at){s=this.ax
 s=A.cr(A.ag(A.b([B.tx,B.bs,A.K(s.length===0?"Uploading story & scripts, please wait...":s,r,r,r,r,B.ac1,r,r)],t.p),B.p,B.aT,B.k),r,r)}else s=new A.fv(new A.aVd(this),r)
 return A.fS(q,B.w,new A.F3(s,r),r,!1,r)},
@@ -118117,7 +118117,7 @@ a_Y(){var s=this,r=A.b([s.uq("Story Quiz (Optional)")],t.p),q=s.w.length
 if(q===0)r.push(s.XA("No quiz questions added. Students won't take a quiz."))
 else r.push(A.aZD(new A.aUX(s),q,B.cZ,new A.aUY(),!0))
 return A.ag(r,B.u,B.j,B.k)},
-ajH(a){var s,r,q,p,o,n,m,l,k,j=this,i=null,h=j.w[a],g=A.I(15),f=A.a9(B.d,3),e=t.p,d=A.b([A.aT(A.b([A.K("Question "+(a+1),i,i,i,i,B.m_,i,i),A.cI(i,B.d8,i,B.vP,i,i,new A.aUH(j,a),B.ac,i,i,i)],e),B.p,B.aQ,B.k,0),B.b8,A.dD(i,B.al,!1,i,!0,B.o,i,A.dR(),h.a,i,i,i,i,i,2,j.xn("Type question here..."),B.v,!0,i,!0,i,!1,i,B.ao,i,i,i,i,i,i,i,i,1,i,i,!1,"\u2022",i,i,i,i,i,!1,i,i,!1,i,!0,i,B.a1,i,i,i,i,i,i,i,i,i,i,i,B.ae,!0,B.a3,i,B.aJ,i,i,i,i),B.ak,B.agK,B.b8],e),c=J.fO(4,t.l)
+ajH(a){var s,r,q,p,o,n,m,l,k,j=this,i=null,h=j.w[a],g=A.I(15),f=A.a9(B.d,3),e=t.p,d=A.b([A.aT(A.b([A.K("Question "+(a+1),i,i,i,i,B.m_,i,i),A.cI(i,B.d8,i,B.vP,i,i,new A.aUH(j,a),B.ac,i,i,i)],e),B.p,B.aQ,B.k,0),B.b8,A.dD(i,B.al,!1,i,!0,B.o,i,A.dR(),h.a,i,i,i,i,i,2,j.xn("Type question here..."),B.v,!0,i,!0,i,!1,i,B.ao,i,i,i,i,i,i,i,i,1,i,i,!1,"\u2022",i,i,i,i,i,!1,i,i,!1,i,!0,i,B.a1,i,i,i,i,i,i,i,i,i,i,i,B.ae,!0,B.a3,i,B.aJ,i,i,i,i),B.ak,B.agJ,B.b8],e),c=J.fO(4,t.l)
 for(s=t.XY,r=h.b,q=0;q<4;++q){p=h.c
 o=r[q]
 n=A.eJ(65+q)
@@ -118648,7 +118648,7 @@ q=o.f}return q}}
 A.a_6.prototype={
 G(a){var s=null,r=A.I(18),q=A.a9(B.d,3),p=t.jT
 p=A.X(new A.U(B.kH,new A.aAS(this),p),p.i("ap.E"))
-return A.Q(s,A.ag(A.b([B.afM,B.cG,B.ag0,B.qn,A.kt(B.c6,p,B.cK,14,14)],t.p),B.u,B.j,B.k),B.i,s,s,new A.S(B.h,s,q,r,B.ap,s,B.n),s,s,s,s,B.aL,s,s,1/0)}}
+return A.Q(s,A.ag(A.b([B.afL,B.cG,B.ag_,B.qn,A.kt(B.c6,p,B.cK,14,14)],t.p),B.u,B.j,B.k),B.i,s,s,new A.S(B.h,s,q,r,B.ap,s,B.n),s,s,s,s,B.aL,s,s,1/0)}}
 A.aAS.prototype={
 $1(a){var s=this.a
 return new A.vI(a,A.b0A(a,s.d,s.c),null)},
@@ -118679,7 +118679,7 @@ $1(a){return new A.Ax(this.a,null)},
 $S:806}
 A.Ax.prototype={
 G(a){var s=null,r=A.I(20),q=this.c
-return A.aem(s,s,new A.al(B.dC,A.ag(A.b([B.ahg,B.av,new A.K2(q,!0,s),B.av,A.K(q.b,s,s,s,s,B.a9u,s,s),B.d0,A.K(q.c,s,s,s,s,B.qK,B.U,s),B.bx,A.dz(B.agC,new A.aAT(a),A.c2(s,s,q.e,s,s,s,s,s,s,s,s,s,s,s,new A.aI(A.I(10),B.c2),s,s,s,s,s))],t.p),B.p,B.j,B.a_),s),s,s,s,s,B.pZ,s,new A.aI(r,B.bU),s)}}
+return A.aem(s,s,new A.al(B.dC,A.ag(A.b([B.ahg,B.av,new A.K2(q,!0,s),B.av,A.K(q.b,s,s,s,s,B.a9u,s,s),B.d0,A.K(q.c,s,s,s,s,B.qL,B.U,s),B.bx,A.dz(B.agB,new A.aAT(a),A.c2(s,s,q.e,s,s,s,s,s,s,s,s,s,s,s,new A.aI(A.I(10),B.c2),s,s,s,s,s))],t.p),B.p,B.j,B.a_),s),s,s,s,s,B.pZ,s,new A.aI(r,B.bU),s)}}
 A.aAT.prototype={
 $0(){A.aS(this.a,!1).ba(null)
 return null},
@@ -123416,19 +123416,19 @@ B.tu=new A.hh(null,null,null,null,null,B.h,null,null,null,null)
 B.bx=new A.c_(null,20,null,null)
 B.K=new A.hk(700)
 B.Il=new A.m(!0,B.h,null,null,null,null,18,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.agn=new A.R("Saving your progress...",null,B.Il,null,null,null,null,null,null,null)
-B.ZX=s([B.tu,B.bx,B.agn],t.p)
+B.agm=new A.R("Saving your progress...",null,B.Il,null,null,null,null,null,null,null)
+B.ZX=s([B.tu,B.bx,B.agm],t.p)
 B.PS=new A.i4(B.F,B.j,B.a_,B.p,null,B.bp,null,0,B.ZX,null)
 B.MI=new A.cW(B.E,null,null,B.PS,null)
-B.agj=new A.R("No quiz available for this story.",null,B.Il,null,null,null,null,null,null,null)
-B.MJ=new A.cW(B.E,null,null,B.agj,null)
+B.agi=new A.R("No quiz available for this story.",null,B.Il,null,null,null,null,null,null,null)
+B.MJ=new A.cW(B.E,null,null,B.agi,null)
 B.TB=new A.aE(63679,"MaterialIcons",!1)
 B.dw=new A.u(1,0.2980392156862745,0.6862745098039216,0.3137254901960784,B.f)
 B.U0=new A.au(B.TB,56,B.dw,null,null,null)
 B.MK=new A.cW(B.E,null,null,B.U0,null)
 B.ae=new A.m(!0,null,null,null,null,null,null,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.ag7=new A.R("No students enrolled yet.",null,B.ae,null,null,null,null,null,null,null)
-B.ML=new A.cW(B.E,null,null,B.ag7,null)
+B.ag6=new A.R("No students enrolled yet.",null,B.ae,null,null,null,null,null,null,null)
+B.ML=new A.cW(B.E,null,null,B.ag6,null)
 B.P=new A.u(0.5411764705882353,0,0,0,B.f)
 B.iT=new A.m(!0,B.P,null,null,null,null,null,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.ahF=new A.R("No missions here yet.",null,B.iT,null,null,null,null,null,null,null)
@@ -123463,8 +123463,8 @@ B.MR=new A.cW(B.E,null,null,B.Ui,null)
 B.cR=new A.u(1,0.12549019607843137,0.10196078431372549,0.10196078431372549,B.f)
 B.aaV=new A.m(!0,B.cR,null,null,null,null,14,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.U=new A.nZ(2,"center")
-B.afQ=new A.R("Perfect Pronunciation!\nNo words to practice right now! \ud83c\udf89",null,B.aaV,B.U,null,null,null,null,null,null)
-B.MS=new A.cW(B.E,null,null,B.afQ,null)
+B.afP=new A.R("Perfect Pronunciation!\nNo words to practice right now! \ud83c\udf89",null,B.aaV,B.U,null,null,null,null,null,null)
+B.MS=new A.cW(B.E,null,null,B.afP,null)
 B.mX=new A.cW(B.E,null,null,B.jl,null)
 B.tx=new A.hh(null,null,null,null,null,null,null,null,null,null)
 B.mY=new A.cW(B.E,null,null,B.tx,null)
@@ -123479,15 +123479,15 @@ B.oK=new A.aE(58162,"MaterialIcons",!1)
 B.UN=new A.au(B.oK,50,B.eN,null,null,null)
 B.MV=new A.cW(B.E,null,null,B.UN,null)
 B.cv=new A.m(!0,B.d,null,null,null,null,null,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.agJ=new A.R("No classes created yet.",null,B.cv,null,null,null,null,null,null,null)
-B.MW=new A.cW(B.E,null,null,B.agJ,null)
+B.agI=new A.R("No classes created yet.",null,B.cv,null,null,null,null,null,null,null)
+B.MW=new A.cW(B.E,null,null,B.agI,null)
 B.Rz=new A.a6(0,40,0,0)
-B.afP=new A.R("No students match your search.",null,B.iT,null,null,null,null,null,null,null)
-B.a2Y=new A.al(B.Rz,B.afP,null)
+B.afO=new A.R("No students match your search.",null,B.iT,null,null,null,null,null,null,null)
+B.a2Y=new A.al(B.Rz,B.afO,null)
 B.MX=new A.cW(B.E,null,null,B.a2Y,null)
 B.cH=new A.m(!0,B.h,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.afU=new A.R("No slides to edit.",null,B.cH,null,null,null,null,null,null,null)
-B.MY=new A.cW(B.E,null,null,B.afU,null)
+B.afT=new A.R("No slides to edit.",null,B.cH,null,null,null,null,null,null,null)
+B.MY=new A.cW(B.E,null,null,B.afT,null)
 B.Ow=new A.u(1,1,0.8980392156862745,0.4980392156862745,B.f)
 B.OB=new A.u(1,1,0.8431372549019608,0.25098039215686274,B.f)
 B.NS=new A.u(1,1,0.7686274509803922,0,B.f)
@@ -123683,20 +123683,20 @@ B.Vb=new A.au(B.TD,40,B.P,null,null,null)
 B.ak=new A.c_(null,12,null,null)
 B.x=new A.hk(900)
 B.d3=new A.m(!0,B.d,null,null,null,null,null,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.agw=new A.R("No heroes match your search.",null,B.d3,null,null,null,null,null,null,null)
-B.YV=s([B.Vb,B.ak,B.agw],t.p)
+B.agv=new A.R("No heroes match your search.",null,B.d3,null,null,null,null,null,null,null)
+B.YV=s([B.Vb,B.ak,B.agv],t.p)
 B.PU=new A.i4(B.F,B.j,B.k,B.p,null,B.bp,null,0,B.YV,null)
 B.TG=new A.aE(983154,"MaterialIcons",!1)
 B.U8=new A.au(B.TG,40,B.P,null,null,null)
-B.afJ=new A.R("No heroes have joined this zone yet.",null,B.d3,null,null,null,null,null,null,null)
-B.Yc=s([B.U8,B.ak,B.afJ],t.p)
+B.afI=new A.R("No heroes have joined this zone yet.",null,B.d3,null,null,null,null,null,null,null)
+B.Yc=s([B.U8,B.ak,B.afI],t.p)
 B.PW=new A.i4(B.F,B.j,B.k,B.p,null,B.bp,null,0,B.Yc,null)
 B.TN=new A.aE(983600,"MaterialIcons",!1)
 B.UQ=new A.au(B.TN,70,B.hE,null,null,null)
 B.b7=new A.c_(null,10,null,null)
 B.m_=new A.m(!0,B.d,null,null,null,null,16,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.afT=new A.R("Great! No students are stuck in Frustration level.",null,B.m_,B.U,null,null,null,null,null,null)
-B.ZS=s([B.UQ,B.b7,B.afT],t.p)
+B.afS=new A.R("Great! No students are stuck in Frustration level.",null,B.m_,B.U,null,null,null,null,null,null)
+B.ZS=s([B.UQ,B.b7,B.afS],t.p)
 B.PX=new A.i4(B.F,B.j,B.k,B.p,null,B.bp,null,0,B.ZS,null)
 B.PZ=new A.mV("YOUR CLASSES",null)
 B.Q_=new A.mV("PHIL-IRI OVERVIEW",null)
@@ -124537,12 +124537,12 @@ B.wu=new A.u6(2,"top")
 B.wv=new A.u6(3,"center")
 B.WJ=new A.u6(4,"bottom")
 B.ec=new A.m(!0,B.h,null,null,null,null,10,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.agO=new A.R("Story",null,B.ec,null,null,null,null,null,null,null)
-B.a2W=new A.al(B.bQ,B.agO,null)
+B.agN=new A.R("Story",null,B.ec,null,null,null,null,null,null,null)
+B.a2W=new A.al(B.bQ,B.agN,null)
 B.aeu=new A.R("Phil-IRI Level",null,B.ec,null,null,null,null,null,null,null)
 B.a2R=new A.al(B.bQ,B.aeu,null)
-B.ag2=new A.R("Quiz",null,B.ec,null,null,null,null,null,null,null)
-B.a2X=new A.al(B.bQ,B.ag2,null)
+B.ag1=new A.R("Quiz",null,B.ec,null,null,null,null,null,null,null)
+B.a2X=new A.al(B.bQ,B.ag1,null)
 B.aeC=new A.R("Time & Speed",null,B.ec,null,null,null,null,null,null,null)
 B.a3_=new A.al(B.bQ,B.aeC,null)
 B.af7=new A.R("Struggled Words",null,B.ec,null,null,null,null,null,null,null)
@@ -124657,8 +124657,8 @@ B.TJ=new A.aE(983234,"MaterialIcons",!1)
 B.UI=new A.au(B.TJ,28,B.I,null,null,null)
 B.aZ=new A.c_(8,null,null,null)
 B.Ic=new A.m(!0,B.I,null,null,null,null,18,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.agv=new A.R("Data Privacy Notice \ud83d\udd12",null,B.Ic,null,null,null,null,null,null,null)
-B.Sr=new A.fM(1,B.cp,B.agv,null)
+B.agu=new A.R("Data Privacy Notice \ud83d\udd12",null,B.Ic,null,null,null,null,null,null,null)
+B.Sr=new A.fM(1,B.cp,B.agu,null)
 B.Y2=s([B.UI,B.aZ,B.Sr],t.p)
 B.Y3=s([1116352408,1899447441,3049323471,3921009573,961987163,1508970993,2453635748,2870763221,3624381080,310598401,607225278,1426881987,1925078388,2162078206,2614888103,3248222580,3835390401,4022224774,264347078,604807628,770255983,1249150122,1555081692,1996064986,2554220882,2821834349,2952996808,3210313671,3336571891,3584528711,113926993,338241895,666307205,773529912,1294757372,1396182291,1695183700,1986661051,2177026350,2456956037,2730485921,2820302411,3259730800,3345764771,3516065817,3600352804,4094571909,275423344,430227734,506948616,659060556,883997877,958139571,1322822218,1537002063,1747873779,1955562222,2024104815,2227730452,2361852424,2428436474,2756734187,3204031479,3329325298],t.t)
 B.a4D=new A.ij(0,"pause")
@@ -124787,8 +124787,8 @@ B.hi=new A.lt(3,"trailing")
 B.YE=s([B.eh,B.cL,B.ei,B.hi],A.aA("J<lt>"))
 B.Um=new A.au(B.vI,24,B.im,null,null,null)
 B.acO=new A.m(!0,null,null,null,null,null,16,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.ah9=new A.R("Aking Silid-Aklatan (My Library)",null,B.acO,null,null,null,null,null,null,null)
-B.YF=s([B.Um,B.aZ,B.ah9],t.p)
+B.ah8=new A.R("Aking Silid-Aklatan (My Library)",null,B.acO,null,null,null,null,null,null,null)
+B.YF=s([B.Um,B.aZ,B.ah8],t.p)
 B.aB=new A.hA(0,"android")
 B.bH=new A.hA(1,"fuchsia")
 B.aa=new A.hA(2,"iOS")
@@ -124807,8 +124807,8 @@ B.ajH=new A.oh(B.IM,B.IL)
 B.YK=s([B.ajF,B.ajI,B.ajG,B.ajH],A.aA("J<oh>"))
 B.YM=s([35,30,20,25,30,35,30,25,25],t.n)
 B.iS=new A.m(!0,B.h,null,null,null,null,12,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.afZ=new A.R("Name",null,B.iS,null,null,null,null,null,null,null)
-B.a2L=new A.al(B.b3,B.afZ,null)
+B.afY=new A.R("Name",null,B.iS,null,null,null,null,null,null,null)
+B.a2L=new A.al(B.b3,B.afY,null)
 B.afp=new A.R("Grade & Sec",null,B.iS,null,null,null,null,null,null,null)
 B.a2I=new A.al(B.b3,B.afp,null)
 B.ahw=new A.R("LRN",null,B.iS,null,null,null,null,null,null,null)
@@ -124876,10 +124876,10 @@ B.Cb=new A.f(3,3)
 B.KP=new A.bH(0,B.a7,B.cR,B.Cb,0)
 B.ZA=s([B.KP],t.V)
 B.I9=new A.m(!0,null,null,null,null,null,12,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.agk=new A.R("In compliance with the Philippine Data Privacy Act of 2012 (RA 10173), ReadSmart collects and processes teacher account details (Name, Email, Account Logs) solely for system administrative and reading analytics management.",null,B.I9,null,null,null,null,null,null,null)
-B.agY=new A.R("\u2022 Your data will not be shared with third parties without authorized consent.",null,null,null,null,null,null,null,null,null)
+B.agj=new A.R("In compliance with the Philippine Data Privacy Act of 2012 (RA 10173), ReadSmart collects and processes teacher account details (Name, Email, Account Logs) solely for system administrative and reading analytics management.",null,B.I9,null,null,null,null,null,null,null)
+B.agX=new A.R("\u2022 Your data will not be shared with third parties without authorized consent.",null,null,null,null,null,null,null,null,null)
 B.ahq=new A.R("\u2022 You maintain the right to access and update your account details through the school administrator.",null,null,null,null,null,null,null,null,null)
-B.ZB=s([B.agk,B.b7,B.agY,B.ahq],t.p)
+B.ZB=s([B.agj,B.b7,B.agX,B.ahq],t.p)
 B.i5=s([B.el,B.dX,B.j8,B.j9,B.mG],t.QP)
 B.XD=s([0.001200833568784504,0.002389694492170889,0.0002795742885861124],t.n)
 B.YW=s([0.0005891086651375999,0.0029785502573438758,0.0003270666104008398],t.n)
@@ -126035,8 +126035,8 @@ B.I2=new A.m(!0,B.aC,null,null,null,null,13,B.K,null,null,null,null,null,null,nu
 B.ahs=new A.R("\u26a0\ufe0f We couldn't save everything. Please tell your teacher.",null,B.I2,B.U,null,null,null,null,null,null)
 B.a2O=new A.al(B.k1,B.ahs,null)
 B.uQ=new A.a6(32,32,32,32)
-B.agM=new A.R("No new notifications \ud83c\udf89",null,B.ae,B.U,null,null,null,null,null,null)
-B.a2Q=new A.al(B.uQ,B.agM,null)
+B.agL=new A.R("No new notifications \ud83c\udf89",null,B.ae,B.U,null,null,null,null,null,null)
+B.a2Q=new A.al(B.uQ,B.agL,null)
 B.RC=new A.a6(0,4,0,4)
 B.h5=new A.o0(1)
 B.abZ=new A.m(!0,B.I,null,null,null,null,13,B.K,null,null,null,null,null,null,null,null,null,B.h5,null,null,null,null,null,null,null,null)
@@ -126044,8 +126044,8 @@ B.afn=new A.R("Forgot password?",null,B.abZ,null,null,null,null,null,null,null)
 B.a2U=new A.al(B.RC,B.afn,null)
 B.UZ=new A.au(B.oM,20,B.bv,null,null,null)
 B.a2V=new A.al(B.nP,B.UZ,null)
-B.agy=new A.R("No pending class requests \ud83c\udf89",null,B.ae,B.U,null,null,null,null,null,null)
-B.a2Z=new A.al(B.uQ,B.agy,null)
+B.agx=new A.R("No pending class requests \ud83c\udf89",null,B.ae,B.U,null,null,null,null,null,null)
+B.a2Z=new A.al(B.uQ,B.agx,null)
 B.Cm=new A.yL(null)
 B.M6=new A.VF()
 B.a0t=new A.cb([B.aB,B.M6,B.aa,B.je,B.bf,B.je,B.bJ,B.hn,B.bI,B.hn],A.aA("cb<hA,l9>"))
@@ -126180,8 +126180,8 @@ B.Ga=new A.zn(2,"bubble")
 B.eV=new A.jC(null,null)
 B.U7=new A.au(B.kv,null,B.d,null,null,null)
 B.adw=new A.m(!0,B.d,null,null,null,null,null,B.hW,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.afR=new A.R("Turn every lesson into an adventure.",null,B.adw,null,null,null,null,null,null,null)
-B.SN=new A.eY(1,B.cC,B.afR,null)
+B.afQ=new A.R("Turn every lesson into an adventure.",null,B.adw,null,null,null,null,null,null,null)
+B.SN=new A.eY(1,B.cC,B.afQ,null)
 B.ZP=s([B.U7,B.ct,B.SN],t.p)
 B.a4N=new A.md(B.au,B.j,B.a_,B.p,null,B.bp,null,0,B.ZP,null)
 B.a4Q=new A.HO(1333)
@@ -126473,20 +126473,20 @@ B.a7e=new A.mh(3,"hide")
 B.alu=new A.mh(4,"remove")
 B.a7f=new A.mh(5,"timeout")
 B.a7g=new A.zH(null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.afH=new A.R("You already finished this reading test! \ud83c\udf1f",null,null,null,null,null,null,null,null,null)
-B.a7h=new A.da(B.afH,B.Z,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
+B.afG=new A.R("You already finished this reading test! \ud83c\udf1f",null,null,null,null,null,null,null,null,null)
+B.a7h=new A.da(B.afG,B.Z,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.ahf=new A.R("Please wait for the speaker to finish before reading.",null,null,null,null,null,null,null,null,null)
 B.Hj=new A.da(B.ahf,B.il,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.afu=new A.R("Finish all Pre-Test missions first to unlock this! \ud83d\udd12",null,null,null,null,null,null,null,null,null)
 B.Hk=new A.da(B.afu,B.Z,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
-B.aga=new A.R("Your grade level is missing. Please tell your teacher.",null,null,null,null,null,null,null,null,null)
-B.a7i=new A.da(B.aga,B.Z,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
+B.ag9=new A.R("Your grade level is missing. Please tell your teacher.",null,null,null,null,null,null,null,null,null)
+B.a7i=new A.da(B.ag9,B.Z,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.afe=new A.R("No class yet. Your admin will add you soon!",null,null,null,null,null,null,null,null,null)
 B.a7j=new A.da(B.afe,null,null,null,null,null,null,null,B.aw,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.aeX=new A.R("Please pick a Grade Level and a Passage Set.",null,null,null,null,null,null,null,null,null)
 B.a7k=new A.da(B.aeX,null,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
-B.agI=new A.R("Password changed successfully!",null,null,null,null,null,null,null,null,null)
-B.a7l=new A.da(B.agI,B.aU,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
+B.agH=new A.R("Password changed successfully!",null,null,null,null,null,null,null,null,null)
+B.a7l=new A.da(B.agH,B.aU,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.aeI=new A.R("Password updated successfully!",null,null,null,null,null,null,null,null,null)
 B.a7m=new A.da(B.aeI,B.aU,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.aed=new A.R("Please stop oral reading first to listen.",null,null,null,null,null,null,null,null,null)
@@ -126495,23 +126495,23 @@ B.aht=new A.R("Story, scripts & quiz uploaded successfully! \ud83c\udf89",null,n
 B.a7n=new A.da(B.aht,B.aU,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.afr=new A.R("Please stop oral reading first to check a word.",null,null,null,null,null,null,null,null,null)
 B.a7o=new A.da(B.afr,B.il,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
-B.afV=new A.R("Extracting text via Cloud OCR...",null,null,null,null,null,null,null,null,null)
-B.Hm=new A.da(B.afV,null,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
+B.afU=new A.R("Extracting text via Cloud OCR...",null,null,null,null,null,null,null,null,null)
+B.Hm=new A.da(B.afU,null,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.aex=new A.R("\ud83c\udf89 Excellent! Moving to the next slide...",null,null,null,null,null,null,null,null,null)
 B.a7p=new A.da(B.aex,B.aU,null,null,null,null,null,null,null,null,null,null,null,B.ay,!1,null,null,null,B.o,null)
-B.afO=new A.R("Password reset link or temporary credentials have been sent.",null,null,null,null,null,null,null,null,null)
-B.a7q=new A.da(B.afO,B.aU,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
+B.afN=new A.R("Password reset link or temporary credentials have been sent.",null,null,null,null,null,null,null,null,null)
+B.a7q=new A.da(B.afN,B.aU,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.ahd=new A.R("Please fill in the title, cover image, and at least 1 slide page.",null,null,null,null,null,null,null,null,null)
 B.a7r=new A.da(B.ahd,null,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.aeR=new A.R("Profile picture updated successfully!",null,null,null,null,null,null,null,null,null)
 B.a7s=new A.da(B.aeR,null,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
-B.agU=new A.R("Please type at least one script segment before generating AI voice! \u26a0\ufe0f",null,null,null,null,null,null,null,null,null)
-B.a7t=new A.da(B.agU,B.il,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
+B.agT=new A.R("Please type at least one script segment before generating AI voice! \u26a0\ufe0f",null,null,null,null,null,null,null,null,null)
+B.a7t=new A.da(B.agT,B.il,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.Iq=new A.R("Please fill in all fields.",null,null,null,null,null,null,null,null,null)
 B.Hn=new A.da(B.Iq,null,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
-B.agh=new A.R("New passwords do not match.",null,null,null,null,null,null,null,null,null)
-B.a7u=new A.da(B.agh,null,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
-B.agz=new A.R("Words noted. Moving to the next slide!",null,null,null,null,null,null,null,null,null)
+B.agg=new A.R("New passwords do not match.",null,null,null,null,null,null,null,null,null)
+B.a7u=new A.da(B.agg,null,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
+B.agy=new A.R("Words noted. Moving to the next slide!",null,null,null,null,null,null,null,null,null)
 B.PL=new A.u(1,0.984313725490196,0.9137254901960784,0.9058823529411765,B.f)
 B.Ou=new A.u(1,1,0.8,0.7372549019607844,B.f)
 B.OY=new A.u(1,1,0.6705882352941176,0.5686274509803921,B.f)
@@ -126521,15 +126521,15 @@ B.Oh=new A.u(1,0.8470588235294118,0.2627450980392157,0.08235294117647059,B.f)
 B.Px=new A.u(1,0.7490196078431373,0.21176470588235294,0.047058823529411764,B.f)
 B.a12=new A.cb([50,B.PL,100,B.Ou,200,B.OY,300,B.nf,400,B.tH,500,B.Pl,600,B.NL,700,B.jK,800,B.Oh,900,B.Px],t.e)
 B.a1c=new A.ie(B.a12,1,1,0.3411764705882353,0.13333333333333333,B.f)
-B.a7v=new A.da(B.agz,B.a1c,null,null,null,null,null,null,null,null,null,null,null,B.nN,!1,null,null,null,B.o,null)
-B.afW=new A.R("Please read and accept the Data Privacy Policy to proceed.",null,null,null,null,null,null,null,null,null)
-B.a7w=new A.da(B.afW,B.cX,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
+B.a7v=new A.da(B.agy,B.a1c,null,null,null,null,null,null,null,null,null,null,null,B.nN,!1,null,null,null,B.o,null)
+B.afV=new A.R("Please read and accept the Data Privacy Policy to proceed.",null,null,null,null,null,null,null,null,null)
+B.a7w=new A.da(B.afV,B.cX,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.aeN=new A.R("Text extracted successfully!",null,null,null,null,null,null,null,null,null)
 B.Ho=new A.da(B.aeN,null,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.afl=new A.R("Profile updated successfully!",null,null,null,null,null,null,null,null,null)
 B.a7x=new A.da(B.afl,null,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
-B.agx=new A.R("Please fill in all fields",null,null,null,null,null,null,null,null,null)
-B.a7y=new A.da(B.agx,null,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
+B.agw=new A.R("Please fill in all fields",null,null,null,null,null,null,null,null,null)
+B.a7y=new A.da(B.agw,null,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.aeH=new A.R("Quiz saved successfully! \u2705",null,null,null,null,null,null,null,null,null)
 B.a7z=new A.da(B.aeH,B.aU,null,null,null,null,null,null,null,null,null,null,null,B.X,!1,null,null,null,B.o,null)
 B.afx=new A.R("Downloading image for scanning...",null,null,null,null,null,null,null,null,null)
@@ -126596,14 +126596,14 @@ B.Zn=s([B.a87,B.a88],t.p)
 B.iR=new A.m(!0,null,null,null,null,null,14,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.a83=new A.zT(B.Zn,B.aC,B.aC,null)
 B.TW=new A.au(B.kv,20,null,null,null,null)
-B.afG=new A.R("Missions",null,null,null,null,null,null,null,null,null)
-B.Zq=s([B.TW,B.aZ,B.afG],t.p)
+B.afF=new A.R("Missions",null,null,null,null,null,null,null,null,null)
+B.Zq=s([B.TW,B.aZ,B.afF],t.p)
 B.a4P=new A.md(B.au,B.aT,B.k,B.p,null,B.bp,null,0,B.Zq,null)
 B.a89=new A.vk(null,B.a4P,null,null)
 B.Ty=new A.aE(63432,"MaterialIcons",!1)
 B.Ve=new A.au(B.Ty,22,null,null,null,null)
-B.ah2=new A.R("Heroes",null,null,null,null,null,null,null,null,null)
-B.ZE=s([B.Ve,B.aZ,B.ah2],t.p)
+B.ah1=new A.R("Heroes",null,null,null,null,null,null,null,null,null)
+B.ZE=s([B.Ve,B.aZ,B.ah1],t.p)
 B.a4O=new A.md(B.au,B.aT,B.k,B.p,null,B.bp,null,0,B.ZE,null)
 B.a8a=new A.vk(null,B.a4O,null,null)
 B.ZN=s([B.a89,B.a8a],t.p)
@@ -126761,25 +126761,25 @@ B.acm=new A.m(!0,B.bc,null,null,null,null,16,B.K,null,null,null,null,null,null,n
 B.If=new A.m(!0,B.eu,null,null,null,null,13,B.bD,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.acp=new A.m(!0,B.a8,null,null,null,null,12,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.acq=new A.m(!0,B.Z,null,null,null,null,9,B.bD,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.lZ=new A.m(!0,B.d,null,null,null,null,10,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
+B.qJ=new A.m(!0,B.d,null,null,null,null,10,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.Ig=new A.m(!0,null,null,null,null,null,11,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.iV=new A.m(!0,B.Z,null,null,null,null,null,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.acE=new A.m(!0,null,null,null,null,null,null,B.G,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.Ih=new A.m(!1,null,null,null,null,null,14,B.G,null,-0.15,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.acJ=new A.m(!0,null,null,null,null,null,12,B.x,null,0.5,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.acL=new A.m(!0,null,null,null,null,null,12,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.qJ=new A.m(!0,B.d,null,null,null,null,12,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
+B.qK=new A.m(!0,B.d,null,null,null,null,12,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.acU=new A.m(!0,B.I,null,null,null,null,15,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.acW=new A.m(!0,B.d,null,null,null,null,28,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.ad_=new A.m(!0,B.cR,null,null,null,null,15,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.ad4=new A.m(!0,B.P,null,null,null,null,9,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.qK=new A.m(!0,B.P,null,null,null,null,12,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
+B.qL=new A.m(!0,B.P,null,null,null,null,12,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.adm=new A.m(!0,B.e5,null,null,null,null,11,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.dn=new A.m(!0,null,null,null,null,null,16,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.adn=new A.m(!0,B.Z,null,null,null,null,14,B.bD,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.ads=new A.m(!0,B.P,null,null,null,null,14,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.Ii=new A.m(!0,B.h,null,null,null,null,14,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.qL=new A.m(!0,B.h,null,null,null,null,10,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
+B.lZ=new A.m(!0,B.h,null,null,null,null,10,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.ady=new A.m(!0,B.cR,null,null,null,null,14,B.hW,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.adz=new A.m(!0,null,null,null,null,null,24,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.adA=new A.m(!0,null,null,null,null,null,10,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
@@ -127131,85 +127131,85 @@ B.afA=new A.R("Got it",null,B.qD,null,null,null,null,null,null,null)
 B.afB=new A.R("Add Student",null,B.d3,null,null,null,null,null,null,null)
 B.qG=new A.m(!0,B.P,null,null,null,null,11,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.afD=new A.R("Hover or tap a bar to see the class/section and count.",null,B.qG,null,null,null,null,null,null,null)
-B.afE=new A.R("TEACHER DASHBOARD",null,B.lZ,null,null,null,null,null,null,null)
-B.afF=new A.R("Cancel",null,B.cv,null,null,null,null,null,null,null)
-B.afI=new A.R("Verification link resent! Check your inbox.",null,null,null,null,null,null,null,null,null)
+B.afE=new A.R("Cancel",null,B.cv,null,null,null,null,null,null,null)
+B.afH=new A.R("Verification link resent! Check your inbox.",null,null,null,null,null,null,null,null,null)
 B.a9R=new A.m(!0,null,null,null,null,null,13,B.K,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.afK=new A.R("Enter your LRN or registered Username/Email to request a reset.",null,B.a9R,null,null,null,null,null,null,null)
-B.afL=new A.R("Correct Answer:",null,B.HU,null,null,null,null,null,null,null)
-B.afM=new A.R("\ud83c\udfc5 My Badges",null,B.dn,null,null,null,null,null,null,null)
-B.afN=new A.R("CREATE NEW CLASS \ud83c\udfeb",null,B.d3,B.U,null,null,null,null,null,null)
-B.afS=new A.R("No stories assigned to this class yet.",null,B.cv,null,null,null,null,null,null,null)
-B.afX=new A.R("PARENT PORTAL",null,B.lS,null,null,null,null,null,null,null)
-B.afY=new A.R("Wala pang kwento dito.",null,B.iT,null,null,null,null,null,null,null)
-B.ag_=new A.R("Unassign Story",null,null,null,null,null,null,null,null,null)
-B.ag0=new A.R("Keep reading to unlock the ones still locked!",null,B.qG,null,null,null,null,null,null,null)
-B.ag1=new A.R("Edit Profile Details",null,B.qD,null,null,null,null,null,null,null)
-B.ag3=new A.R("Please fill in all fields!",null,null,null,null,null,null,null,null,null)
+B.afJ=new A.R("Enter your LRN or registered Username/Email to request a reset.",null,B.a9R,null,null,null,null,null,null,null)
+B.afK=new A.R("Correct Answer:",null,B.HU,null,null,null,null,null,null,null)
+B.afL=new A.R("\ud83c\udfc5 My Badges",null,B.dn,null,null,null,null,null,null,null)
+B.afM=new A.R("CREATE NEW CLASS \ud83c\udfeb",null,B.d3,B.U,null,null,null,null,null,null)
+B.afR=new A.R("No stories assigned to this class yet.",null,B.cv,null,null,null,null,null,null,null)
+B.afW=new A.R("PARENT PORTAL",null,B.lS,null,null,null,null,null,null,null)
+B.afX=new A.R("Wala pang kwento dito.",null,B.iT,null,null,null,null,null,null,null)
+B.afZ=new A.R("Unassign Story",null,null,null,null,null,null,null,null,null)
+B.ag_=new A.R("Keep reading to unlock the ones still locked!",null,B.qG,null,null,null,null,null,null,null)
+B.ag0=new A.R("Edit Profile Details",null,B.qD,null,null,null,null,null,null,null)
+B.ag2=new A.R("Please fill in all fields!",null,null,null,null,null,null,null,null,null)
 B.aby=new A.m(!0,null,null,null,null,null,20,B.x,null,1.5,null,null,null,null,null,null,null,null,null,null,null,null,B.kG,null,null,null)
-B.ag4=new A.R("REGISTER AS TEACHER",null,B.aby,null,null,null,null,null,null,null)
+B.ag3=new A.R("REGISTER AS TEACHER",null,B.aby,null,null,null,null,null,null,null)
 B.qE=new A.m(!0,B.d,null,null,null,null,20,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.ag5=new A.R("No missions yet!",null,B.qE,null,null,null,null,null,null,null)
-B.ag6=new A.R("Magaling! \ud83c\udf1f",null,null,B.U,null,null,null,null,null,null)
-B.ag8=new A.R("ASSIGN",null,B.cH,null,null,null,null,null,null,null)
-B.ag9=new A.R("Update",null,B.cH,null,null,null,null,null,null,null)
-B.agb=new A.R("Great job finishing all the Pre-Test missions! The Post-Test missions are now open for you to play.",null,B.ae,B.U,null,null,null,null,null,null)
-B.agc=new A.R("VIEW PROGRESS",null,B.lT,null,null,null,null,null,null,null)
+B.ag4=new A.R("No missions yet!",null,B.qE,null,null,null,null,null,null,null)
+B.ag5=new A.R("Magaling! \ud83c\udf1f",null,null,B.U,null,null,null,null,null,null)
+B.ag7=new A.R("ASSIGN",null,B.cH,null,null,null,null,null,null,null)
+B.ag8=new A.R("Update",null,B.cH,null,null,null,null,null,null,null)
+B.aga=new A.R("Great job finishing all the Pre-Test missions! The Post-Test missions are now open for you to play.",null,B.ae,B.U,null,null,null,null,null,null)
+B.agb=new A.R("VIEW PROGRESS",null,B.lT,null,null,null,null,null,null,null)
 B.adQ=new A.m(!0,B.O,null,null,null,null,13,B.x,null,2,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.agd=new A.R("READSMART HUB",null,B.adQ,null,null,null,null,null,null,null)
-B.age=new A.R("Not connected to any class yet!",null,B.qE,null,null,null,null,null,null,null)
-B.agf=new A.R("Reading Snapshot \ud83d\udcd6",null,B.iR,null,null,null,null,null,null,null)
-B.agg=new A.R("Teacher Registration Portal: Fill in your details below. After signing up, the school administrator must approve your account before you can log in.",null,B.qB,null,null,null,null,null,null,null)
-B.agi=new A.R("Update Password",null,B.cH,null,null,null,null,null,null,null)
-B.agl=new A.R("ADD STUDENT \ud83c\udf92",null,B.d3,B.U,null,null,null,null,null,null)
-B.agm=new A.R("Log Out",null,B.dn,null,null,null,null,null,null,null)
+B.agc=new A.R("READSMART HUB",null,B.adQ,null,null,null,null,null,null,null)
+B.agd=new A.R("Not connected to any class yet!",null,B.qE,null,null,null,null,null,null,null)
+B.age=new A.R("Reading Snapshot \ud83d\udcd6",null,B.iR,null,null,null,null,null,null,null)
+B.agf=new A.R("Teacher Registration Portal: Fill in your details below. After signing up, the school administrator must approve your account before you can log in.",null,B.qB,null,null,null,null,null,null,null)
+B.agh=new A.R("Update Password",null,B.cH,null,null,null,null,null,null,null)
+B.agk=new A.R("ADD STUDENT \ud83c\udf92",null,B.d3,B.U,null,null,null,null,null,null)
+B.agl=new A.R("Log Out",null,B.dn,null,null,null,null,null,null,null)
 B.qN=new A.R("Cancel",null,B.lX,null,null,null,null,null,null,null)
-B.ago=new A.R("Next Word / Continue",null,B.dn,null,null,null,null,null,null,null)
-B.agp=new A.R("Enhancing Literacy through Tech",null,B.qC,null,null,null,null,null,null,null)
-B.agq=new A.R("STORY TYPE:",null,B.lV,null,null,null,null,null,null,null)
-B.agr=new A.R("Delete",null,B.dm,null,null,null,null,null,null,null)
-B.ags=new A.R("Forgot Password \ud83d\udd12",null,B.ed,null,null,null,null,null,null,null)
+B.agn=new A.R("Next Word / Continue",null,B.dn,null,null,null,null,null,null,null)
+B.ago=new A.R("Enhancing Literacy through Tech",null,B.qC,null,null,null,null,null,null,null)
+B.agp=new A.R("STORY TYPE:",null,B.lV,null,null,null,null,null,null,null)
+B.agq=new A.R("Delete",null,B.dm,null,null,null,null,null,null,null)
+B.agr=new A.R("Forgot Password \ud83d\udd12",null,B.ed,null,null,null,null,null,null,null)
 B.Ir=new A.R("Are you sure you want to log out?",null,B.ae,null,null,null,null,null,null,null)
-B.agt=new A.R("Please change the password after first login.",null,B.qG,null,null,null,null,null,null,null)
-B.agu=new A.R("SCRIPTS / TEXT SEGMENTS",null,B.lV,null,null,null,null,null,null,null)
+B.ags=new A.R("Please change the password after first login.",null,B.qG,null,null,null,null,null,null,null)
+B.agt=new A.R("SCRIPTS / TEXT SEGMENTS",null,B.lV,null,null,null,null,null,null,null)
 B.a8H=new A.m(!0,B.a8,null,null,null,null,16,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.agA=new A.R("No quiz available for this story yet.",null,B.a8H,null,null,null,null,null,null,null)
-B.agB=new A.R("No Missions Found!",null,B.qE,null,null,null,null,null,null,null)
-B.agC=new A.R("Yay!",null,B.lU,null,null,null,null,null,null,null)
-B.agD=new A.R("Your admin will add you to a class soon. Pull down to refresh!",null,B.iV,B.U,null,null,null,null,null,null)
-B.agE=new A.R("ASSIGNED \u2713",null,B.qL,null,null,null,null,null,null,null)
-B.agF=new A.R("Click 'Join' above to enroll your child.",null,B.iV,B.U,null,null,null,null,null,null)
-B.agG=new A.R("Are you sure you want to delete this story?",null,null,null,null,null,null,null,null,null)
-B.agH=new A.R("Stay & Read",null,B.lX,null,null,null,null,null,null,null)
+B.agz=new A.R("No quiz available for this story yet.",null,B.a8H,null,null,null,null,null,null,null)
+B.agA=new A.R("No Missions Found!",null,B.qE,null,null,null,null,null,null,null)
+B.agB=new A.R("Yay!",null,B.lU,null,null,null,null,null,null,null)
+B.agC=new A.R("Your admin will add you to a class soon. Pull down to refresh!",null,B.iV,B.U,null,null,null,null,null,null)
+B.agD=new A.R("ASSIGNED \u2713",null,B.lZ,null,null,null,null,null,null,null)
+B.agE=new A.R("Click 'Join' above to enroll your child.",null,B.iV,B.U,null,null,null,null,null,null)
+B.agF=new A.R("Are you sure you want to delete this story?",null,null,null,null,null,null,null,null,null)
+B.agG=new A.R("Stay & Read",null,B.lX,null,null,null,null,null,null,null)
 B.qO=new A.R("Log Out",null,B.dm,null,null,null,null,null,null,null)
 B.acC=new A.m(!0,null,null,null,null,null,13,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.agK=new A.R("Options & Correct Answer:",null,B.acC,null,null,null,null,null,null,null)
+B.agJ=new A.R("Options & Correct Answer:",null,B.acC,null,null,null,null,null,null,null)
 B.ac4=new A.m(!0,B.I,null,null,null,null,12,B.x,null,2,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.agL=new A.R("WELCOME BACK, HERO",null,B.ac4,null,null,null,null,null,null,null)
+B.agK=new A.R("WELCOME BACK, HERO",null,B.ac4,null,null,null,null,null,null,null)
 B.I0=new A.m(!0,B.O,null,null,null,null,10,B.x,null,1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
-B.agN=new A.R("HERO PROFILE",null,B.I0,null,null,null,null,null,null,null)
+B.agM=new A.R("HERO PROFILE",null,B.I0,null,null,null,null,null,null,null)
 B.a5N=new A.ip(B.eu,B.l3,4)
 B.WQ=s([B.a5N],t.kO)
 B.ab9=new A.m(!0,B.h,null,null,null,null,24,B.x,null,null,null,null,null,null,null,null,null,null,null,null,null,null,B.WQ,null,null,null)
-B.agP=new A.R("Story Quiz",null,B.ab9,null,null,null,null,null,null,null)
-B.agQ=new A.R("Current Power Badge",null,B.qz,null,null,null,null,null,null,null)
-B.agR=new A.R("Take a Photo",null,null,null,null,null,null,null,null,null)
-B.agS=new A.R("Students can only open Post-Test stories after they finish every Pre-Test story.",null,B.lY,null,null,null,null,null,null,null)
-B.agT=new A.R("Change Password",null,B.dn,null,null,null,null,null,null,null)
-B.agV=new A.R("READSMART HUB",null,B.HX,null,null,null,null,null,null,null)
-B.agW=new A.R("Remember me",null,B.qC,null,null,null,null,null,null,null)
-B.agX=new A.R("Assign Story",null,null,null,null,null,null,null,null,null)
-B.agZ=new A.R("Done",null,null,null,null,null,null,null,null,null)
-B.ah_=new A.R("READSMART HUB",null,B.I0,null,null,null,null,null,null,null)
-B.ah0=new A.R("Prev",null,B.lU,null,null,null,null,null,null,null)
-B.ah1=new A.R("Verification Required \ud83d\udce7",null,B.ed,null,null,null,null,null,null,null)
-B.ah3=new A.R("Parent accounts are generated by the School Administrator. Please contact the school to obtain your login details.",null,B.lW,B.U,null,null,null,null,null,null)
-B.ah4=new A.R("Upload New Story",null,B.h9,null,null,null,null,null,null,null)
-B.ah5=new A.R("Add Question",null,B.ae,null,null,null,null,null,null,null)
-B.ah6=new A.R("My Hero Progress \ud83c\udfc6",null,B.f_,null,null,null,B.ai,1,null,null)
-B.ah7=new A.R("Previous",null,null,null,null,null,null,null,null,null)
-B.ah8=new A.R("PLAY",null,B.iQ,null,null,null,null,null,null,null)
-B.aha=new A.R("SECRET MISSION CODE",null,B.lZ,null,null,null,null,null,null,null)
+B.agO=new A.R("Story Quiz",null,B.ab9,null,null,null,null,null,null,null)
+B.agP=new A.R("Current Power Badge",null,B.qz,null,null,null,null,null,null,null)
+B.agQ=new A.R("Take a Photo",null,null,null,null,null,null,null,null,null)
+B.agR=new A.R("Students can only open Post-Test stories after they finish every Pre-Test story.",null,B.lY,null,null,null,null,null,null,null)
+B.agS=new A.R("Change Password",null,B.dn,null,null,null,null,null,null,null)
+B.agU=new A.R("READSMART HUB",null,B.HX,null,null,null,null,null,null,null)
+B.agV=new A.R("Remember me",null,B.qC,null,null,null,null,null,null,null)
+B.agW=new A.R("Assign Story",null,null,null,null,null,null,null,null,null)
+B.agY=new A.R("Done",null,null,null,null,null,null,null,null,null)
+B.agZ=new A.R("READSMART HUB",null,B.I0,null,null,null,null,null,null,null)
+B.ah_=new A.R("Prev",null,B.lU,null,null,null,null,null,null,null)
+B.ah0=new A.R("Verification Required \ud83d\udce7",null,B.ed,null,null,null,null,null,null,null)
+B.ah2=new A.R("Parent accounts are generated by the School Administrator. Please contact the school to obtain your login details.",null,B.lW,B.U,null,null,null,null,null,null)
+B.ah3=new A.R("Upload New Story",null,B.h9,null,null,null,null,null,null,null)
+B.ah4=new A.R("Add Question",null,B.ae,null,null,null,null,null,null,null)
+B.ah5=new A.R("My Hero Progress \ud83c\udfc6",null,B.f_,null,null,null,B.ai,1,null,null)
+B.ah6=new A.R("Previous",null,null,null,null,null,null,null,null,null)
+B.ah7=new A.R("PLAY",null,B.iQ,null,null,null,null,null,null,null)
+B.ah9=new A.R("SECRET MISSION CODE",null,B.qJ,null,null,null,null,null,null,null)
+B.aha=new A.R("TEACHER DASHBOARD",null,B.lZ,null,null,null,null,null,null,null)
 B.ahb=new A.R("Resend Email",null,B.dm,null,null,null,null,null,null,null)
 B.abU=new A.m(!0,B.I,null,null,null,null,14,B.x,null,1,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null,null)
 B.ahg=new A.R("BADGE UNLOCKED!",null,B.abU,null,null,null,null,null,null,null)
@@ -127224,7 +127224,7 @@ B.ahp=new A.R("Decline",null,B.lX,null,null,null,null,null,null,null)
 B.ahr=new A.R("Edit Quiz",null,B.ae,null,null,null,null,null,null,null)
 B.ahu=new A.R("Words to practice together:",null,B.I9,null,null,null,null,null,null,null)
 B.ahv=new A.R("Close",null,B.ae,null,null,null,null,null,null,null)
-B.ahx=new A.R("CURRENT STATUS",null,B.lZ,null,null,null,null,null,null,null)
+B.ahx=new A.R("CURRENT STATUS",null,B.qJ,null,null,null,null,null,null,null)
 B.ahy=new A.R("Edit Profile Details",null,B.dn,null,null,null,null,null,null,null)
 B.ahA=new A.R("Reading Level by Class & Section",null,B.I5,null,null,null,null,null,null,null)
 B.ahB=new A.R("Delete Story",null,null,null,null,null,null,null,null,null)
