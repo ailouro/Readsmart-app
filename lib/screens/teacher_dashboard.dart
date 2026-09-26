@@ -1841,12 +1841,7 @@ class _StudentsTabState extends State<_StudentsTab> {
             borderRadius: BorderRadius.circular(20),
             side: const BorderSide(color: Colors.black, width: 3.5),
           ),
-          backgroundColor: const Color(0xFFFDE047),
-          title: const Text(
-            "ADD STUDENT 🎒",
-            style: TextStyle(fontWeight: FontWeight.w900, color: Colors.black),
-            textAlign: TextAlign.center,
-          ),
+
           content: SingleChildScrollView(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -2477,32 +2472,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                 crossAxisAlignment: WrapCrossAlignment.center,
                 spacing: 10,
                 runSpacing: 10,
-                children: [
-                  const ComicBadgeHeader(title: "LEARNERS' RECORDS"),
-                  ElevatedButton.icon(
-                    onPressed: _showAddStudentDialog,
-                    icon: const Icon(
-                      Icons.person_add,
-                      color: Colors.black,
-                      size: 20,
-                    ),
-                    label: const Text(
-                      "Add Student",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: accentTheme,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: const BorderSide(color: Colors.black, width: 2),
-                      ),
-                      elevation: 0,
-                    ),
-                  ),
-                ],
+                children: [const ComicBadgeHeader(title: "LEARNERS' RECORDS")],
               ),
               const SizedBox(height: 10),
               if (_summaryData['students'] == null ||
