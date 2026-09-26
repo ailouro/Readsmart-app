@@ -31,6 +31,13 @@ class ReadingBadge {
   final IconData icon;
   final Color color;
   final int xpRequired;
+  // Optional alternate unlock rule: unlocked as soon as the student has
+  // finished this many stories, regardless of XP. Used for "First Chapter",
+  // whose hint promises it for finishing one story -- without this, a
+  // student could finish their first story, still be short of 20 XP (e.g.
+  // an oral-reading-only story with no quiz bonus), and see the badge stay
+  // locked even though they did exactly what the hint asked.
+  final int? storiesRequired;
 
   const ReadingBadge({
     required this.id,
@@ -39,6 +46,7 @@ class ReadingBadge {
     required this.icon,
     required this.color,
     required this.xpRequired,
+    this.storiesRequired,
   });
 }
 
@@ -53,6 +61,7 @@ const List<ReadingBadge> kAllBadges = [
     icon: Icons.menu_book_rounded,
     color: Color(0xFF66BB6A), // green
     xpRequired: 20,
+    storiesRequired: 1,
   ),
   ReadingBadge(
     id: 'story_starter',
@@ -193,10 +202,38 @@ int calculateXpFromProgress(List<dynamic> progressLogs) {
   return xp;
 }
 
-/// The badge just below/at [totalXp], or null if every badge is unlocked.
-ReadingBadge? nextBadgeToUnlock(int totalXp) {
+/// How many stories the student has actually finished (same filter as
+/// [calculateXpFromProgress], so the two always agree on what "counts").
+int completedStoriesCount(List<dynamic> progressLogs) {
+  return progressLogs.where((raw) => raw is Map).length;
+}
+
+/// Whether [b] is unlocked: either its story-count rule is met (when it has
+/// one), or the student has reached its XP threshold. The story-count rule
+/// is an *extra* way in, not a replacement -- a badge with no
+/// [ReadingBadge.storiesRequired] is judged on XP alone, same as before.
+bool isBadgeUnlocked(
+  ReadingBadge b, {
+  required int totalXp,
+  required int storiesCompleted,
+}) {
+  if (b.storiesRequired != null && storiesCompleted >= b.storiesRequired!) {
+    return true;
+  }
+  return totalXp >= b.xpRequired;
+}
+
+/// The badge just below/at [totalXp] (accounting for [storiesCompleted]
+/// too), or null if every badge is unlocked.
+ReadingBadge? nextBadgeToUnlock(int totalXp, int storiesCompleted) {
   for (final b in kAllBadges) {
-    if (totalXp < b.xpRequired) return b;
+    if (!isBadgeUnlocked(
+      b,
+      totalXp: totalXp,
+      storiesCompleted: storiesCompleted,
+    )) {
+      return b;
+    }
   }
   return null;
 }
@@ -222,19 +259,25 @@ class XpAndBadgesSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final int totalXp = calculateXpFromProgress(progressLogs);
-    final ReadingBadge? next = nextBadgeToUnlock(totalXp);
+    final int storiesCompleted = completedStoriesCount(progressLogs);
+    final ReadingBadge? next = nextBadgeToUnlock(totalXp, storiesCompleted);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _XpBar(
           totalXp: totalXp,
+          storiesCompleted: storiesCompleted,
           next: next,
           themeColor: themeColor,
           accentColor: accentColor,
         ),
         const SizedBox(height: 14),
-        _BadgeGrid(totalXp: totalXp, accentColor: accentColor),
+        _BadgeGrid(
+          totalXp: totalXp,
+          storiesCompleted: storiesCompleted,
+          accentColor: accentColor,
+        ),
       ],
     );
   }
@@ -242,12 +285,14 @@ class XpAndBadgesSection extends StatelessWidget {
 
 class _XpBar extends StatelessWidget {
   final int totalXp;
+  final int storiesCompleted;
   final ReadingBadge? next;
   final Color themeColor;
   final Color accentColor;
 
   const _XpBar({
     required this.totalXp,
+    required this.storiesCompleted,
     required this.next,
     required this.themeColor,
     required this.accentColor,
@@ -256,12 +301,20 @@ class _XpBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     // Progress toward the next badge (0..1). If every badge is unlocked,
-    // just show a full bar.
+    // just show a full bar. When the next badge can also be unlocked by
+    // story count (e.g. First Chapter), let that count toward the bar too,
+    // so finishing a story visibly moves it even before 20 XP is reached.
     final int prevThreshold = _prevThreshold();
-    final double progress = next == null
-        ? 1.0
-        : ((totalXp - prevThreshold) / (next!.xpRequired - prevThreshold))
+    double progress;
+    if (next == null) {
+      progress = 1.0;
+    } else if (next!.storiesRequired != null) {
+      progress = (storiesCompleted / next!.storiesRequired!).clamp(0.0, 1.0);
+    } else {
+      progress =
+          ((totalXp - prevThreshold) / (next!.xpRequired - prevThreshold))
               .clamp(0.0, 1.0);
+    }
 
     return Container(
       width: double.infinity,
@@ -300,7 +353,20 @@ class _XpBar extends StatelessWidget {
                 ),
               ),
               const Spacer(),
-              if (next != null)
+              if (next != null && next!.storiesRequired != null)
+                Text(
+                  next!.storiesRequired == 1
+                      ? "Finish a story to unlock ${next!.title}"
+                      : "Finish ${next!.storiesRequired! - storiesCompleted} more "
+                            "${(next!.storiesRequired! - storiesCompleted) == 1 ? 'story' : 'stories'} "
+                            "to unlock ${next!.title}",
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black54,
+                  ),
+                )
+              else if (next != null)
                 Text(
                   "${next!.xpRequired - totalXp} XP to ${next!.title}",
                   style: const TextStyle(
@@ -347,9 +413,14 @@ class _XpBar extends StatelessWidget {
 
 class _BadgeGrid extends StatelessWidget {
   final int totalXp;
+  final int storiesCompleted;
   final Color accentColor;
 
-  const _BadgeGrid({required this.totalXp, required this.accentColor});
+  const _BadgeGrid({
+    required this.totalXp,
+    required this.storiesCompleted,
+    required this.accentColor,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -379,7 +450,11 @@ class _BadgeGrid extends StatelessWidget {
             spacing: 14,
             runSpacing: 14,
             children: kAllBadges.map((b) {
-              final bool unlocked = totalXp >= b.xpRequired;
+              final bool unlocked = isBadgeUnlocked(
+                b,
+                totalXp: totalXp,
+                storiesCompleted: storiesCompleted,
+              );
               return _BadgeTile(badge: b, unlocked: unlocked);
             }).toList(),
           ),
@@ -574,7 +649,16 @@ Future<void> maybeShowBadgeUnlockedDialog(
   List<dynamic> progressLogs,
 ) async {
   final int totalXp = calculateXpFromProgress(progressLogs);
-  final unlockedNow = kAllBadges.where((b) => totalXp >= b.xpRequired).toList();
+  final int storiesCompleted = completedStoriesCount(progressLogs);
+  final unlockedNow = kAllBadges
+      .where(
+        (b) => isBadgeUnlocked(
+          b,
+          totalXp: totalXp,
+          storiesCompleted: storiesCompleted,
+        ),
+      )
+      .toList();
 
   final prefs = await SharedPreferences.getInstance();
   final key = _seenBadgesKey(studentId);
