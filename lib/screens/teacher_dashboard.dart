@@ -4097,7 +4097,12 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
   static const bool _usePhilIriAssessments = false;
 
   // Only stories of this grade are offered when assigning.
-  static const int _storyGradeNumber = 5;
+  // Derived from the class's own grade level (widget.grade, e.g. "Grade 6")
+  // instead of being hardcoded, so each class only sees its own grade's
+  // stories. Falls back to Grade 5 if the class has no parseable grade.
+  int get _storyGradeNumber =>
+      int.tryParse(RegExp(r'\d+').firstMatch(widget.grade)?.group(0) ?? '') ??
+      5;
 
   // Same style as the existing unassign-story route. If the server names
   // this route differently, this is the only place to change it.
