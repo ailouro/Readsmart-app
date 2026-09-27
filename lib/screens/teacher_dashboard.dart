@@ -4257,8 +4257,8 @@ class _StudentsTabState extends State<_StudentsTab> {
 
               int correctWords = log['correct_words'] ?? 0;
               int computedWpm = log['wpm'] != null
-                  ? int.tryParse(log['wpm'].toString()) ?? 0
-                  : (timeSeconds > 0
+                  ? (log['wpm'] as num).round()
+                  : (timeSeconds > 0 && correctWords > 0
                         ? ((correctWords / (timeSeconds / 60)).round())
                         : 0);
 
