@@ -33,6 +33,8 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
   bool _isPlayingAudio = false;
 
   final Map<dynamic, Future<List<dynamic>>> _progressCache = {};
+  final Map<dynamic, Future<List<Map<String, dynamic>>>>
+  _assessmentsFutureCache = {};
 
   Future<List<dynamic>> _fetchStudentProgress(dynamic studentId) {
     return _progressCache.putIfAbsent(studentId, () async {
@@ -53,6 +55,222 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
       }
       return <dynamic>[];
     });
+  }
+
+  /// Extracts every class id a student is enrolled in, from the `classes`
+  /// key — confirmed against User::classes() in User.php, a
+  /// belongsToMany(SchoolClass::class, 'class_student', ...) relation, so
+  /// an eager-loaded student/user JSON payload carries its classes there.
+  /// The other keys are kept as a fallback only, in case a particular
+  /// endpoint serializes it under a different name. The Phil-IRI
+  /// /assessments endpoint is scoped per class, so this is what lets the
+  /// record card pull the student's pre-test/post-test assessment rows
+  /// across all their classes.
+  List<String> _resolveStudentClassIds(Map<String, dynamic> student) {
+    final Set<String> ids = {};
+    void addFrom(dynamic c) {
+      if (c is Map) {
+        final id = c['id'] ?? c['_id'] ?? c['class_id'];
+        if (id != null) ids.add(id.toString());
+      } else if (c is List) {
+        for (final item in c) {
+          addFrom(item);
+        }
+      }
+    }
+
+    addFrom(student['classes']); // User::classes() — confirmed field
+    addFrom(student['school_classes']);
+    addFrom(student['school_class']);
+    addFrom(student['class']);
+    final singleId = student['class_id'] ?? student['classId'];
+    if (singleId != null) ids.add(singleId.toString());
+    return ids.toList();
+  }
+
+  /// Fetches this student's Phil-IRI Stage 2 GST assessment rows (the
+  /// official independent/instructional/frustration grade results, as
+  /// opposed to the story-level reading records) across every class the
+  /// student belongs to, and merges them into one list.
+  Future<List<Map<String, dynamic>>> _fetchStudentAssessments(
+    Map<String, dynamic> student,
+  ) {
+    final studentId = student['id'] ?? student['user_id'];
+    if (studentId == null) return Future.value(const []);
+    return _assessmentsFutureCache.putIfAbsent(studentId, () async {
+      final classIds = _resolveStudentClassIds(student);
+      final List<Map<String, dynamic>> merged = [];
+      for (final classId in classIds) {
+        try {
+          final res = await http.get(
+            Uri.parse(
+              "${widget.baseUrl}/api/classes/$classId/assessments?student_id=$studentId",
+            ),
+            headers: const {"ngrok-skip-browser-warning": "69420"},
+          );
+          if (res.statusCode == 200) {
+            final decoded = jsonDecode(res.body);
+            final list = decoded is List
+                ? decoded
+                : (decoded['assessments'] ?? decoded['data'] ?? []);
+            merged.addAll(
+              (list as List).map((e) => Map<String, dynamic>.from(e as Map)),
+            );
+          }
+        } catch (e) {
+          debugPrint("Error fetching assessments for class $classId: $e");
+        }
+      }
+      return merged;
+    });
+  }
+
+  /// Resolves which test (pre_test/post_test) a raw story-level reading
+  /// log belongs to. `test_type` is a direct column on student_progress
+  /// itself — confirmed against the `fillable` list and
+  /// `completedStoriesFor()` in StudentProgress.php — so it's read
+  /// straight off the log first. The other spots are kept as a fallback
+  /// only, in case some other endpoint nests it differently; a genuinely
+  /// unresolved log falls back to null so callers bucket it under
+  /// "Other Reads" rather than guessing wrong.
+  String? _resolveLogTestType(dynamic log) {
+    if (log is! Map) return null;
+    final candidates = [
+      log['test_type'], // student_progress.test_type — confirmed field
+      log['story_type'],
+      (log['pivot'] is Map) ? log['pivot']['test_type'] : null,
+      (log['story'] is Map) ? log['story']['story_type'] : null,
+      (log['story'] is Map) ? log['story']['test_type'] : null,
+    ];
+    for (final c in candidates) {
+      final s = _safeStr(c).toLowerCase();
+      if (s == 'pre_test' || s == 'post_test') return s;
+    }
+    return null;
+  }
+
+  /// The official Phil-IRI Pre-Test vs Post-Test comparison, built from the
+  /// Stage 2 GST /assessments records (independent/instructional/
+  /// frustration grade levels) rather than the story reading logs — kept
+  /// separate from the reading-records tables below it since they're two
+  /// different tests.
+  Widget _buildPhilIriComparisonCard(List<Map<String, dynamic>> assessments) {
+    Map<String, dynamic>? pre;
+    Map<String, dynamic>? post;
+    for (final a in assessments) {
+      final t = _safeStr(a['test_type']);
+      if (t == 'pre_test' && pre == null) pre = a;
+      if (t == 'post_test' && post == null) post = a;
+    }
+    if (pre == null && post == null) return const SizedBox.shrink();
+
+    Widget gradeColumn(String label, dynamic preVal, dynamic postVal) {
+      final String preG = _safeStr(preVal, '—');
+      final String postG = _safeStr(postVal, '—');
+      final num? preNum = num.tryParse(preG);
+      final num? postNum = num.tryParse(postG);
+      IconData arrow = Icons.remove_rounded;
+      Color arrowColor = Colors.black38;
+      if (preNum != null && postNum != null) {
+        if (postNum > preNum) {
+          arrow = Icons.arrow_upward_rounded;
+          arrowColor = Colors.green.shade700;
+        } else if (postNum < preNum) {
+          arrow = Icons.arrow_downward_rounded;
+          arrowColor = Colors.red.shade700;
+        }
+      }
+      return Expanded(
+        child: Column(
+          children: [
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "Gr. $preG",
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Icon(arrow, size: 14, color: arrowColor),
+                Text(
+                  "Gr. $postG",
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.brown, width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            "📊 Phil-IRI Pre-Test vs Post-Test (Stage 2 GST)",
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            "Set ${_safeStr(pre?['set_letter'], '—')} → Set ${_safeStr(post?['set_letter'], '—')}",
+            style: const TextStyle(fontSize: 10, color: Colors.black54),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              gradeColumn(
+                "Independent",
+                pre?['independent_grade'],
+                post?['independent_grade'],
+              ),
+              gradeColumn(
+                "Instructional",
+                pre?['instructional_grade'],
+                post?['instructional_grade'],
+              ),
+              gradeColumn(
+                "Frustration",
+                pre?['frustration_grade'],
+                post?['frustration_grade'],
+              ),
+            ],
+          ),
+          if (pre == null || post == null)
+            Padding(
+              padding: const EdgeInsets.only(top: 6),
+              child: Text(
+                pre == null
+                    ? "No pre-test Phil-IRI assessment on record yet."
+                    : "No post-test Phil-IRI assessment on record yet.",
+                style: TextStyle(
+                  fontSize: 9,
+                  fontStyle: FontStyle.italic,
+                  color: Colors.brown.shade700,
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -279,9 +497,17 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
             child: Center(child: CircularProgressIndicator()),
           );
         }
-        return _buildLearnerRecordCardContent(
-          student,
-          snapshot.data ?? const [],
+        return FutureBuilder<List<Map<String, dynamic>>>(
+          future: _fetchStudentAssessments(student),
+          builder: (context, assessSnapshot) {
+            final List<Map<String, dynamic>> assessments =
+                assessSnapshot.data ?? const [];
+            return _buildLearnerRecordCardContent(
+              student,
+              snapshot.data ?? const [],
+              assessments,
+            );
+          },
         );
       },
     );
@@ -290,6 +516,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
   Widget _buildLearnerRecordCardContent(
     Map<String, dynamic> student,
     List progressLogs,
+    List<Map<String, dynamic>> assessments,
   ) {
     List studentMispronunciations = _mispronunciations
         .where((m) => m['student_id'].toString() == student['id'].toString())
@@ -298,6 +525,22 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
     List studentSelfCorrections = _selfCorrections
         .where((m) => m['student_id'].toString() == student['id'].toString())
         .toList();
+
+    // Split reading records into Pre-Test / Post-Test / Other Reads so
+    // they're compared separately below, instead of lumped together.
+    final List preTestLogs = [];
+    final List postTestLogs = [];
+    final List otherLogs = [];
+    for (final log in progressLogs) {
+      final t = _resolveLogTestType(log);
+      if (t == 'pre_test') {
+        preTestLogs.add(log);
+      } else if (t == 'post_test') {
+        postTestLogs.add(log);
+      } else {
+        otherLogs.add(log);
+      }
+    }
 
     return Container(
       margin: const EdgeInsets.only(bottom: 24),
@@ -388,6 +631,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
             ],
           ),
           const SizedBox(height: 12),
+          _buildPhilIriComparisonCard(assessments),
           if (progressLogs.isEmpty)
             Container(
               padding: const EdgeInsets.all(8),
@@ -397,342 +641,395 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
             )
-          else
-            Table(
-              border: TableBorder.all(color: Colors.brown, width: 2),
-              columnWidths: const {
-                0: FlexColumnWidth(1.8),
-                1: FlexColumnWidth(1.2),
-                2: FlexColumnWidth(1.0),
-                3: FlexColumnWidth(1.2),
-                4: FlexColumnWidth(
-                  2.5,
-                ), // Expanded space for playable Audio Chips
-                5: FlexColumnWidth(1.8),
-              },
-              children: [
-                TableRow(
-                  decoration: BoxDecoration(color: Colors.brown.shade700),
-                  children: const [
-                    Padding(
-                      padding: EdgeInsets.all(8.0),
+          else ...[
+            _buildReadingRecordsSection(
+              "📝",
+              "PRE-TEST",
+              preTestLogs,
+              studentMispronunciations,
+              studentSelfCorrections,
+            ),
+            _buildReadingRecordsSection(
+              "✅",
+              "POST-TEST",
+              postTestLogs,
+              studentMispronunciations,
+              studentSelfCorrections,
+            ),
+            _buildReadingRecordsSection(
+              "📚",
+              "OTHER READS",
+              otherLogs,
+              studentMispronunciations,
+              studentSelfCorrections,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// One story-level reading-records table (Pre-Test / Post-Test / Other
+  /// Reads sections all reuse this), sharing the row-building logic the
+  /// single combined table used to use.
+  Widget _buildReadingRecordsTable(
+    List logs,
+    List studentMispronunciations,
+    List studentSelfCorrections,
+  ) {
+    return Table(
+      border: TableBorder.all(color: Colors.brown, width: 2),
+      columnWidths: const {
+        0: FlexColumnWidth(1.8),
+        1: FlexColumnWidth(1.2),
+        2: FlexColumnWidth(1.0),
+        3: FlexColumnWidth(1.2),
+        4: FlexColumnWidth(2.5), // Expanded space for playable Audio Chips
+        5: FlexColumnWidth(1.8),
+      },
+      children: [
+        TableRow(
+          decoration: BoxDecoration(color: Colors.brown.shade700),
+          children: const [
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(
+                "Story",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(
+                "Level",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(
+                "Quiz",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(
+                "WPM",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(
+                "Struggled Words & Audio",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+            Padding(
+              padding: EdgeInsets.all(8.0),
+              child: Text(
+                "Self-Corrected",
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 10,
+                ),
+              ),
+            ),
+          ],
+        ),
+        ...logs.map((log) {
+          List storyWords = studentMispronunciations
+              .where(
+                (m) => m['story_id'].toString() == log['story_id'].toString(),
+              )
+              .toList();
+
+          List storySelfCorrections = studentSelfCorrections
+              .where(
+                (m) => m['story_id'].toString() == log['story_id'].toString(),
+              )
+              .toList();
+
+          String selfCorrectedText = storySelfCorrections.isEmpty
+              ? "None"
+              : storySelfCorrections
+                    .map((w) => "${w['word']} (${w['total_attempts']}x)")
+                    .join(", ");
+
+          String wpmValue = log['wpm'] != null
+              ? "${(log['wpm'] as num).round()}"
+              : 'N/A';
+          String accuracyValue = log['oral_fluency_accuracy'] != null
+              ? "${log['oral_fluency_accuracy']}%"
+              : 'N/A';
+          String totalWords = log['total_words']?.toString() ?? '?';
+          String correctWords = log['correct_words']?.toString() ?? '?';
+
+          String timeSpentDisplay = '? mins';
+          if (log['time_on_task'] != null) {
+            int seconds = int.tryParse(log['time_on_task'].toString()) ?? 0;
+            int mins = seconds ~/ 60;
+            int secs = seconds % 60;
+            timeSpentDisplay = "${mins}m ${secs}s";
+          }
+
+          return TableRow(
+            decoration: BoxDecoration(color: Colors.amber.shade100),
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  _safeStr(
+                    log['story_title'] ??
+                        log['story']?['title'] ??
+                        log['title'],
+                    'Unknown',
+                  ),
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Expanded(
                       child: Text(
-                        "Story",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                        "${log['reading_level'] ?? 'N/A'}\n($accuracyValue)",
+                        style: const TextStyle(
                           fontSize: 10,
+                          fontWeight: FontWeight.w600,
                         ),
                       ),
                     ),
-                    Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Text(
-                        "Level",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
+                    Tooltip(
+                      message:
+                          "Accuracy Breakdown:\nCorrect: $correctWords words\nTotal: $totalWords words",
+                      triggerMode: TooltipTriggerMode.tap,
+                      padding: const EdgeInsets.all(12),
+                      showDuration: const Duration(seconds: 4),
+                      textStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Text(
-                        "Quiz",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(8),
                       ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Text(
-                        "WPM",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Text(
-                        "Struggled Words & Audio",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
-                      ),
-                    ),
-                    Padding(
-                      padding: EdgeInsets.all(8.0),
-                      child: Text(
-                        "Self-Corrected",
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 10,
-                        ),
+                      child: const Icon(
+                        Icons.info_outline,
+                        size: 14,
+                        color: Colors.blue,
                       ),
                     ),
                   ],
                 ),
-                ...progressLogs.map((log) {
-                  List storyWords = studentMispronunciations
-                      .where(
-                        (m) =>
-                            m['story_id'].toString() ==
-                            log['story_id'].toString(),
-                      )
-                      .toList();
+              ),
 
-                  List storySelfCorrections = studentSelfCorrections
-                      .where(
-                        (m) =>
-                            m['story_id'].toString() ==
-                            log['story_id'].toString(),
-                      )
-                      .toList();
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  "${log['quiz_score'] ?? 0}/${log['total_questions'] ?? 0}",
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
 
-                  String selfCorrectedText = storySelfCorrections.isEmpty
-                      ? "None"
-                      : storySelfCorrections
-                            .map(
-                              (w) => "${w['word']} (${w['total_attempts']}x)",
-                            )
-                            .join(", ");
-
-                  String wpmValue = log['wpm'] != null
-                      ? "${(log['wpm'] as num).round()}"
-                      : 'N/A';
-                  String accuracyValue = log['oral_fluency_accuracy'] != null
-                      ? "${log['oral_fluency_accuracy']}%"
-                      : 'N/A';
-                  String totalWords = log['total_words']?.toString() ?? '?';
-                  String correctWords = log['correct_words']?.toString() ?? '?';
-
-                  String timeSpentDisplay = '? mins';
-                  if (log['time_on_task'] != null) {
-                    int seconds =
-                        int.tryParse(log['time_on_task'].toString()) ?? 0;
-                    int mins = seconds ~/ 60;
-                    int secs = seconds % 60;
-                    timeSpentDisplay = "${mins}m ${secs}s";
-                  }
-
-                  return TableRow(
-                    decoration: BoxDecoration(color: Colors.amber.shade100),
-                    children: [
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          _safeStr(
-                            log['story_title'] ??
-                                log['story']?['title'] ??
-                                log['title'],
-                            'Unknown',
-                          ),
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      wpmValue,
+                      style: const TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
                       ),
+                    ),
+                    const SizedBox(width: 4),
+                    Tooltip(
+                      message:
+                          "Speed Breakdown:\nTime spent: $timeSpentDisplay\nTotal words: $totalWords",
+                      triggerMode: TooltipTriggerMode.tap,
+                      padding: const EdgeInsets.all(12),
+                      showDuration: const Duration(seconds: 4),
+                      textStyle: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.black87,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.info_outline,
+                        size: 14,
+                        color: Colors.blue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
 
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                "${log['reading_level'] ?? 'N/A'}\n($accuracyValue)",
-                                style: const TextStyle(
-                                  fontSize: 10,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ),
-                            Tooltip(
-                              message:
-                                  "Accuracy Breakdown:\nCorrect: $correctWords words\nTotal: $totalWords words",
-                              triggerMode: TooltipTriggerMode.tap,
-                              padding: const EdgeInsets.all(12),
-                              showDuration: const Duration(seconds: 4),
-                              textStyle: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
+              // 🔊 PLAYABLE STRUGGLED WORDS CHIPS WITH AUDIO RECORDING & MISCUE BADGES
+              Padding(
+                padding: const EdgeInsets.all(6.0),
+                child: storyWords.isEmpty
+                    ? const Text(
+                        "None",
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.green,
+                        ),
+                      )
+                    : Wrap(
+                        spacing: 4,
+                        runSpacing: 4,
+                        children: storyWords.map((item) {
+                          final String wordText = item['word'] ?? '';
+                          final String? audioUrl = item['audio_url'];
+                          final String miscueType =
+                              item['miscue_type'] ?? 'mispronunciation';
+                          final int attempts = item['total_attempts'] ?? 3;
+
+                          final bool isThisPlaying =
+                              _isPlayingAudio &&
+                              _currentlyPlayingUrl == audioUrl;
+
+                          Color chipBg = miscueType == 'omission'
+                              ? Colors.grey.shade800
+                              : Colors.red.shade900;
+
+                          return InkWell(
+                            onTap: audioUrl != null && audioUrl.isNotEmpty
+                                ? () => _togglePlayStruggleAudio(audioUrl)
+                                : null,
+                            borderRadius: BorderRadius.circular(6),
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.black87,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.info_outline,
-                                size: 14,
-                                color: Colors.blue,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          "${log['quiz_score'] ?? 0}/${log['total_questions'] ?? 0}",
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              wpmValue,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(width: 4),
-                            Tooltip(
-                              message:
-                                  "Speed Breakdown:\nTime spent: $timeSpentDisplay\nTotal words: $totalWords",
-                              triggerMode: TooltipTriggerMode.tap,
-                              padding: const EdgeInsets.all(12),
-                              showDuration: const Duration(seconds: 4),
-                              textStyle: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.black87,
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: const Icon(
-                                Icons.info_outline,
-                                size: 14,
-                                color: Colors.blue,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // 🔊 PLAYABLE STRUGGLED WORDS CHIPS WITH AUDIO RECORDING & MISCUE BADGES
-                      Padding(
-                        padding: const EdgeInsets.all(6.0),
-                        child: storyWords.isEmpty
-                            ? const Text(
-                                "None",
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.green,
+                                color: chipBg,
+                                borderRadius: BorderRadius.circular(6),
+                                border: Border.all(
+                                  color: isThisPlaying
+                                      ? Colors.amberAccent
+                                      : Colors.black,
+                                  width: isThisPlaying ? 2 : 1,
                                 ),
-                              )
-                            : Wrap(
-                                spacing: 4,
-                                runSpacing: 4,
-                                children: storyWords.map((item) {
-                                  final String wordText = item['word'] ?? '';
-                                  final String? audioUrl = item['audio_url'];
-                                  final String miscueType =
-                                      item['miscue_type'] ?? 'mispronunciation';
-                                  final int attempts =
-                                      item['total_attempts'] ?? 3;
-
-                                  final bool isThisPlaying =
-                                      _isPlayingAudio &&
-                                      _currentlyPlayingUrl == audioUrl;
-
-                                  Color chipBg = miscueType == 'omission'
-                                      ? Colors.grey.shade800
-                                      : Colors.red.shade900;
-
-                                  return InkWell(
-                                    onTap:
-                                        audioUrl != null && audioUrl.isNotEmpty
-                                        ? () =>
-                                              _togglePlayStruggleAudio(audioUrl)
-                                        : null,
-                                    borderRadius: BorderRadius.circular(6),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 6,
-                                        vertical: 3,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: chipBg,
-                                        borderRadius: BorderRadius.circular(6),
-                                        border: Border.all(
-                                          color: isThisPlaying
-                                              ? Colors.amberAccent
-                                              : Colors.black,
-                                          width: isThisPlaying ? 2 : 1,
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            miscueType == 'omission'
-                                                ? "$wordText (omitted)"
-                                                : "$wordText (${attempts}x)",
-                                            style: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 10,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                          ),
-                                          if (audioUrl != null &&
-                                              audioUrl.isNotEmpty) ...[
-                                            const SizedBox(width: 4),
-                                            Icon(
-                                              isThisPlaying
-                                                  ? Icons.stop_circle
-                                                  : Icons.volume_up,
-                                              color: isThisPlaying
-                                                  ? Colors.amberAccent
-                                                  : Colors.white,
-                                              size: 13,
-                                            ),
-                                          ],
-                                        ],
-                                      ),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    miscueType == 'omission'
+                                        ? "$wordText (omitted)"
+                                        : "$wordText (${attempts}x)",
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10,
+                                      fontWeight: FontWeight.bold,
                                     ),
-                                  );
-                                }).toList(),
+                                  ),
+                                  if (audioUrl != null &&
+                                      audioUrl.isNotEmpty) ...[
+                                    const SizedBox(width: 4),
+                                    Icon(
+                                      isThisPlaying
+                                          ? Icons.stop_circle
+                                          : Icons.volume_up,
+                                      color: isThisPlaying
+                                          ? Colors.amberAccent
+                                          : Colors.white,
+                                      size: 13,
+                                    ),
+                                  ],
+                                ],
                               ),
+                            ),
+                          );
+                        }).toList(),
                       ),
+              ),
 
-                      Padding(
-                        padding: const EdgeInsets.all(8.0),
-                        child: Text(
-                          selfCorrectedText,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                            color: Colors.orange.shade800,
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                }).toList(),
-              ],
+              Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: Text(
+                  selfCorrectedText,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.orange.shade800,
+                  ),
+                ),
+              ),
+            ],
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  /// A labeled reading-records section (Pre-Test / Post-Test / Other Reads).
+  /// Returns nothing when this bucket has no logs, so empty sections don't
+  /// leave blank gaps in the card.
+  Widget _buildReadingRecordsSection(
+    String emoji,
+    String title,
+    List logs,
+    List studentMispronunciations,
+    List studentSelfCorrections,
+  ) {
+    if (logs.isEmpty) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Text(
+              "$emoji $title",
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
             ),
+          ),
+          _buildReadingRecordsTable(
+            logs,
+            studentMispronunciations,
+            studentSelfCorrections,
+          ),
         ],
       ),
     );
