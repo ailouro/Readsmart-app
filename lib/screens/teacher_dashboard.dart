@@ -1676,6 +1676,13 @@ class _StudentsTabState extends State<_StudentsTab> {
 
   final Map<dynamic, Future<List<dynamic>>> _progressFutureCache = {};
 
+  // Which Phil-IRI stat card ("frustration" / "instructional" / "independent")
+  // is currently expanded to show its per-student progress bars. Null = none
+  // expanded. Tapping the same card again collapses it.
+  String? _expandedLevelKey;
+  final Map<String, Future<List<Map<String, dynamic>>>> _levelStudentsCache =
+      {};
+
   Future<List<dynamic>> _fetchStudentProgress(dynamic studentId) {
     if (studentId == null) return Future.value(const []);
     return _progressFutureCache.putIfAbsent(studentId, () async {
@@ -2407,7 +2414,55 @@ class _StudentsTabState extends State<_StudentsTab> {
   }
 
   Future<void> _refreshAll() async {
+    _levelStudentsCache.clear();
     await Future.wait([_fetchClasses(), _fetchAnalytics()]);
+  }
+
+  /// Students whose MOST RECENT reading attempt falls under [levelKey]
+  /// ("frustration" / "instructional" / "independent"), each with that
+  /// attempt's oral fluency accuracy so we can draw a progress bar for them.
+  /// Reuses the same cached per-student progress fetch the Learners'
+  /// Records cards already use, so this doesn't add new network calls
+  /// beyond what the dashboard already needs.
+  Future<List<Map<String, dynamic>>> _studentsForLevel(String levelKey) {
+    return _levelStudentsCache.putIfAbsent(levelKey, () async {
+      final List students = (_summaryData['students'] as List?) ?? [];
+      final List<Map<String, dynamic>> result = [];
+
+      for (final raw in students) {
+        final s = Map<String, dynamic>.from(raw as Map);
+        final studentId = s['id'] ?? s['user_id'];
+        final logs = await _fetchStudentProgress(studentId);
+        if (logs.isEmpty) continue;
+
+        // Assumes the backend returns progress logs oldest-first, so the
+        // last entry is the most recent attempt. Flip to logs.first if the
+        // API actually returns newest-first.
+        final Map latest = Map.from(logs.last as Map);
+        final String level = _safeString(latest['reading_level']).toLowerCase();
+        if (!level.contains(levelKey)) continue;
+
+        final double accuracy = (latest['oral_fluency_accuracy'] != null)
+            ? (latest['oral_fluency_accuracy'] as num).toDouble().clamp(0, 100)
+            : 0.0;
+
+        result.add({
+          'name': _safeString(s['name'], 'N/A'),
+          'accuracy': accuracy,
+        });
+      }
+
+      result.sort(
+        (a, b) => (a['name'] as String).compareTo(b['name'] as String),
+      );
+      return result;
+    });
+  }
+
+  void _toggleLevelExpansion(String levelKey) {
+    setState(() {
+      _expandedLevelKey = _expandedLevelKey == levelKey ? null : levelKey;
+    });
   }
 
   @override
@@ -2443,6 +2498,9 @@ class _StudentsTabState extends State<_StudentsTab> {
                               _summaryData['frustration_count']?.toString() ??
                               "0",
                           color: Colors.red.shade700,
+                          levelKey: "frustration",
+                          isExpanded: _expandedLevelKey == "frustration",
+                          onTap: () => _toggleLevelExpansion("frustration"),
                         ),
                         const SizedBox(width: 8),
                         _buildStatCard(
@@ -2451,6 +2509,9 @@ class _StudentsTabState extends State<_StudentsTab> {
                               _summaryData['instructional_count']?.toString() ??
                               "0",
                           color: Colors.amber.shade800,
+                          levelKey: "instructional",
+                          isExpanded: _expandedLevelKey == "instructional",
+                          onTap: () => _toggleLevelExpansion("instructional"),
                         ),
                         const SizedBox(width: 8),
                         _buildStatCard(
@@ -2459,8 +2520,19 @@ class _StudentsTabState extends State<_StudentsTab> {
                               _summaryData['independent_count']?.toString() ??
                               "0",
                           color: const Color(0xFF8BCA84),
+                          levelKey: "independent",
+                          isExpanded: _expandedLevelKey == "independent",
+                          onTap: () => _toggleLevelExpansion("independent"),
                         ),
                       ],
+                    ),
+                    AnimatedSize(
+                      duration: const Duration(milliseconds: 250),
+                      curve: Curves.easeInOut,
+                      alignment: Alignment.topCenter,
+                      child: _expandedLevelKey == null
+                          ? const SizedBox.shrink()
+                          : _buildLevelStudentsDropdown(_expandedLevelKey!),
                     ),
                     const SizedBox(height: 20),
                     _buildClassLevelChart(),
@@ -2681,45 +2753,170 @@ class _StudentsTabState extends State<_StudentsTab> {
     required String title,
     required String count,
     required Color color,
+    String? levelKey,
+    bool isExpanded = false,
+    VoidCallback? onTap,
   }) {
     return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.black, width: 3),
-          boxShadow: const [
-            BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-          ],
-        ),
-        child: Column(
-          children: [
-            Text(
-              count,
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                shadows: [Shadow(color: Colors.black, offset: Offset(1, 1))],
-              ),
-            ),
-            const SizedBox(height: 4),
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              child: Text(
-                title,
-                maxLines: 1,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(15),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+          decoration: BoxDecoration(
+            color: color,
+            borderRadius: BorderRadius.circular(15),
+            border: Border.all(color: Colors.black, width: 3),
+            boxShadow: const [
+              BoxShadow(color: Colors.black, offset: Offset(4, 4)),
+            ],
+          ),
+          child: Column(
+            children: [
+              Text(
+                count,
                 style: const TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+                  fontSize: 26,
+                  fontWeight: FontWeight.w900,
                   color: Colors.white,
+                  shadows: [Shadow(color: Colors.black, offset: Offset(1, 1))],
                 ),
-                textAlign: TextAlign.center,
               ),
-            ),
-          ],
+              const SizedBox(height: 4),
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+              if (onTap != null) ...[
+                const SizedBox(height: 2),
+                Icon(
+                  isExpanded
+                      ? Icons.keyboard_arrow_up
+                      : Icons.keyboard_arrow_down,
+                  color: Colors.white,
+                  size: 18,
+                ),
+              ],
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  /// Dropdown panel shown below the stat card row when a Frustration /
+  /// Instructional / Independent card is tapped — one row per student
+  /// currently in that level, each with a progress bar for their oral
+  /// fluency accuracy on their latest reading attempt.
+  Widget _buildLevelStudentsDropdown(String levelKey) {
+    final Color barColor = levelKey == "frustration"
+        ? Colors.red.shade700
+        : (levelKey == "instructional"
+              ? Colors.amber.shade800
+              : const Color(0xFF8BCA84));
+    final String levelLabel = levelKey[0].toUpperCase() + levelKey.substring(1);
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: Colors.black, width: 3),
+        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
+      ),
+      child: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _studentsForLevel(levelKey),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Padding(
+              padding: EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: CircularProgressIndicator(color: maroonTheme),
+              ),
+            );
+          }
+
+          final List<Map<String, dynamic>> list = snapshot.data ?? [];
+          if (list.isEmpty) {
+            return Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(
+                "Walang estudyanteng kasalukuyang nasa $levelLabel level.",
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            );
+          }
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                "$levelLabel Level (${list.length})",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 8),
+              ...list.map((s) {
+                final double accuracy = s['accuracy'] as double;
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Row(
+                    children: [
+                      SizedBox(
+                        width: 110,
+                        child: Text(
+                          s['name'] as String,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                            value: accuracy / 100.0,
+                            minHeight: 14,
+                            backgroundColor: Colors.black12,
+                            valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 36,
+                        child: Text(
+                          "${accuracy.toStringAsFixed(0)}%",
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 11,
+                          ),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }),
+            ],
+          );
+        },
       ),
     );
   }
