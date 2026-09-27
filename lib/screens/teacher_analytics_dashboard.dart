@@ -57,15 +57,6 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
     });
   }
 
-  /// Extracts every class id a student is enrolled in, from the `classes`
-  /// key — confirmed against User::classes() in User.php, a
-  /// belongsToMany(SchoolClass::class, 'class_student', ...) relation, so
-  /// an eager-loaded student/user JSON payload carries its classes there.
-  /// The other keys are kept as a fallback only, in case a particular
-  /// endpoint serializes it under a different name. The Phil-IRI
-  /// /assessments endpoint is scoped per class, so this is what lets the
-  /// record card pull the student's pre-test/post-test assessment rows
-  /// across all their classes.
   List<String> _resolveStudentClassIds(Map<String, dynamic> student) {
     final Set<String> ids = {};
     void addFrom(dynamic c) {
@@ -88,10 +79,6 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
     return ids.toList();
   }
 
-  /// Fetches this student's Phil-IRI Stage 2 GST assessment rows (the
-  /// official independent/instructional/frustration grade results, as
-  /// opposed to the story-level reading records) across every class the
-  /// student belongs to, and merges them into one list.
   Future<List<Map<String, dynamic>>> _fetchStudentAssessments(
     Map<String, dynamic> student,
   ) {
@@ -149,11 +136,6 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
     return null;
   }
 
-  /// The official Phil-IRI Pre-Test vs Post-Test comparison, built from the
-  /// Stage 2 GST /assessments records (independent/instructional/
-  /// frustration grade levels) rather than the story reading logs — kept
-  /// separate from the reading-records tables below it since they're two
-  /// different tests.
   Widget _buildPhilIriComparisonCard(List<Map<String, dynamic>> assessments) {
     Map<String, dynamic>? pre;
     Map<String, dynamic>? post;

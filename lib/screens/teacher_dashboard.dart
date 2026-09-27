@@ -2639,6 +2639,129 @@ class _StudentsTabState extends State<_StudentsTab> {
     );
   }
 
+  double _avgWr(List logs) {
+    if (logs.isEmpty) return 0;
+    final sum = logs.fold<double>(0, (s, l) {
+      final v = l['oral_fluency_accuracy'];
+      return s + (v is num ? v.toDouble() : (double.tryParse('$v') ?? 0));
+    });
+    return sum / logs.length;
+  }
+
+  double _avgComp(List logs) {
+    if (logs.isEmpty) return 0;
+    final sum = logs.fold<double>(0, (s, l) {
+      final qs = (l['quiz_score'] ?? 0) as num;
+      final tq = (l['total_questions'] ?? 0) as num;
+      return s + (tq > 0 ? qs / tq * 100 : 0.0);
+    });
+    return sum / logs.length;
+  }
+
+  double _avgWpm(List logs) {
+    final valid = logs.where((l) => l['wpm'] != null).toList();
+    if (valid.isEmpty) return 0;
+    final sum = valid.fold<double>(
+      0,
+      (s, l) => s + (l['wpm'] as num).toDouble(),
+    );
+    return sum / valid.length;
+  }
+
+  Widget _buildScoreComparisonCard(List preTestLogs, List postTestLogs) {
+    if (preTestLogs.isEmpty && postTestLogs.isEmpty)
+      return const SizedBox.shrink();
+
+    Widget scoreColumn(
+      String label,
+      double preVal,
+      double postVal, {
+      String suffix = '%',
+    }) {
+      final diff = postVal - preVal;
+      final arrow = diff.abs() < 0.5
+          ? Icons.remove_rounded
+          : (diff > 0
+                ? Icons.arrow_upward_rounded
+                : Icons.arrow_downward_rounded);
+      final arrowColor = diff.abs() < 0.5
+          ? Colors.black38
+          : (diff > 0 ? Colors.green.shade700 : Colors.red.shade700);
+      return Expanded(
+        child: Column(
+          children: [
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  "${preVal.toStringAsFixed(1)}$suffix",
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Icon(arrow, size: 14, color: arrowColor),
+                Text(
+                  "${postVal.toStringAsFixed(1)}$suffix",
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.brown, width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const Text(
+            "📈 Average Scores: Pre-Test vs Post-Test",
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+          ),
+          Text(
+            "${preTestLogs.length} pre-test • ${postTestLogs.length} post-test stories",
+            style: const TextStyle(fontSize: 10, color: Colors.black54),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              scoreColumn("WR %", _avgWr(preTestLogs), _avgWr(postTestLogs)),
+              scoreColumn(
+                "Comp %",
+                _avgComp(preTestLogs),
+                _avgComp(postTestLogs),
+              ),
+              scoreColumn(
+                "WPM",
+                _avgWpm(preTestLogs),
+                _avgWpm(postTestLogs),
+                suffix: '',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _refreshAll() async {
     _levelStudentsCache.clear();
     await Future.wait([_fetchClasses(), _fetchAnalytics()]);
@@ -4426,6 +4549,7 @@ class _StudentsTabState extends State<_StudentsTab> {
     Map<String, dynamic> student,
     List progressLogs,
     List<Map<String, dynamic>> assessments, {
+
     bool isLoading = false,
   }) {
     List studentMispronunciations = _mispronunciations
@@ -4537,8 +4661,22 @@ class _StudentsTabState extends State<_StudentsTab> {
               ),
             ],
           ),
+
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text(
+              "🔑 WR = Word Recognition Accuracy (% ng salitang tama nabasa) • "
+              "Comp = Comprehension Score (% ng tamang sagot sa quiz)",
+              style: TextStyle(
+                fontSize: 9,
+                fontStyle: FontStyle.italic,
+                color: Colors.black54,
+              ),
+            ),
+          ),
           const SizedBox(height: 12),
           _buildPhilIriComparisonCard(assessments),
+          _buildScoreComparisonCard(preTestLogs, postTestLogs),
           if (isLoading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
@@ -7101,9 +7239,9 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                                     student['name'] ?? student['username'],
                                     'Student',
                                   );
-                                  final email = _safeString(
-                                    student['email'],
-                                    'No email',
+                                  final lrn = _safeString(
+                                    student['lrn'],
+                                    'No LRN on file',
                                   );
 
                                   return Container(
@@ -7186,7 +7324,7 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                                         ),
                                       ),
                                       subtitle: Text(
-                                        email,
+                                        "LRN: $lrn",
                                         style: const TextStyle(fontSize: 12),
                                       ),
                                       trailing: !_usePhilIriAssessments
