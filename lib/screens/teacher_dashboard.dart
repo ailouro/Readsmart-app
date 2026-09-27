@@ -3738,10 +3738,15 @@ class _StudentsTabState extends State<_StudentsTab> {
           backgroundColor: Colors.transparent,
           insetPadding: const EdgeInsets.symmetric(
             horizontal: 16,
-            vertical: 40,
+            vertical: 24,
           ),
           child: Container(
-            constraints: const BoxConstraints(maxWidth: 440, maxHeight: 640),
+            constraints: BoxConstraints(
+              maxWidth: MediaQuery.of(context).size.width > 960
+                  ? 900
+                  : MediaQuery.of(context).size.width * 0.95,
+              maxHeight: MediaQuery.of(context).size.height * 0.9,
+            ),
             decoration: BoxDecoration(
               color: const Color(0xFFD4B2C2),
               borderRadius: BorderRadius.circular(20),
@@ -4034,7 +4039,15 @@ class _StudentsTabState extends State<_StudentsTab> {
               ),
             )
           else
-            Table(
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  minWidth: MediaQuery.of(context).size.width > 960
+                      ? 860
+                      : MediaQuery.of(context).size.width - 60,
+                ),
+                child: Table(
               border: TableBorder.all(color: Colors.brown, width: 2),
               columnWidths: const {
                 0: FlexColumnWidth(1.6), // Story Title
@@ -4154,7 +4167,12 @@ class _StudentsTabState extends State<_StudentsTab> {
                       Padding(
                         padding: const EdgeInsets.all(6.0),
                         child: Text(
-                          log['story']?['title'] ?? 'Unknown',
+                          _safeString(
+                            log['story_title'] ??
+                                log['story']?['title'] ??
+                                log['title'],
+                            'Unknown',
+                          ),
                           style: const TextStyle(
                             fontSize: 10,
                             fontWeight: FontWeight.w700,
@@ -4255,7 +4273,9 @@ class _StudentsTabState extends State<_StudentsTab> {
                   );
                 }), // Pwedeng alisin ang .toList() kapag may '...' na sa harap
               ],
-            ), // Isasara ang Table
+                ), // Isasara ang Table
+              ), // Isasara ang ConstrainedBox
+            ), // Isasara ang SingleChildScrollView
         ],
       ), // Isasara ang Column
     ); // Isasara ang Container

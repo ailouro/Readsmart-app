@@ -531,7 +531,12 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                       Padding(
                         padding: const EdgeInsets.all(8.0),
                         child: Text(
-                          log['story']?['title'] ?? 'Unknown',
+                          _safeStr(
+                            log['story_title'] ??
+                                log['story']?['title'] ??
+                                log['title'],
+                            'Unknown',
+                          ),
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w600,
