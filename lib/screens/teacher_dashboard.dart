@@ -3291,6 +3291,29 @@ class _StudentsTabState extends State<_StudentsTab> {
     );
   }
 
+  /// Fetches each student's progress (using the same cached
+  /// /api/student/{id}/all-progress call the profile popup uses) and
+  /// returns the list re-ordered so students who have taken at least one
+  /// activity come first, with A–Z order preserved within each group.
+  Future<List<Map<String, dynamic>>> _sortStudentsByTaken(
+    List<Map<String, dynamic>> students,
+  ) async {
+    final entries = await Future.wait(
+      students.map((s) async {
+        final id = s['id'] ?? s['user_id'];
+        final progress = await _fetchStudentProgress(id);
+        return MapEntry(s, progress.isNotEmpty);
+      }),
+    );
+    entries.sort((a, b) {
+      if (a.value != b.value) return a.value ? -1 : 1; // taken first
+      return _safeString(
+        a.key['name'],
+      ).toLowerCase().compareTo(_safeString(b.key['name']).toLowerCase());
+    });
+    return entries.map((e) => e.key).toList();
+  }
+
   void _openClassStudentsPopup(
     BuildContext context,
     String classLabel,
@@ -3310,39 +3333,99 @@ class _StudentsTabState extends State<_StudentsTab> {
           builder: (context, scrollController) {
             return StatefulBuilder(
               builder: (context, setSheetState) {
-                final filteredStudents = _studentSearchQuery.isEmpty
-                    ? students
-                    : students.where((s) {
-                        final name = _safeString(s['name'], '').toLowerCase();
-                        return name.contains(_studentSearchQuery);
-                      }).toList();
+                return FutureBuilder<List<Map<String, dynamic>>>(
+                  future: _sortStudentsByTaken(students),
+                  builder: (context, sortSnapshot) {
+                    final orderedStudents = sortSnapshot.data ?? students;
+                    final filteredStudents = _studentSearchQuery.isEmpty
+                        ? orderedStudents
+                        : orderedStudents.where((s) {
+                            final name = _safeString(
+                              s['name'],
+                              '',
+                            ).toLowerCase();
+                            return name.contains(_studentSearchQuery);
+                          }).toList();
 
-                return Container(
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFD4B2C2),
-                    borderRadius: BorderRadius.vertical(
-                      top: Radius.circular(24),
-                    ),
-                    border: Border(
-                      top: BorderSide(color: Colors.black, width: 3.5),
-                      left: BorderSide(color: Colors.black, width: 3.5),
-                      right: BorderSide(color: Colors.black, width: 3.5),
-                    ),
-                  ),
-                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    return Container(
+                      decoration: const BoxDecoration(
+                        color: Color(0xFFD4B2C2),
+                        borderRadius: BorderRadius.vertical(
+                          top: Radius.circular(24),
+                        ),
+                        border: Border(
+                          top: BorderSide(color: Colors.black, width: 3.5),
+                          left: BorderSide(color: Colors.black, width: 3.5),
+                          right: BorderSide(color: Colors.black, width: 3.5),
+                        ),
+                      ),
+                      padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: accentTheme,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.black,
+                                    width: 2.5,
+                                  ),
+                                  boxShadow: const [
+                                    BoxShadow(
+                                      color: Colors.black,
+                                      offset: Offset(3, 3),
+                                    ),
+                                  ],
+                                ),
+                                child: Text(
+                                  classLabel,
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 15,
+                                  ),
+                                ),
+                              ),
+                              InkWell(
+                                onTap: () => Navigator.pop(sheetContext),
+                                child: Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: const BoxDecoration(
+                                    color: maroonTheme,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8, bottom: 6),
+                            child: Text(
+                              "${filteredStudents.length} student${filteredStudents.length == 1 ? '' : 's'} • taken activities first, then A–Z",
+                              style: const TextStyle(
+                                fontSize: 12,
+                                color: Colors.black54,
+                              ),
                             ),
+                          ),
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
                             decoration: BoxDecoration(
-                              color: accentTheme,
+                              color: Colors.white,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
                                 color: Colors.black,
@@ -3355,135 +3438,89 @@ class _StudentsTabState extends State<_StudentsTab> {
                                 ),
                               ],
                             ),
-                            child: Text(
-                              classLabel,
+                            child: TextField(
                               style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 15,
+                                fontWeight: FontWeight.w700,
+                                color: Colors.black,
+                                fontSize: 14,
                               ),
+                              decoration: InputDecoration(
+                                hintText: "Search student name...",
+                                hintStyle: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.black45,
+                                  fontSize: 13,
+                                ),
+                                prefixIcon: const Icon(
+                                  Icons.search_rounded,
+                                  color: Colors.black,
+                                  size: 20,
+                                ),
+                                suffixIcon: _studentSearchQuery.isNotEmpty
+                                    ? IconButton(
+                                        icon: const Icon(
+                                          Icons.close_rounded,
+                                          color: Colors.black54,
+                                          size: 18,
+                                        ),
+                                        onPressed: () {
+                                          setSheetState(() {
+                                            _studentSearchQuery = '';
+                                          });
+                                        },
+                                      )
+                                    : null,
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                              ),
+                              onChanged: (value) {
+                                setSheetState(() {
+                                  _studentSearchQuery = value
+                                      .trim()
+                                      .toLowerCase();
+                                });
+                              },
                             ),
                           ),
-                          InkWell(
-                            onTap: () => Navigator.pop(sheetContext),
-                            child: Container(
-                              width: 34,
-                              height: 34,
-                              decoration: const BoxDecoration(
-                                color: maroonTheme,
-                                shape: BoxShape.circle,
-                              ),
-                              child: const Icon(
-                                Icons.close,
-                                color: Colors.white,
-                                size: 18,
-                              ),
-                            ),
+                          Expanded(
+                            child: filteredStudents.isEmpty
+                                ? const Center(
+                                    child: Padding(
+                                      padding: EdgeInsets.only(top: 40),
+                                      child: Text(
+                                        "No students match your search.",
+                                        style: TextStyle(
+                                          color: Colors.black54,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                : ListView.builder(
+                                    controller: scrollController,
+                                    itemCount: filteredStudents.length,
+                                    itemBuilder: (context, index) {
+                                      final student = filteredStudents[index];
+                                      return _buildStudentSummaryRow(
+                                        student,
+                                        onTap: () {
+                                          Navigator.pop(sheetContext);
+                                          _openStudentProfilePopup(
+                                            context,
+                                            student,
+                                          );
+                                        },
+                                      );
+                                    },
+                                  ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Padding(
-                        padding: const EdgeInsets.only(top: 8, bottom: 6),
-                        child: Text(
-                          "${filteredStudents.length} student${filteredStudents.length == 1 ? '' : 's'} • sorted A–Z",
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.black54,
-                          ),
-                        ),
-                      ),
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Colors.black, width: 2.5),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black,
-                              offset: Offset(3, 3),
-                            ),
-                          ],
-                        ),
-                        child: TextField(
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            color: Colors.black,
-                            fontSize: 14,
-                          ),
-                          decoration: InputDecoration(
-                            hintText: "Search student name...",
-                            hintStyle: const TextStyle(
-                              fontWeight: FontWeight.w600,
-                              color: Colors.black45,
-                              fontSize: 13,
-                            ),
-                            prefixIcon: const Icon(
-                              Icons.search_rounded,
-                              color: Colors.black,
-                              size: 20,
-                            ),
-                            suffixIcon: _studentSearchQuery.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(
-                                      Icons.close_rounded,
-                                      color: Colors.black54,
-                                      size: 18,
-                                    ),
-                                    onPressed: () {
-                                      setSheetState(() {
-                                        _studentSearchQuery = '';
-                                      });
-                                    },
-                                  )
-                                : null,
-                            border: InputBorder.none,
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                          ),
-                          onChanged: (value) {
-                            setSheetState(() {
-                              _studentSearchQuery = value.trim().toLowerCase();
-                            });
-                          },
-                        ),
-                      ),
-                      Expanded(
-                        child: filteredStudents.isEmpty
-                            ? const Center(
-                                child: Padding(
-                                  padding: EdgeInsets.only(top: 40),
-                                  child: Text(
-                                    "No students match your search.",
-                                    style: TextStyle(
-                                      color: Colors.black54,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                              )
-                            : ListView.builder(
-                                controller: scrollController,
-                                itemCount: filteredStudents.length,
-                                itemBuilder: (context, index) {
-                                  final student = filteredStudents[index];
-                                  return _buildStudentSummaryRow(
-                                    student,
-                                    onTap: () {
-                                      Navigator.pop(sheetContext);
-                                      _openStudentProfilePopup(
-                                        context,
-                                        student,
-                                      );
-                                    },
-                                  );
-                                },
-                              ),
-                      ),
-                    ],
-                  ),
+                    );
+                  },
                 );
               },
             );
