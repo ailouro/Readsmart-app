@@ -941,7 +941,13 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         return;
       }
 
-      _pageTargetWords[_currentPage] = List.from(_targetWords);
+      // Only record this page's word states if the student actually
+      // started oral reading on it — otherwise leave it unset so the loop
+      // below correctly falls into the "never read" branch instead of
+      // treating an untouched page as 100% correct.
+      if (_pagesWithOralReadingStarted.contains(_currentPage)) {
+        _pageTargetWords[_currentPage] = List.from(_targetWords);
+      }
 
       int totalWordsCount = 0;
       int failedWordsCount = 0;
@@ -1015,7 +1021,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       // "next next" lang), huwag itong i-grade at huwag i-direct sa quiz.
       // Ipabalik muna ang bata sa unang slide at ipapakita ang isang chat
       // bubble na nakaturo sa "Start Oral Reading" button.
-      final bool didAnyOralReading = _pageTargetWords.isNotEmpty;
+      final bool didAnyOralReading = _pagesWithOralReadingStarted.isNotEmpty;
       if (totalWordsCount > 0 && !didAnyOralReading) {
         if (!mounted) return;
         setState(() => _showReadReminder = true);
