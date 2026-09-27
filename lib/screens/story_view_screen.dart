@@ -1016,6 +1016,43 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         wrLevel = 'Frustration';
       }
 
+      // 🛑 GUARD (data integrity): audio_scripts is a NULLABLE json column
+      // (see add_audio_scripts_to_story_pages_table migration), so a story
+      // can be saved in the admin panel with zero reading text on every
+      // page. When that happens totalWordsCount stays 0 for the whole
+      // story, which used to silently satisfy the "nothing left to read"
+      // check below and send the student straight to a (usually broken)
+      // quiz without ever requiring oral reading. Treat that as a content
+      // problem, not a free pass — stop here and send them back instead of
+      // continuing to the quiz.
+      if (totalWordsCount == 0) {
+        if (!mounted) return;
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (dialogContext) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            title: const Text("May Problema sa Kwentong Ito"),
+            content: const Text(
+              "Ang kwentong ito ay walang laman na pwedeng basahin nang "
+              "malakas. Hindi muna maaaring magpatuloy. Pakisabi sa iyong "
+              "guro na tingnan ang kwentong ito.",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(dialogContext),
+                child: const Text("OK"),
+              ),
+            ],
+          ),
+        );
+        if (!mounted) return;
+        Navigator.pop(context);
+        return;
+      }
+
       // 🛑 GUARD: kung may binasahing teksto sa story pero walang kahit
       // isang page na na-Start Oral Reading (di ginamit ang mic talaga —
       // "next next" lang), huwag itong i-grade at huwag i-direct sa quiz.
