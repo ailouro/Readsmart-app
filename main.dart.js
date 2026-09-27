@@ -113689,69 +113689,69 @@ ka(){var s=0,r=A.t(t.H),q,p=2,o=[],n=this,m,l,k,j,i,h,g,f,e,d,c,b,a,a0,a1,a2,a3,
 var $async$ka=A.o(function(b2,b3){if(b2===1){o.push(b3)
 s=p}for(;;)switch(s){case 0:s=3
 return A.h(n.iA(),$async$ka)
-case 3:if(n.db.q(0,n.e))n.anG()
-j=J.a9(n.a.c,"pages")
-if(j==null)j=[]
-s=n.e<J.b0(j)-1?4:6
+case 3:j=n.db
+if(j.q(0,n.e))n.anG()
+i=J.a9(n.a.c,"pages")
+if(i==null)i=[]
+s=n.e<J.b0(i)-1?4:6
 break
 case 4:n.d.a8f(B.dt,B.ez)
 s=5
 break
-case 6:i={}
-if(n.ok&&!n.a.w){h=n.c
-if(h==null){s=1
-break}A.us(h,A.dK(new A.aPz(n),null,t.z))
+case 6:h={}
+if(n.ok&&!n.a.w){j=n.c
+if(j==null){s=1
+break}A.us(j,A.dK(new A.aPz(n),null,t.z))
 s=1
-break}h=n.k1
-h.p(0,n.e,A.hv(n.cy,!0,t.wo))
-i.a=0
+break}if(j.q(0,n.e))n.k1.p(0,n.e,A.hv(n.cy,!0,t.wo))
+h.a=0
 g=J.a9(n.a.c,"pages")
 if(g==null)g=[]
-for(f=J.aD(g),e=t.j,d=0,c=0;c<f.gE(g);++c)if(h.aw(c)){b=h.h(0,c)
-b.toString
-a=A.W(b).i("au<1>")
-a0=new A.au(b,new A.aPA(),a)
-i.a=i.a+a0.gE(0)
-d+=new A.au(a0,new A.aPB(n),a.i("au<D.E>")).gE(0)}else{a1=J.a9(f.h(g,c),"audio_scripts")
-if(e.b(a1))a2=J.PY(a1," ")
-else a2=typeof a1=="string"?a1:""
-if(B.c.bz(a2).length!==0){b=B.c.ov(a2,A.c7("\\s+",!0,!1))
-a3=new A.au(b,new A.aPC(),A.W(b).i("au<1>")).gE(0)
-i.a+=a3
-d+=a3}}m=i.a-d
+for(f=J.aD(g),e=t.j,d=n.k1,c=0,b=0;b<f.gE(g);++b)if(d.aw(b)){a=d.h(0,b)
+a.toString
+a0=A.W(a).i("au<1>")
+a1=new A.au(a,new A.aPA(),a0)
+h.a=h.a+a1.gE(0)
+c+=new A.au(a1,new A.aPB(n),a0.i("au<D.E>")).gE(0)}else{a2=J.a9(f.h(g,b),"audio_scripts")
+if(e.b(a2))a3=J.PY(a2," ")
+else a3=typeof a2=="string"?a2:""
+if(B.c.bz(a3).length!==0){a=B.c.ov(a3,A.c7("\\s+",!0,!1))
+a4=new A.au(a,new A.aPC(),A.W(a).i("au<1>")).gE(0)
+h.a+=a4
+c+=a4}}m=h.a-c
 if(m<0)m=0
-a4=i.b=B.l.d_(n.ax.a,1e6)
-if(a4<=0&&n.at!=null){f=Date.now()
+a5=h.b=B.l.d_(n.ax.a,1e6)
+if(a5<=0&&n.at!=null){f=Date.now()
 e=n.at
 e.toString
-a4=B.l.d_(new A.fJ(f,0,!1).fS(e).a,1e6)
-i.b=a4
-f=a4}else f=a4
-a5=(f<=0?i.b=1:f)/60
-l=a5>0&&m>0?B.e.aJ(m/a5):0
-f=i.a
-a6=f>0?m/f*100:0
-i.c=a6
-i.c=A.aWV(B.e.ai(a6,2))
-h=h.a===0
-if(i.a>0&&h){if(n.c==null){s=1
+a5=B.l.d_(new A.fJ(f,0,!1).fS(e).a,1e6)
+h.b=a5
+f=a5}else f=a5
+a6=(f<=0?h.b=1:f)/60
+l=a6>0&&m>0?B.e.aJ(m/a6):0
+f=h.a
+a7=f>0?m/f*100:0
+h.c=a7
+h.c=A.aWV(B.e.ai(a7,2))
+j=j.a===0
+if(h.a>0&&j){if(n.c==null){s=1
 break}n.D(new A.aPD(n))
 n.d.GW(0)
 s=1
-break}h=n.a
-s=!h.r&&!h.w?7:8
+break}j=n.a
+s=!j.r&&!j.w?7:8
 break
 case 7:p=10
-h=A.bm(h.d+"/api/student/progress",0,null)
+j=A.bm(j.d+"/api/student/progress",0,null)
 f=t.N
 e=A.ab(["Content-Type","application/json","ngrok-skip-browser-warning","69420"],f,f)
-b=n.a
-a=b.e
-b=J.a9(b.c,"id")
-if(b==null)b=J.a9(n.a.c,"_id")
-a7=n.k4
+d=n.a
+a=d.e
+d=J.a9(d.c,"id")
+if(d==null)d=J.a9(n.a.c,"_id")
+a0=n.k4
 s=13
-return A.h(A.f4(h,B.B.e7(A.ab(["student_id",a,"user_id",a,"story_id",b,"quiz_score",0,"total_questions",0,"oral_fluency_accuracy",i.c,"total_words",i.a,"correct_words",m,"time_on_task",i.b,"wpm",l,"struggled_words",new A.V(a7,new A.aPE(),A.W(a7).i("V<1,m>")).bl(0,", "),"test_type",n.a.f],f,t.z),null),e),$async$ka)
+return A.h(A.f4(j,B.B.e7(A.ab(["student_id",a,"user_id",a,"story_id",d,"quiz_score",0,"total_questions",0,"oral_fluency_accuracy",h.c,"total_words",h.a,"correct_words",m,"time_on_task",h.b,"wpm",l,"struggled_words",new A.V(a0,new A.aPE(),A.W(a0).i("V<1,m>")).bl(0,", "),"test_type",n.a.f],f,t.z),null),e),$async$ka)
 case 13:p=2
 s=12
 break
@@ -113763,39 +113763,39 @@ s=12
 break
 case 9:s=2
 break
-case 12:case 8:h=n.k4
-s=h.length!==0&&!n.a.w?14:15
+case 12:case 8:j=n.k4
+s=j.length!==0&&!n.a.w?14:15
 break
 case 14:s=16
-return A.h(n.ue(h),$async$ka)
-case 16:case 15:h=n.a
-s=!h.r&&!h.w?17:18
+return A.h(n.ue(j),$async$ka)
+case 16:case 15:j=n.a
+s=!j.r&&!j.w?17:18
 break
 case 17:s=19
 return A.h(A.dL(),$async$ka)
 case 19:a9=b3
-h=J.a9(n.a.c,"id")
+j=J.a9(n.a.c,"id")
 s=20
-return A.h(a9.fz("Bool","story_"+A.i(h==null?J.a9(n.a.c,"_id"):h)+"_reading_completed",!0),$async$ka)
+return A.h(a9.fz("Bool","story_"+A.i(j==null?J.a9(n.a.c,"_id"):j)+"_reading_completed",!0),$async$ka)
 case 20:case 18:s=21
 return A.h(n.qB(),$async$ka)
-case 21:h=n.c
-if(h==null){s=1
+case 21:j=n.c
+if(j==null){s=1
 break}f=n.a
-if(f.w){A.ef(!1,new A.aPF(n),h,t.z)
+if(f.w){A.ef(!1,new A.aPF(n),j,t.z)
 s=1
 break}s=f.r?22:23
 break
-case 22:f=A.dK(new A.aPG(i,n),null,t.nw)
+case 22:f=A.dK(new A.aPG(h,n),null,t.nw)
 s=24
-return A.h(A.aU(h,!1).eb(f),$async$ka)
+return A.h(A.aU(j,!1).eb(f),$async$ka)
 case 24:b0=b3
-h=n.c
-if(h==null){s=1
-break}A.aU(h,!1).bd(b0)
+j=n.c
+if(j==null){s=1
+break}A.aU(j,!1).bd(b0)
 s=1
 break
-case 23:A.us(h,A.dK(new A.aPH(i,n),null,t.z))
+case 23:A.us(j,A.dK(new A.aPH(h,n),null,t.z))
 case 5:case 1:return A.q(q,r)
 case 2:return A.p(o.at(-1),r)}})
 return A.r($async$ka,r)},
