@@ -268,6 +268,10 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
 
   bool _isStoryAlreadyRecorded = false;
 
+  // Shown as a speech bubble pointing at the "Start Oral Reading" button
+  // after the student reaches the end without actually reading anything.
+  bool _showReadReminder = false;
+
   @override
   void initState() {
     super.initState();
@@ -725,6 +729,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       _finalSpokenText = "";
       _processedSpokenWordCount = 0;
       _pagesWithOralReadingStarted.add(_currentPage);
+      _showReadReminder = false;
     });
     _startActiveReadingSegment();
 
@@ -964,7 +969,13 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                 .where((w) => w.isNotEmpty)
                 .length;
             totalWordsCount += unseenWords;
-            if (widget.assessmentMode) failedWordsCount += unseenWords;
+            // Page was never opened for oral reading — these words were
+            // never actually verified by the mic, so they must NOT be
+            // counted as "correct". Treat them as unread/failed in every
+            // mode (not just assessmentMode), otherwise skipped pages
+            // silently inflate Word Recognition % to look like a perfect
+            // read.
+            failedWordsCount += unseenWords;
           }
         }
       }
@@ -997,6 +1008,19 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         wrLevel = 'Instructional';
       } else {
         wrLevel = 'Frustration';
+      }
+
+      // 🛑 GUARD: kung may binasahing teksto sa story pero walang kahit
+      // isang page na na-Start Oral Reading (di ginamit ang mic talaga —
+      // "next next" lang), huwag itong i-grade at huwag i-direct sa quiz.
+      // Ipabalik muna ang bata sa unang slide at ipapakita ang isang chat
+      // bubble na nakaturo sa "Start Oral Reading" button.
+      final bool didAnyOralReading = _pageTargetWords.isNotEmpty;
+      if (totalWordsCount > 0 && !didAnyOralReading) {
+        if (!mounted) return;
+        setState(() => _showReadReminder = true);
+        _pageController.jumpToPage(0);
+        return;
       }
 
       // KUNG HINDI PRACTICE MODE AT HINDI ASSESSMENT MODE, MAG-SAVE SA BACKEND
@@ -1471,6 +1495,69 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               ),
               const SizedBox(height: 8),
             ],
+            if (_showReadReminder) ...[
+              Column(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.amber[600],
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: Colors.black, width: 2.5),
+                      boxShadow: const [
+                        BoxShadow(color: Colors.black26, offset: Offset(2, 2)),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.record_voice_over,
+                          color: Colors.black,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 8),
+                        const Flexible(
+                          child: Text(
+                            "Kailangan mo munang basahin nang malakas dito "
+                            "bago ka makapunta sa quiz!",
+                            style: TextStyle(
+                              fontWeight: FontWeight.w900,
+                              fontSize: 12,
+                              color: Colors.black,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        InkWell(
+                          onTap: () =>
+                              setState(() => _showReadReminder = false),
+                          child: const Icon(
+                            Icons.close,
+                            size: 16,
+                            color: Colors.black54,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Transform.translate(
+                    offset: const Offset(0, -6),
+                    child: Transform.rotate(
+                      angle: 0.785398, // 45deg, forms the bubble's pointer
+                      child: Container(
+                        width: 14,
+                        height: 14,
+                        decoration: BoxDecoration(color: Colors.amber[600]),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             Builder(
               builder: (context) {
                 final int narrationIndex = currentScripts.length > 1 ? 1 : 0;
@@ -1614,33 +1701,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       ),
     );
 
-    Widget skipButtonWidget = Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-      child: SizedBox(
-        width: double.infinity,
-        height: 50,
-        child: ElevatedButton(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.amber,
-            foregroundColor: Colors.black,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-              side: const BorderSide(color: Colors.black, width: 2.5),
-            ),
-            elevation: 4,
-          ),
-          onPressed: _advanceToNextSlide,
-          child: Text(
-            _currentPage < pages.length - 1
-                ? "Skip to Next Slide"
-                : (widget.isPracticeOnly
-                      ? "Finish Practice"
-                      : "Finish Reading & Take Quiz"),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-          ),
-        ),
-      ),
-    );
+    // "Skip to Next Slide" / "Finish Reading & Take Quiz" button removed —
+    // it let students bypass oral reading entirely. Page navigation (and
+    // finishing the story) now only happens through the "Next" button in
+    // controlsWidget, which still flows through _advanceToNextSlide and its
+    // oral-reading guard above.
+    Widget skipButtonWidget = const SizedBox.shrink();
 
     Widget pageViewWidget = PageView.builder(
       controller: _pageController,
