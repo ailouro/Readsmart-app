@@ -312,6 +312,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
 
   Future<void> _checkIfStoryRecorded() async {
     if (widget.assessmentMode || widget.isPracticeOnly) return;
+
     final prefs = await SharedPreferences.getInstance();
     bool recorded =
         prefs.getBool(
@@ -320,6 +321,27 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         false;
     if (mounted && recorded) {
       setState(() => _isStoryAlreadyRecorded = true);
+    }
+  }
+
+  Future<void> _saveCheckpoint(int slide, int total) async {
+    try {
+      await http.post(
+        Uri.parse("${widget.baseUrl}/api/student/progress/checkpoint"),
+        headers: {
+          "Content-Type": "application/json",
+          "ngrok-skip-browser-warning": "69420",
+        },
+        body: jsonEncode({
+          "user_id": widget.studentId,
+          "story_id": widget.story['id'] ?? widget.story['_id'],
+          "test_type": widget.testType,
+          "current_slide": slide,
+          "total_slides": total,
+        }),
+      );
+    } catch (e) {
+      debugPrint("Checkpoint save error: $e");
     }
   }
 
@@ -1793,6 +1815,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           final prefs = await SharedPreferences.getInstance();
           await prefs.setInt('story_${widget.story['id']}_page', index);
           await _savePageWordStates(leavingPage, leavingWords);
+          if (!widget.assessmentMode) {
+            _saveCheckpoint(index, pages.length);
+          }
         }
 
         String nextPath = "";
