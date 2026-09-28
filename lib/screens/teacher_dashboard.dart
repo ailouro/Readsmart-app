@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
@@ -1677,6 +1678,8 @@ class _StudentsTabState extends State<_StudentsTab> {
   final Map<dynamic, Future<List<dynamic>>> _progressFutureCache = {};
   final Map<dynamic, Future<List<Map<String, dynamic>>>>
   _assessmentsFutureCache = {};
+  final Map<dynamic, List<Map<String, dynamic>>> _liveByClass = {};
+  Timer? _liveTimer;
 
   // Which Phil-IRI stat card ("frustration" / "instructional" / "independent")
   // is currently expanded to show its per-student progress bars. Null = none
@@ -1704,15 +1707,6 @@ class _StudentsTabState extends State<_StudentsTab> {
     });
   }
 
-  /// Extracts every class id a student is enrolled in, from the `classes`
-  /// key — confirmed against User::classes() in User.php, a
-  /// belongsToMany(SchoolClass::class, 'class_student', ...) relation, so
-  /// an eager-loaded student/user JSON payload carries its classes there.
-  /// The other keys are kept as a fallback only, in case a particular
-  /// endpoint serializes it under a different name. The Phil-IRI
-  /// /assessments endpoint is scoped per class, so this is what lets the
-  /// record card pull the student's pre-test/post-test assessment rows
-  /// across all their classes.
   List<String> _resolveStudentClassIds(Map<String, dynamic> student) {
     final Set<String> ids = {};
     void addFrom(dynamic c) {
@@ -1777,6 +1771,37 @@ class _StudentsTabState extends State<_StudentsTab> {
     super.initState();
     _fetchClasses();
     _fetchAnalytics();
+    _liveTimer = Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => _fetchLiveProgress(),
+    );
+  }
+
+  @override
+  void dispose() {
+    _liveTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _fetchLiveProgress() async {
+    for (final c in _classes) {
+      final id = c['id'];
+      if (id == null) continue;
+      try {
+        final res = await http.get(
+          Uri.parse("$baseUrl/api/classes/$id/reading-progress"),
+          headers: networkHeaders,
+        );
+        if (res.statusCode == 200 && mounted) {
+          final list = ((jsonDecode(res.body)['data'] as List?) ?? [])
+              .map((e) => Map<String, dynamic>.from(e))
+              .toList();
+          setState(() => _liveByClass[id] = list);
+        }
+      } catch (e) {
+        debugPrint("Live progress error: $e");
+      }
+    }
   }
 
   Future _fetchAnalytics() async {
@@ -2515,11 +2540,55 @@ class _StudentsTabState extends State<_StudentsTab> {
     return null;
   }
 
-  /// The official Phil-IRI Pre-Test vs Post-Test comparison, built from the
-  /// Stage 2 GST /assessments records (independent/instructional/
-  /// frustration grade levels) rather than the story reading logs — this is
-  /// the "parang t-test" quick visual comparison, kept separate from the
-  /// reading-records tables below it since they're two different tests.
+  Widget _liveTrackingPanel(List<Map<String, dynamic>> live) {
+    final shown = live.take(2).toList();
+    return Container(
+      width: 150,
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFF7CC),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.black, width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            live.isEmpty
+                ? "📖 Walang nagbabasa"
+                : "📖 Nagbabasa (${live.length})",
+            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
+          ),
+          for (final s in shown) ...[
+            const SizedBox(height: 6),
+            Text(
+              "${s['student_name']} • ${s['current_slide']}/${s['total_slides']}",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 2),
+            ClipRRect(
+              borderRadius: BorderRadius.circular(4),
+              child: LinearProgressIndicator(
+                value: (s['percent'] as int) / 100,
+                minHeight: 6,
+                backgroundColor: Colors.black12,
+                color: maroonTheme,
+              ),
+            ),
+          ],
+          if (live.length > 2)
+            Text(
+              "+${live.length - 2} pa",
+              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+            ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildPhilIriComparisonCard(List<Map<String, dynamic>> assessments) {
     Map<String, dynamic>? pre;
     Map<String, dynamic>? post;
@@ -3035,55 +3104,65 @@ class _StudentsTabState extends State<_StudentsTab> {
                               section,
                             );
                           },
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 16,
-                              vertical: 8,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 10,
                             ),
-                            leading: Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFFBAE6FD),
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.black,
-                                  width: 2,
+                            child: Row(
+                              children: [
+                                Container(
+                                  padding: const EdgeInsets.all(6),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFFBAE6FD),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(
+                                      color: Colors.black,
+                                      width: 2,
+                                    ),
+                                  ),
+                                  child: const Icon(
+                                    Icons.school,
+                                    color: Colors.black,
+                                    size: 20,
+                                  ),
                                 ),
-                              ),
-                              child: const Icon(
-                                Icons.school,
-                                color: Colors.black,
-                              ),
-                            ),
-                            title: Text(
-                              className,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 18,
-                              ),
-                            ),
-                            subtitle: Text(
-                              "Grade $grade${section.isNotEmpty ? ' • $section' : ''}\nCode: ${item['class_code'] ?? 'None'}",
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            trailing: Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: accentTheme,
-                                shape: BoxShape.circle,
-                                border: Border.all(
-                                  color: Colors.black,
-                                  width: 2,
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        className,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          fontSize: 15,
+                                        ),
+                                      ),
+                                      Text(
+                                        "Grade $grade${section.isNotEmpty ? ' • $section' : ''}\nCode: ${item['class_code'] ?? 'None'}",
+                                        style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 11,
+                                          color: Colors.black87,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
                                 ),
-                              ),
-                              child: const Icon(
-                                Icons.arrow_forward_ios_rounded,
-                                color: Colors.black,
-                                size: 18,
-                              ),
+                                const SizedBox(width: 8),
+                                _liveTrackingPanel(
+                                  _liveByClass[item['id']] ?? const [],
+                                ),
+                                const SizedBox(width: 6),
+                                const Icon(
+                                  Icons.arrow_forward_ios_rounded,
+                                  size: 16,
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -4782,35 +4861,22 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
 
   List<Map<String, dynamic>> _assignedStories = [];
   List<Map<String, dynamic>> _students = [];
+  Map<dynamic, Map<String, dynamic>> _liveByStudent = {};
   bool _isLoadingStories = true;
   bool _isLoadingStudents = true;
 
-  // The Phil-IRI reading-test flow (GST / Stage 2) is switched off: teachers
-  // assign library stories to the class again (see _showAssignStorySheet).
-  // Flip to true to bring the reading-test buttons back.
   static const bool _usePhilIriAssessments = false;
 
-  // Only stories of this grade are offered when assigning.
-  // Derived from the class's own grade level (widget.grade, e.g. "Grade 6")
-  // instead of being hardcoded, so each class only sees its own grade's
-  // stories. Falls back to Grade 5 if the class has no parseable grade.
   int get _storyGradeNumber =>
       int.tryParse(RegExp(r'\d+').firstMatch(widget.grade)?.group(0) ?? '') ??
       5;
 
-  // Same style as the existing unassign-story route. If the server names
-  // this route differently, this is the only place to change it.
   static const String _assignStoryPath = 'assign-story';
 
   // "<story_id>:<test_type>" -> how many students of this class finished it
   Map<String, int> _storyTakenCounts = {};
   int? _tallyTotalStudents;
 
-  // Reading-test assignments (Phil-IRI GST flow), fetched class-wide so the
-  // Stories tab can show WHO already has a test assigned instead of just
-  // "No stories assigned to this class yet." — that old message only ever
-  // looked at the deprecated class_story pivot, which nothing writes to
-  // anymore now that assigning goes through the Students tab.
   List<Map<String, dynamic>> _classAssessments = [];
   bool _isLoadingAssessments = true;
 
@@ -7323,9 +7389,49 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
                                           fontWeight: FontWeight.bold,
                                         ),
                                       ),
-                                      subtitle: Text(
-                                        "LRN: $lrn",
-                                        style: const TextStyle(fontSize: 12),
+                                      subtitle: Builder(
+                                        builder: (_) {
+                                          final live =
+                                              _liveByStudent[student['id']];
+                                          return Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                "LRN: $lrn",
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                ),
+                                              ),
+                                              if (live != null) ...[
+                                                const SizedBox(height: 4),
+                                                Text(
+                                                  "📖 ${live['story_title']} • Slide ${live['current_slide']}/${live['total_slides']} (${live['percent']}%)",
+                                                  style: const TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                                const SizedBox(height: 3),
+                                                ClipRRect(
+                                                  borderRadius:
+                                                      BorderRadius.circular(4),
+                                                  child:
+                                                      LinearProgressIndicator(
+                                                        value:
+                                                            (live['percent']
+                                                                as int) /
+                                                            100,
+                                                        minHeight: 6,
+                                                        backgroundColor:
+                                                            Colors.black12,
+                                                        color: maroonTheme,
+                                                      ),
+                                                ),
+                                              ],
+                                            ],
+                                          );
+                                        },
                                       ),
                                       trailing: !_usePhilIriAssessments
                                           ? null

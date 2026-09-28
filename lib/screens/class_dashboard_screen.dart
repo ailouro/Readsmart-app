@@ -1726,23 +1726,36 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
             ),
           )
         else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: 350,
-              crossAxisSpacing: 16,
-              mainAxisSpacing: 16,
-              childAspectRatio: 0.75,
-            ),
-            itemCount: entries.length,
-            itemBuilder: (context, index) {
-              final entry = entries[index];
-              return _buildMissionCard(
-                entry['story'],
-                entry['tType'] as String,
-                prefs,
-                locked: locked,
+          LayoutBuilder(
+            builder: (context, c) {
+              final bool compact = c.maxWidth < 600;
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                gridDelegate: compact
+                    ? const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 0.72,
+                      )
+                    : const SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: 350,
+                        crossAxisSpacing: 16,
+                        mainAxisSpacing: 16,
+                        childAspectRatio: 0.75,
+                      ),
+                itemCount: entries.length,
+                itemBuilder: (context, index) {
+                  final entry = entries[index];
+                  return _buildMissionCard(
+                    entry['story'],
+                    entry['tType'] as String,
+                    prefs,
+                    locked: locked,
+                    compact: compact,
+                  );
+                },
               );
             },
           ),
@@ -1755,6 +1768,7 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
     String tType,
     SharedPreferences? prefs, {
     required bool locked,
+    bool compact = false,
   }) {
     final pagesCount = (story['pages'] as List?)?.length ?? 0;
 
@@ -1935,6 +1949,36 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
                           } else if (readingDone) {
                             label = "Read Completed";
                             badgeColor = accentTheme;
+                          } else if (progress != null &&
+                              progress['current_slide'] != null &&
+                              (int.tryParse('${progress['total_slides']}') ??
+                                      0) >
+                                  0) {
+                            final cur =
+                                (int.tryParse('${progress['current_slide']}') ??
+                                    0) +
+                                1;
+                            final tot = int.parse(
+                              '${progress['total_slides']}',
+                            );
+                            label =
+                                "Slide $cur/$tot • ${((cur / tot) * 100).round()}%";
+                            badgeColor = Colors.orangeAccent;
+                          } else if (progress != null &&
+                              progress['current_slide'] != null &&
+                              (int.tryParse('${progress['total_slides']}') ??
+                                      0) >
+                                  0) {
+                            final cur =
+                                (int.tryParse('${progress['current_slide']}') ??
+                                    0) +
+                                1;
+                            final tot = int.parse(
+                              '${progress['total_slides']}',
+                            );
+                            label =
+                                "Slide $cur/$tot • ${((cur / tot) * 100).round()}%";
+                            badgeColor = Colors.orangeAccent;
                           } else if (hasQuiz) {
                             label = "Contains Quiz";
                             badgeColor = Colors.lightGreenAccent;

@@ -284,6 +284,13 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     _loadSavedPage();
   }
 
+  void _sendCheckpointNow() {
+    if (widget.assessmentMode || widget.isPracticeOnly) return;
+    final pages = (widget.story['pages'] as List?) ?? const [];
+    if (pages.isEmpty) return;
+    _saveCheckpoint(_currentPage, pages.length);
+  }
+
   /// 🔊 MOBILE AUDIO FIX
   Future<void> _configureAudioSession() async {
     try {
@@ -435,6 +442,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (_pageController.hasClients) {
               _pageController.jumpToPage(savedPage);
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _sendCheckpointNow(); // slide 1 / resumed slide
+              });
             }
           });
         }
@@ -1338,6 +1348,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     _flutterTts.stop();
     _audioPlayer.dispose();
     _deepgramService.stopListening();
+    _sendCheckpointNow();
     super.dispose();
   }
 
