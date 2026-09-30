@@ -75,15 +75,18 @@ class _AlertsTabViewState extends State<AlertsTabView> {
                       ),
                       subtitle: Text(alert['reason'] ?? 'Needs intervention'),
                       trailing: ElevatedButton(
-                        onPressed: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (_) => StudentAlertDetailScreen(
-                              teacherId: widget.teacherId,
-                              studentId: alert['student_id'].toString(),
+                        onPressed: () {
+                          debugPrint('Review tapped: ${alert['student_id']}');
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (_) => StudentAlertDetailScreen(
+                                teacherId: widget.teacherId,
+                                studentId: alert['student_id'].toString(),
+                              ),
                             ),
-                          ),
-                        ),
+                          );
+                        },
                         child: const Text('Review'),
                       ),
                     ),
