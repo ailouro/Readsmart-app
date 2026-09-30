@@ -23,4 +23,17 @@ class AlertService {
       return [];
     }
   }
+
+  Future<Map<String, dynamic>> getAlertDetail(
+    String teacherId,
+    String studentId,
+  ) async {
+    final response = await http.get(
+      Uri.parse('$baseUrl/teacher/$teacherId/alerts/$studentId'),
+    );
+    if (response.statusCode == 200) {
+      return json.decode(response.body)['data'];
+    }
+    throw Exception('Failed to load student detail');
+  }
 }
