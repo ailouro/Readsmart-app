@@ -1396,25 +1396,42 @@ class _LibraryTabState extends State<_LibraryTab> {
             ),
           )
         else
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: stories.length,
-            gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-              maxCrossAxisExtent: fullWidth ? 350 : 230,
-              crossAxisSpacing: 15,
-              mainAxisSpacing: 15,
-              childAspectRatio: 0.72,
-            ),
-            itemBuilder: (context, index) {
-              return _buildStoryCard(stories[index]);
+          Builder(
+            builder: (context) {
+              // Phones: fixed 2 medium cards per row (same feel as the
+              // student side). Tablets/desktop keep the old wide grid.
+              final bool isPhone = MediaQuery.of(context).size.width < 600;
+              return GridView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: stories.length,
+                gridDelegate: isPhone
+                    ? const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2,
+                        crossAxisSpacing: 12,
+                        mainAxisSpacing: 12,
+                        childAspectRatio: 0.8,
+                      )
+                    : SliverGridDelegateWithMaxCrossAxisExtent(
+                        maxCrossAxisExtent: fullWidth ? 350 : 230,
+                        crossAxisSpacing: 15,
+                        mainAxisSpacing: 15,
+                        childAspectRatio: 0.72,
+                      ),
+                itemBuilder: (context, index) {
+                  return _buildStoryCard(stories[index], compact: isPhone);
+                },
+              );
             },
           ),
       ],
     );
   }
 
-  Widget _buildStoryCard(Map<String, dynamic> story) {
+  Widget _buildStoryCard(Map<String, dynamic> story, {bool compact = false}) {
+    final double badgeFont = compact ? 8.5 : 10;
+    final double actionIcon = compact ? 15 : 20;
+    final double actionPad = compact ? 4 : 6;
     List pages = story['pages'] is List ? story['pages'] : [];
 
     // 🛠️ FIXED COVER URL LOGIC HERE
@@ -1498,7 +1515,7 @@ class _LibraryTabState extends State<_LibraryTab> {
                 Expanded(
                   flex: 1,
                   child: Padding(
-                    padding: const EdgeInsets.all(8.0),
+                    padding: EdgeInsets.all(compact ? 6 : 8.0),
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1507,9 +1524,9 @@ class _LibraryTabState extends State<_LibraryTab> {
                           _safeString(story['title'], 'Untitled'),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontWeight: FontWeight.w900,
-                            fontSize: 14,
+                            fontSize: compact ? 12 : 14,
                             color: Colors.black,
                           ),
                         ),
@@ -1530,28 +1547,28 @@ class _LibraryTabState extends State<_LibraryTab> {
           ),
         ),
         Positioned(
-          top: 5,
-          left: 5,
+          top: compact ? 4 : 5,
+          left: compact ? 4 : 5,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               if (story['quiz'] != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 4,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 4 : 6,
+                    vertical: compact ? 2 : 4,
                   ),
                   decoration: BoxDecoration(
                     color: Color(0xFF8BCA84),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.black, width: 2),
                   ),
-                  child: const Text(
+                  child: Text(
                     "With Quiz",
                     style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 10,
+                      fontSize: badgeFont,
                     ),
                   ),
                 ),
@@ -1559,9 +1576,9 @@ class _LibraryTabState extends State<_LibraryTab> {
                 const SizedBox(height: 4),
               if (gradeLabel.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 4,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 4 : 6,
+                    vertical: compact ? 2 : 4,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF940D0D),
@@ -1570,10 +1587,10 @@ class _LibraryTabState extends State<_LibraryTab> {
                   ),
                   child: Text(
                     gradeLabel,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 10,
+                      fontSize: badgeFont,
                     ),
                   ),
                 ),
@@ -1581,9 +1598,9 @@ class _LibraryTabState extends State<_LibraryTab> {
                 const SizedBox(height: 4),
               if (setLabel.isNotEmpty)
                 Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
-                    vertical: 4,
+                  padding: EdgeInsets.symmetric(
+                    horizontal: compact ? 4 : 6,
+                    vertical: compact ? 2 : 4,
                   ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF1D4ED8),
@@ -1592,10 +1609,10 @@ class _LibraryTabState extends State<_LibraryTab> {
                   ),
                   child: Text(
                     setLabel,
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
-                      fontSize: 10,
+                      fontSize: badgeFont,
                     ),
                   ),
                 ),
@@ -1603,8 +1620,8 @@ class _LibraryTabState extends State<_LibraryTab> {
           ),
         ),
         Positioned(
-          top: 5,
-          right: 5,
+          top: compact ? 4 : 5,
+          right: compact ? 4 : 5,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1621,30 +1638,34 @@ class _LibraryTabState extends State<_LibraryTab> {
                   });
                 },
                 child: Container(
-                  padding: const EdgeInsets.all(6),
-                  margin: const EdgeInsets.only(right: 5),
+                  padding: EdgeInsets.all(actionPad),
+                  margin: EdgeInsets.only(right: compact ? 3 : 5),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.black, width: 2),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.settings,
                     color: Colors.blue,
-                    size: 20,
+                    size: actionIcon,
                   ),
                 ),
               ),
               InkWell(
                 onTap: () => _deleteStory(story['id'] ?? story['_id']),
                 child: Container(
-                  padding: const EdgeInsets.all(6),
+                  padding: EdgeInsets.all(actionPad),
                   decoration: BoxDecoration(
                     color: Colors.white,
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.black, width: 2),
                   ),
-                  child: const Icon(Icons.delete, color: Colors.red, size: 20),
+                  child: Icon(
+                    Icons.delete,
+                    color: Colors.red,
+                    size: actionIcon,
+                  ),
                 ),
               ),
             ],

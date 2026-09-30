@@ -734,8 +734,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isPhone = MediaQuery.of(context).size.width < 600;
     Widget contentBody = Padding(
-      padding: const EdgeInsets.all(24.0),
+      padding: EdgeInsets.all(isPhone ? 14.0 : 24.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -750,49 +751,45 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               ],
             ),
             child: Padding(
-              padding: const EdgeInsets.all(18.0),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
+              padding: EdgeInsets.all(isPhone ? 14.0 : 18.0),
+              child: Builder(
+                builder: (context) {
+                  final iconBadge = Container(
+                    padding: EdgeInsets.all(isPhone ? 10 : 12),
                     decoration: BoxDecoration(
                       color: cyanAccent,
                       shape: BoxShape.circle,
                       border: Border.all(color: Colors.black, width: 2.5),
                     ),
-                    child: const Icon(
+                    child: Icon(
                       Icons.family_restroom,
                       color: Colors.black,
-                      size: 36,
+                      size: isPhone ? 28 : 36,
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  const Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Link to Teacher's Class",
-                          style: TextStyle(
-                            color: Colors.black,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 18,
-                          ),
+                  );
+                  final texts = Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        "Link to Teacher's Class",
+                        style: TextStyle(
+                          color: Colors.black,
+                          fontWeight: FontWeight.w900,
+                          fontSize: isPhone ? 16 : 18,
                         ),
-                        SizedBox(height: 4),
-                        Text(
-                          "Enter the code given by your child's teacher to view their progress.",
-                          style: TextStyle(
-                            color: Colors.black87,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 13,
-                          ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Enter the code given by your child's teacher to view their progress.",
+                        style: TextStyle(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.bold,
+                          fontSize: isPhone ? 12 : 13,
                         ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  ElevatedButton(
+                      ),
+                    ],
+                  );
+                  final joinButton = ElevatedButton(
                     style: ElevatedButton.styleFrom(
                       backgroundColor: accentTheme,
                       padding: const EdgeInsets.symmetric(
@@ -812,12 +809,41 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                  ),
-                ],
+                  );
+
+                  if (isPhone) {
+                    // Phone: icon + text on top, full-width JOIN below,
+                    // so nothing gets squeezed into a narrow column.
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            iconBadge,
+                            const SizedBox(width: 12),
+                            Expanded(child: texts),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        joinButton,
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      iconBadge,
+                      const SizedBox(width: 16),
+                      Expanded(child: texts),
+                      const SizedBox(width: 10),
+                      joinButton,
+                    ],
+                  );
+                },
               ),
             ),
           ),
-          const SizedBox(height: 30),
+          SizedBox(height: isPhone ? 18 : 30),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
@@ -828,10 +854,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 BoxShadow(color: Colors.black, offset: Offset(3, 3)),
               ],
             ),
-            child: const Text(
+            child: Text(
               "📚 YOUR CHILD'S CLASSES",
               style: TextStyle(
-                fontSize: 16,
+                fontSize: isPhone ? 14 : 16,
                 fontWeight: FontWeight.w900,
                 color: Colors.black,
                 letterSpacing: 0.5,
@@ -1075,6 +1101,31 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       ),
     );
 
+    // Small round icon button used in the phone app bar. Compact on
+    // purpose: the old 48px IconButtons + margins pushed the logout
+    // button off the right edge on narrow phones.
+    Widget appBarIcon(Widget icon, VoidCallback? onTap, {String? tooltip}) {
+      return Container(
+        width: 38,
+        height: 38,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          shape: BoxShape.circle,
+          border: Border.all(color: Colors.black, width: 2),
+          boxShadow: const [
+            BoxShadow(color: Colors.black, offset: Offset(2, 2)),
+          ],
+        ),
+        child: IconButton(
+          padding: EdgeInsets.zero,
+          constraints: const BoxConstraints(),
+          tooltip: tooltip,
+          icon: icon,
+          onPressed: onTap,
+        ),
+      );
+    }
+
     Widget mobileLayout = Scaffold(
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(70),
@@ -1086,111 +1137,103 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Row(
-                    children: [
-                      const Icon(
-                        Icons.family_restroom,
-                        color: Colors.white,
-                        size: 28,
-                      ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          const Text(
-                            "PARENT PORTAL",
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.w900,
-                              color: Colors.white,
+                  const Icon(
+                    Icons.family_restroom,
+                    color: Colors.white,
+                    size: 26,
+                  ),
+                  const SizedBox(width: 8),
+                  // Expanded + ellipsis so the title/email shrink instead of
+                  // pushing the action buttons off screen.
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        const Text(
+                          "PARENT PORTAL",
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                          ),
+                        ),
+                        if (_email != null)
+                          Text(
+                            _email!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: Colors.white70,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
-                          if (_email != null)
-                            Text(
-                              _email!,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                color: Colors.white70,
-                                fontWeight: FontWeight.w600,
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      appBarIcon(
+                        const Icon(
+                          Icons.notifications_rounded,
+                          color: Colors.black,
+                          size: 20,
+                        ),
+                        _openNotificationsSheet,
+                        tooltip: "Notifications",
+                      ),
+                      if (_notifications.isNotEmpty)
+                        Positioned(
+                          right: 0,
+                          top: 0,
+                          child: Container(
+                            width: 11,
+                            height: 11,
+                            decoration: BoxDecoration(
+                              color: Colors.red,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: Colors.white,
+                                width: 1.5,
                               ),
                             ),
-                        ],
-                      ),
+                          ),
+                        ),
                     ],
                   ),
-                  Row(
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.only(right: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.black, width: 2),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black,
-                              offset: Offset(2, 2),
-                            ),
-                          ],
-                        ),
-                        child: _buildNotificationBell(),
-                      ),
-                      Container(
-                        margin: const EdgeInsets.only(right: 10),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.black, width: 2),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black,
-                              offset: Offset(2, 2),
-                            ),
-                          ],
-                        ),
-                        child: IconButton(
-                          icon: const Icon(
-                            Icons.lock_reset_rounded,
-                            color: Colors.black,
-                            size: 20,
-                          ),
-                          tooltip: "Change Password",
-                          onPressed: () {
-                            final pid = int.tryParse(widget.parentId) ?? 0;
-                            showDialog(
-                              context: context,
-                              builder: (_) => ChangePasswordDialog(userId: pid),
-                            );
-                          },
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.black, width: 2),
-                          boxShadow: const [
-                            BoxShadow(
-                              color: Colors.black,
-                              offset: Offset(2, 2),
-                            ),
-                          ],
-                        ),
-                        child: IconButton(
-                          icon: const Icon(
-                            Icons.exit_to_app_rounded,
-                            color: Colors.black,
-                            size: 20,
-                          ),
-                          onPressed: _doLogout,
-                        ),
-                      ),
-                    ],
+                  const SizedBox(width: 8),
+                  appBarIcon(
+                    const Icon(
+                      Icons.lock_reset_rounded,
+                      color: Colors.black,
+                      size: 20,
+                    ),
+                    () {
+                      final pid = int.tryParse(widget.parentId) ?? 0;
+                      showDialog(
+                        context: context,
+                        builder: (_) => ChangePasswordDialog(userId: pid),
+                      );
+                    },
+                    tooltip: "Change Password",
+                  ),
+                  const SizedBox(width: 8),
+                  appBarIcon(
+                    const Icon(
+                      Icons.exit_to_app_rounded,
+                      color: Colors.black,
+                      size: 20,
+                    ),
+                    _doLogout,
+                    tooltip: "Log Out",
                   ),
                 ],
               ),
