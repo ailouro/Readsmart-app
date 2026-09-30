@@ -1670,11 +1670,15 @@ class _LibraryTabState extends State<_LibraryTab> {
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.black, width: 2),
                   ),
+<<<<<<< HEAD
                   child: Icon(
                     Icons.delete,
                     color: Colors.red,
                     size: actionIcon,
                   ),
+=======
+                  child: Icon(Icons.delete, color: Colors.red, size: actionIcon),
+>>>>>>> 51a53e9edcbf6faefb594c6a99d16bb46dcf0e51
                 ),
               ),
             ],
