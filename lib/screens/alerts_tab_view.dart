@@ -20,6 +20,31 @@ class _AlertsTabViewState extends State<AlertsTabView> {
     _alertsFuture = _alertService.getTeacherAlerts(widget.teacherId);
   }
 
+  Future<void> _reload() async {
+    setState(() {
+      _alertsFuture = _alertService.getTeacherAlerts(widget.teacherId);
+    });
+    try {
+      await _alertsFuture;
+    } catch (_) {
+      // Ang FutureBuilder na ang magpapakita ng error.
+    }
+  }
+
+  Future<void> _openDetail(dynamic alert) async {
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StudentAlertDetailScreen(
+          teacherId: int.tryParse(widget.teacherId) ?? 0,
+          studentId: alert['student_id'].toString(),
+        ),
+      ),
+    );
+    if (!mounted) return;
+    _reload();
+  }
+
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<List<dynamic>>(
@@ -54,44 +79,44 @@ class _AlertsTabViewState extends State<AlertsTabView> {
               ),
             ),
             Expanded(
-              child: ListView.builder(
-                itemCount: alerts.length,
-                itemBuilder: (context, index) {
-                  final alert = alerts[index];
-                  return Card(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    child: ListTile(
-                      leading: const Icon(
-                        Icons.warning_amber_rounded,
-                        color: Colors.red,
-                        size: 40,
+              child: RefreshIndicator(
+                onRefresh: _reload,
+                child: ListView.builder(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  itemCount: alerts.length,
+                  itemBuilder: (context, index) {
+                    final alert = alerts[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 8,
                       ),
-                      title: Text(
-                        alert['student_name'] ?? 'Unknown Student',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      child: ListTile(
+                        leading: const Icon(
+                          Icons.warning_amber_rounded,
+                          color: Colors.red,
+                          size: 40,
+                        ),
+                        title: Text(
+                          alert['student_name'] ?? 'Unknown Student',
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Text(
+                          alert['reason'] ?? 'Needs intervention',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        trailing: ElevatedButton(
+                          onPressed: () {
+                            debugPrint('Review tapped: ${alert['student_id']}');
+                            _openDetail(alert);
+                          },
+                          child: const Text('Review'),
+                        ),
                       ),
-                      subtitle: Text(alert['reason'] ?? 'Needs intervention'),
-                      trailing: ElevatedButton(
-                        onPressed: () {
-                          debugPrint('Review tapped: ${alert['student_id']}');
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => StudentAlertDetailScreen(
-                                teacherId: int.parse(widget.teacherId),
-                                studentId: alert['student_id'].toString(),
-                              ),
-                            ),
-                          );
-                        },
-                        child: const Text('Review'),
-                      ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                ),
               ),
             ),
           ],

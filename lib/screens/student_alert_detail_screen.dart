@@ -37,6 +37,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
         ),
         headers: networkHeaders,
       );
+      if (!mounted) return;
       if (res.statusCode == 200) {
         setState(() {
           _data = jsonDecode(res.body)['data'];
@@ -49,6 +50,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
         });
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = 'Hindi ma-load: $e';
         _loading = false;
@@ -72,6 +74,9 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
       ],
     ),
   );
+
+  String _attemptText(int n) =>
+      n <= 1 ? 'Isang beses nagkamali' : '$n beses nagkamali';
 
   @override
   Widget build(BuildContext context) {
@@ -146,46 +151,61 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
           ),
         const SizedBox(height: 16),
         const Text(
-          'Words na nahirapan (most frequent)',
+          'Words na nahirapan',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         if (words.isEmpty)
           const Text('Wala pang naitalang struggled words.')
-        else
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            children: words
-                .map(
-                  (w) => Chip(
-                    label: Text('${w['word']} (${w['count']}x)'),
-                    backgroundColor: Colors.red.shade50,
-                  ),
-                )
-                .toList(),
-          ),
-        const SizedBox(height: 16),
-        const Text(
-          'Reading History',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        ...history.map((h) {
-          final isFrus = '${h['reading_level']}'.toLowerCase() == 'frustration';
-          final quiz = (h['quiz_score'] != null && h['total_questions'] != null)
-              ? ' • Quiz ${h['quiz_score']}/${h['total_questions']}'
-              : '';
-          return ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(
-              Icons.circle,
-              size: 14,
-              color: isFrus ? Colors.red : Colors.green,
+        else ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.red.shade50,
+              borderRadius: BorderRadius.circular(10),
             ),
-            title: Text('${h['story_title'] ?? h['test_type'] ?? 'Session'}'),
-            subtitle: Text('${h['reading_level']} • ${h['date'] ?? ''}$quiz'),
-          );
-        }),
+            child: Text(
+              'Pinakamadalas nahirapan sa '
+              '${words.take(3).map((w) => '"${w['word']}"').join(', ')}.',
+              style: const TextStyle(fontSize: 13),
+            ),
+          ),
+          const SizedBox(height: 4),
+          ...words.take(8).map((w) {
+            final n = (w['count'] as num?)?.toInt() ?? 1;
+            return ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(
+                Icons.error_outline,
+                color: Colors.red,
+                size: 20,
+              ),
+              title: Text(
+                '${w['word']}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(_attemptText(n)),
+            );
+          }),
+        ],
+        if (history.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          const Text('History', style: TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          ...history.map((item) {
+            final score = item['score'] ?? '—';
+            final date = item['date'] ?? '—';
+            return ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.history, size: 18),
+              title: Text('$score'),
+              subtitle: Text('$date'),
+            );
+          }),
+        ],
       ],
     );
   }
