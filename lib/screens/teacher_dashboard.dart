@@ -1688,6 +1688,15 @@ class _StudentsTabState extends State<_StudentsTab> {
   final Map<String, Future<List<Map<String, dynamic>>>> _levelStudentsCache =
       {};
 
+  // One entry per STUDENT (latest reading attempt only). Single source of
+  // truth for both the stat-card numbers and the dropdown lists, so the two
+  // can never disagree.
+  Future<List<Map<String, dynamic>>>? _latestPerStudentFuture;
+  // Per-student counts: {'frustration': n, 'instructional': n, 'independent': n}
+  Map<String, int>? _levelCounts;
+  int _studentsWithData = 0;
+  int _totalStudents = 0;
+
   Future<List<dynamic>> _fetchStudentProgress(dynamic studentId) {
     if (studentId == null) return Future.value(const []);
     return _progressFutureCache.putIfAbsent(studentId, () async {
@@ -1839,7 +1848,11 @@ class _StudentsTabState extends State<_StudentsTab> {
           _mispronunciations =
               decodedMispro['data'] ?? decodedMispro['mispronunciations'] ?? [];
           _isLoadingAnalytics = false;
+          _latestPerStudentFuture = null;
+          _levelStudentsCache.clear();
+          _levelCounts = null;
         });
+        _loadLevelCounts();
       } else {
         if (mounted) setState(() => _isLoadingAnalytics = false);
       }
@@ -2833,17 +2846,15 @@ class _StudentsTabState extends State<_StudentsTab> {
 
   Future<void> _refreshAll() async {
     _levelStudentsCache.clear();
+    _progressFutureCache.clear();
+    _latestPerStudentFuture = null;
     await Future.wait([_fetchClasses(), _fetchAnalytics()]);
   }
 
-  /// Students whose MOST RECENT reading attempt falls under [levelKey]
-  /// ("frustration" / "instructional" / "independent"), each with that
-  /// attempt's oral fluency accuracy so we can draw a progress bar for them.
-  /// Reuses the same cached per-student progress fetch the Learners'
-  /// Records cards already use, so this doesn't add new network calls
-  /// beyond what the dashboard already needs.
-  Future<List<Map<String, dynamic>>> _studentsForLevel(String levelKey) {
-    return _levelStudentsCache.putIfAbsent(levelKey, () async {
+  /// Each student's MOST RECENT reading attempt (one row per student).
+  /// Fetched once and shared by the stat cards and the dropdown lists.
+  Future<List<Map<String, dynamic>>> _latestPerStudent() {
+    return _latestPerStudentFuture ??= () async {
       final List students = (_summaryData['students'] as List?) ?? [];
       final List<Map<String, dynamic>> result = [];
 
@@ -2858,7 +2869,6 @@ class _StudentsTabState extends State<_StudentsTab> {
         // API actually returns newest-first.
         final Map latest = Map.from(logs.last as Map);
         final String level = _safeString(latest['reading_level']).toLowerCase();
-        if (!level.contains(levelKey)) continue;
 
         final double accuracy = (latest['oral_fluency_accuracy'] != null)
             ? (latest['oral_fluency_accuracy'] as num).toDouble().clamp(0, 100)
@@ -2866,10 +2876,51 @@ class _StudentsTabState extends State<_StudentsTab> {
 
         result.add({
           'name': _safeString(s['name'], 'N/A'),
+          'level': level,
           'accuracy': accuracy,
+          'story_title': _safeString(latest['story_title'], 'Story'),
+          'test_type': _safeString(latest['test_type']).toLowerCase(),
+          'quiz_score': _toD(latest['quiz_score']),
+          'total_questions': _toD(latest['total_questions']),
+          'time_on_task': _toD(latest['time_on_task']),
+          'stories_read': logs.length,
+          // oldest -> newest, for the little level-history dots
+          'history': logs
+              .map(
+                (l) => _safeString((l as Map)['reading_level']).toLowerCase(),
+              )
+              .toList(),
         });
       }
+      return result;
+    }();
+  }
 
+  /// Counts students (not readings) per Phil-IRI level.
+  Future<void> _loadLevelCounts() async {
+    final all = await _latestPerStudent();
+    if (!mounted) return;
+    int count(String key) =>
+        all.where((s) => (s['level'] as String).contains(key)).length;
+    setState(() {
+      _levelCounts = {
+        'frustration': count('frustration'),
+        'instructional': count('instructional'),
+        'independent': count('independent'),
+      };
+      _studentsWithData = all.length;
+      _totalStudents = ((_summaryData['students'] as List?) ?? []).length;
+    });
+  }
+
+  /// Students whose latest attempt falls under [levelKey], for the dropdown.
+  Future<List<Map<String, dynamic>>> _studentsForLevel(String levelKey) {
+    return _levelStudentsCache.putIfAbsent(levelKey, () async {
+      final all = await _latestPerStudent();
+      final result = all
+          .where((s) => (s['level'] as String).contains(levelKey))
+          .map((s) => Map<String, dynamic>.from(s))
+          .toList();
       result.sort(
         (a, b) => (a['name'] as String).compareTo(b['name'] as String),
       );
@@ -2913,8 +2964,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                         _buildStatCard(
                           title: "Frustration",
                           count:
-                              _summaryData['frustration_count']?.toString() ??
-                              "0",
+                              _levelCounts?['frustration']?.toString() ?? '…',
                           color: Colors.red.shade700,
                           levelKey: "frustration",
                           isExpanded: _expandedLevelKey == "frustration",
@@ -2924,8 +2974,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                         _buildStatCard(
                           title: "Instructional",
                           count:
-                              _summaryData['instructional_count']?.toString() ??
-                              "0",
+                              _levelCounts?['instructional']?.toString() ?? '…',
                           color: Colors.amber.shade800,
                           levelKey: "instructional",
                           isExpanded: _expandedLevelKey == "instructional",
@@ -2935,8 +2984,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                         _buildStatCard(
                           title: "Independent",
                           count:
-                              _summaryData['independent_count']?.toString() ??
-                              "0",
+                              _levelCounts?['independent']?.toString() ?? '…',
                           color: const Color(0xFF8BCA84),
                           levelKey: "independent",
                           isExpanded: _expandedLevelKey == "independent",
@@ -2944,6 +2992,21 @@ class _StudentsTabState extends State<_StudentsTab> {
                         ),
                       ],
                     ),
+                    if (_levelCounts != null)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8, left: 4),
+                        child: Text(
+                          _studentsWithData == _totalStudents
+                              ? "$_studentsWithData estudyante ang may data"
+                              : "$_studentsWithData sa $_totalStudents estudyante "
+                                    "ang may data (${_totalStudents - _studentsWithData} "
+                                    "wala pang nababasa)",
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
                     AnimatedSize(
                       duration: const Duration(milliseconds: 250),
                       curve: Curves.easeInOut,
@@ -3241,6 +3304,280 @@ class _StudentsTabState extends State<_StudentsTab> {
     );
   }
 
+  double _toD(dynamic v) =>
+      v is num ? v.toDouble() : (double.tryParse('${v ?? ''}') ?? 0.0);
+
+  // Standard Phil-IRI cut-offs. Keep in sync with PhilIriService on the backend.
+  //   Word reading:  97-100 Independent, 90-96 Instructional, <=89 Frustration
+  //   Comprehension: 80-100 Independent, 59-79 Instructional, <=58 Frustration
+  String _wrBand(double p) =>
+      p >= 97 ? 'independent' : (p >= 90 ? 'instructional' : 'frustration');
+  String _compBand(double p) =>
+      p >= 80 ? 'independent' : (p >= 59 ? 'instructional' : 'frustration');
+
+  Color _bandColor(String band) => band.contains('frustration')
+      ? Colors.red.shade700
+      : (band.contains('instructional')
+            ? Colors.amber.shade800
+            : const Color(0xFF4E9F45));
+
+  String _bandLabel(String band) =>
+      band.isEmpty ? 'N/A' : band[0].toUpperCase() + band.substring(1);
+
+  Widget _bandChip(String band) {
+    final c = _bandColor(band);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: c.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: c, width: 1.5),
+      ),
+      child: Text(
+        _bandLabel(band),
+        style: TextStyle(fontSize: 10, fontWeight: FontWeight.w900, color: c),
+      ),
+    );
+  }
+
+  Widget _metricRow(String label, String value, String band, String rule) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              label,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+            ),
+          ),
+          SizedBox(
+            width: 90,
+            child: Text(
+              value,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+            ),
+          ),
+          _bandChip(band),
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              rule,
+              style: const TextStyle(fontSize: 10, color: Colors.black54),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// One student row: the accuracy bar (collapsed) + analytics that explain
+  /// WHY the student is in this level (expanded).
+  Widget _buildLevelStudentTile(Map<String, dynamic> s, Color barColor) {
+    final double accuracy = s['accuracy'] as double;
+    final double quiz = s['quiz_score'] as double;
+    final double total = s['total_questions'] as double;
+    final bool hasQuiz = total > 0;
+    final double compPct = hasQuiz ? (quiz / total) * 100 : 0;
+    final double seconds = s['time_on_task'] as double;
+    final List history = (s['history'] as List?) ?? const [];
+    final String testType = (s['test_type'] as String) == 'pre_test'
+        ? 'Pre-test'
+        : ((s['test_type'] as String) == 'post_test' ? 'Post-test' : '');
+
+    final String wrBand = _wrBand(accuracy);
+    // The backend (PhilIriService / saveProgress) treats a story with no quiz
+    // as 0% comprehension, which always counts as Frustration. Mirror that so
+    // the numbers here explain the level the backend actually saved.
+    final String compBand = hasQuiz ? _compBand(compPct) : 'frustration';
+    final String level = s['level'] as String;
+
+    // Overall level = the LOWER of Word Reading and Comprehension.
+    String reason;
+    if (level.contains('frustration')) {
+      final parts = <String>[];
+      if (wrBand == 'frustration') {
+        parts.add('Word Reading ${accuracy.toStringAsFixed(0)}% (89% pababa)');
+      }
+      if (compBand == 'frustration') {
+        parts.add(
+          hasQuiz
+              ? 'Comprehension ${compPct.toStringAsFixed(0)}% (58% pababa)'
+              : 'walang quiz kaya 0% ang Comprehension',
+        );
+      }
+      reason = parts.isEmpty
+          ? 'Mababa ang kabuuang resulta.'
+          : 'Bakit Frustration: ${parts.join(' at ')}. '
+                'Kahit isa lang sa dalawa ang mababa, Frustration ang kinalalabasan.';
+    } else {
+      reason =
+          'Bakit ${_bandLabel(level)}: kinukuha ang mas mababa sa Word Reading '
+          '(${_bandLabel(wrBand)}) at Comprehension (${_bandLabel(compBand)}).';
+    }
+
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+        dense: true,
+        visualDensity: VisualDensity.compact,
+        title: Row(
+          children: [
+            SizedBox(
+              width: 110,
+              child: Text(
+                s['name'] as String,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 12,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: accuracy / 100.0,
+                  minHeight: 14,
+                  backgroundColor: Colors.black12,
+                  valueColor: AlwaysStoppedAnimation<Color>(barColor),
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            SizedBox(
+              width: 36,
+              child: Text(
+                "${accuracy.toStringAsFixed(0)}%",
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 11,
+                ),
+                textAlign: TextAlign.right,
+              ),
+            ),
+          ],
+        ),
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: barColor.withOpacity(0.06),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: Colors.black26),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pinakabagong basa: ${s['story_title']}'
+                  '${testType.isEmpty ? '' : ' · $testType'}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  margin: const EdgeInsets.only(bottom: 6),
+                  decoration: BoxDecoration(
+                    color: barColor.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(
+                    reason,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                _metricRow(
+                  'Word Reading',
+                  '${accuracy.toStringAsFixed(0)}%',
+                  wrBand,
+                  '97%+ Ind · 90-96% Instr · 89% pababa Frus',
+                ),
+                _metricRow(
+                  'Comprehension',
+                  hasQuiz
+                      ? '${quiz.toInt()}/${total.toInt()} (${compPct.toStringAsFixed(0)}%)'
+                      : 'Walang quiz (0%)',
+                  compBand,
+                  hasQuiz
+                      ? '80%+ Ind · 59-79% Instr · 58% pababa Frus'
+                      : 'binibilang na 0% ng sistema',
+                ),
+                if (seconds > 0)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 3),
+                    child: Text(
+                      'Oras ng pagbasa: ${(seconds / 60).toStringAsFixed(1)} min',
+                      style: const TextStyle(fontSize: 12),
+                    ),
+                  ),
+                if (accuracy == 0)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4),
+                    child: Text(
+                      '⚠️ 0% ang word reading — posibleng walang nai-record na '
+                      'pagbasa. I-check muna bago ituring na tunay na Frustration.',
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.orange.shade900,
+                      ),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Text(
+                  'Kasaysayan (${s['stories_read']} kuwento, luma → bago):',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: history.map((h) {
+                    final band = h.toString();
+                    return Container(
+                      width: 20,
+                      height: 20,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: _bandColor(band),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Text(
+                        band.isEmpty ? '?' : band[0].toUpperCase(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// Dropdown panel shown below the stat card row when a Frustration /
   /// Instructional / Independent card is tapped — one row per student
   /// currently in that level, each with a progress bar for their oral
@@ -3297,51 +3634,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                 ),
               ),
               const SizedBox(height: 8),
-              ...list.map((s) {
-                final double accuracy = s['accuracy'] as double;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Row(
-                    children: [
-                      SizedBox(
-                        width: 110,
-                        child: Text(
-                          s['name'] as String,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: LinearProgressIndicator(
-                            value: accuracy / 100.0,
-                            minHeight: 14,
-                            backgroundColor: Colors.black12,
-                            valueColor: AlwaysStoppedAnimation<Color>(barColor),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 36,
-                        child: Text(
-                          "${accuracy.toStringAsFixed(0)}%",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                          textAlign: TextAlign.right,
-                        ),
-                      ),
-                    ],
-                  ),
-                );
-              }),
+              ...list.map((s) => _buildLevelStudentTile(s, barColor)),
             ],
           );
         },
