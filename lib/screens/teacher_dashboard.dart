@@ -1824,23 +1824,41 @@ class _StudentsTabState extends State<_StudentsTab> {
         Uri.parse("$baseUrl/api/teachers/$tId/dashboard-summary"),
         headers: networkHeaders,
       );
-      final mispronunciationRes = await http.get(
-        Uri.parse("$baseUrl/api/teachers/$tId/mispronunciations"),
-        headers: networkHeaders,
-      );
+      // Mispronunciations are optional: if that endpoint fails, still show
+      // the Phil-IRI summary and the student list.
+      http.Response? mispronunciationRes;
+      try {
+        mispronunciationRes = await http.get(
+          Uri.parse("$baseUrl/api/teachers/$tId/mispronunciations"),
+          headers: networkHeaders,
+        );
+      } catch (e) {
+        debugPrint("Mispronunciations request failed: $e");
+      }
 
-      if (summaryRes.statusCode == 200 &&
-          mispronunciationRes.statusCode == 200 &&
-          mounted) {
+      if (summaryRes.statusCode == 200 && mounted) {
         final decodedSummary = jsonDecode(summaryRes.body);
-        final decodedMispro = jsonDecode(mispronunciationRes.body);
+        dynamic decodedMispro;
+        if (mispronunciationRes?.statusCode == 200) {
+          decodedMispro = jsonDecode(mispronunciationRes!.body);
+        } else {
+          debugPrint(
+            "Mispronunciations failed: ${mispronunciationRes?.statusCode}",
+          );
+        }
         setState(() {
           _summaryData = decodedSummary['data'] ?? decodedSummary;
-          _mispronunciations =
-              decodedMispro['data'] ?? decodedMispro['mispronunciations'] ?? [];
+          _mispronunciations = decodedMispro == null
+              ? []
+              : (decodedMispro['data'] ??
+                    decodedMispro['mispronunciations'] ??
+                    []);
           _isLoadingAnalytics = false;
         });
       } else {
+        debugPrint(
+          "dashboard-summary failed: ${summaryRes.statusCode} ${summaryRes.body}",
+        );
         if (mounted) setState(() => _isLoadingAnalytics = false);
       }
     } catch (e) {
