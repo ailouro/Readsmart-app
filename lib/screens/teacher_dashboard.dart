@@ -17,6 +17,7 @@ import '../widgets/bouncy_tap.dart';
 import 'teacher_profile_screen.dart';
 import 'teacher_analytics_dashboard.dart';
 import 'class_pre_post_summary_screen.dart';
+import 'student_alert_detail_screen.dart';
 import 'login_screen.dart';
 
 String _safeString(dynamic value, [String fallback = ""]) {
@@ -7562,6 +7563,7 @@ class _AlertsTabState extends State<_AlertsTab> {
   static const Color accentTheme = Color(0xFFFDE047);
   bool _isLoading = true;
   List<dynamic> _alerts = [];
+  int _tId = 0;
 
   @override
   void initState() {
@@ -7589,6 +7591,7 @@ class _AlertsTabState extends State<_AlertsTab> {
         Uri.parse("$baseUrl/api/teachers/$tId/alerts"),
         headers: networkHeaders,
       );
+      _tId = tId;
 
       if (response.statusCode == 200 && mounted) {
         final decoded = jsonDecode(response.body);
@@ -7741,7 +7744,15 @@ class _AlertsTabState extends State<_AlertsTab> {
                             ),
                           ),
                           onPressed: () {
-                            // TODO: Action kapag pinindot (e.g. view student profile o message)
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => StudentAlertDetailScreen(
+                                  teacherId: _tId,
+                                  studentId: '${alert['student_id']}',
+                                ),
+                              ),
+                            );
                           },
                           child: const Text(
                             "Review",
