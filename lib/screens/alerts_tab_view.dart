@@ -81,13 +81,13 @@ class _AlertsTabViewState extends State<AlertsTabView> {
                             context,
                             MaterialPageRoute(
                               builder: (_) => StudentAlertDetailScreen(
-                                teacherId: widget.teacherId,
+                                teacherId: int.parse(widget.teacherId),
                                 studentId: alert['student_id'].toString(),
                               ),
                             ),
                           );
                         },
-                        child: const Text('TEST123'),
+                        child: const Text('Review'),
                       ),
                     ),
                   );
