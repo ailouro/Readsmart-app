@@ -320,7 +320,7 @@ class _StudentDashboardState extends State<StudentDashboard>
           ),
           child: SafeArea(
             child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -329,8 +329,8 @@ class _StudentDashboardState extends State<StudentDashboard>
                   Expanded(
                     child: Row(
                       children: [
-                        _buildAvatarIndicator(45),
-                        const SizedBox(width: 10),
+                        _buildAvatarIndicator(40),
+                        const SizedBox(width: 8),
                         Expanded(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
@@ -350,7 +350,7 @@ class _StudentDashboardState extends State<StudentDashboard>
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: const TextStyle(
-                                  fontSize: 18,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.w900,
                                   color: Colors.white,
                                 ),
@@ -374,6 +374,8 @@ class _StudentDashboardState extends State<StudentDashboard>
                   ),
                   const SizedBox(width: 8),
                   Container(
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: accentTheme,
                       shape: BoxShape.circle,
@@ -383,6 +385,8 @@ class _StudentDashboardState extends State<StudentDashboard>
                       ],
                     ),
                     child: IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                       icon: const Icon(
                         Icons.emoji_events_rounded,
                         color: Colors.black,
@@ -394,6 +398,8 @@ class _StudentDashboardState extends State<StudentDashboard>
                   ),
                   const SizedBox(width: 8),
                   Container(
+                    width: 38,
+                    height: 38,
                     decoration: BoxDecoration(
                       color: Colors.white,
                       shape: BoxShape.circle,
@@ -403,11 +409,14 @@ class _StudentDashboardState extends State<StudentDashboard>
                       ],
                     ),
                     child: IconButton(
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
                       icon: const Icon(
                         Icons.exit_to_app_rounded,
                         color: Colors.black,
                         size: 20,
                       ),
+                      tooltip: "Log Out",
                       onPressed: _logout,
                     ),
                   ),
@@ -423,7 +432,7 @@ class _StudentDashboardState extends State<StudentDashboard>
           color: maroonTheme,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(16),
             child: _buildMissionsSection(),
           ),
         ),
@@ -478,9 +487,26 @@ class _StudentDashboardState extends State<StudentDashboard>
       key: const ValueKey('student_dashboard_root'),
       builder: (context, constraints) {
         final bool isDesktop = constraints.maxWidth >= 1024;
-        return isDesktop
-            ? KeyedSubtree(key: const ValueKey('desktop'), child: desktopLayout)
-            : KeyedSubtree(key: const ValueKey('mobile'), child: mobileLayout);
+        // Cap the system font scale so a phone with "Large" font/display
+        // size can't blow the layout past the screen edge.
+        final mq = MediaQuery.of(context);
+        return MediaQuery(
+          data: mq.copyWith(
+            textScaler: mq.textScaler.clamp(
+              minScaleFactor: 1.0,
+              maxScaleFactor: 1.1,
+            ),
+          ),
+          child: isDesktop
+              ? KeyedSubtree(
+                  key: const ValueKey('desktop'),
+                  child: desktopLayout,
+                )
+              : KeyedSubtree(
+                  key: const ValueKey('mobile'),
+                  child: mobileLayout,
+                ),
+        );
       },
     );
   }
@@ -864,7 +890,7 @@ class _StudentDashboardState extends State<StudentDashboard>
   Widget _buildHeaderBanner() {
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -874,7 +900,7 @@ class _StudentDashboardState extends State<StudentDashboard>
       child: Row(
         children: [
           Container(
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
               color: cyanAccent,
               shape: BoxShape.circle,
@@ -882,11 +908,11 @@ class _StudentDashboardState extends State<StudentDashboard>
             ),
             child: const Icon(
               Icons.rocket_launch_rounded,
-              size: 36,
+              size: 30,
               color: Colors.black,
             ),
           ),
-          const SizedBox(width: 16),
+          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -914,7 +940,7 @@ class _StudentDashboardState extends State<StudentDashboard>
                 Text(
                   "Ready for an adventure, ${widget.userName}?",
                   style: const TextStyle(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w900,
                     color: Colors.black,
                   ),
@@ -987,11 +1013,11 @@ class _StudentDashboardState extends State<StudentDashboard>
             if (mounted) _fetchMyLibrary();
           },
           child: Padding(
-            padding: const EdgeInsets.all(16.0),
+            padding: const EdgeInsets.all(12.0),
             child: Row(
               children: [
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: cyanAccent,
                     borderRadius: BorderRadius.circular(12),
@@ -1000,10 +1026,10 @@ class _StudentDashboardState extends State<StudentDashboard>
                   child: const Icon(
                     Icons.menu_book_rounded,
                     color: Colors.black,
-                    size: 28,
+                    size: 24,
                   ),
                 ),
-                const SizedBox(width: 16),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1014,11 +1040,11 @@ class _StudentDashboardState extends State<StudentDashboard>
                         myClass['name'] ??
                             myClass['section_name'] ??
                             'Story Zone',
-                        maxLines: 1,
+                        maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                         style: const TextStyle(
                           fontWeight: FontWeight.w900,
-                          fontSize: 18,
+                          fontSize: 16,
                           color: Colors.black,
                         ),
                       ),
@@ -1035,11 +1061,11 @@ class _StudentDashboardState extends State<StudentDashboard>
                         ),
                         child: Text(
                           "Level ${myClass['grade_level'] ?? 'N/A'} Zone",
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                            fontSize: 11,
                             color: Colors.black,
                           ),
                         ),
@@ -1047,9 +1073,10 @@ class _StudentDashboardState extends State<StudentDashboard>
                     ],
                   ),
                 ),
+                const SizedBox(width: 8),
                 Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
+                    horizontal: 12,
                     vertical: 10,
                   ),
                   decoration: BoxDecoration(
@@ -1062,7 +1089,7 @@ class _StudentDashboardState extends State<StudentDashboard>
                     style: TextStyle(
                       fontWeight: FontWeight.w900,
                       color: Colors.black,
-                      fontSize: 14,
+                      fontSize: 13,
                     ),
                   ),
                 ),
@@ -1076,8 +1103,8 @@ class _StudentDashboardState extends State<StudentDashboard>
 
   Widget _buildLibrarySection() {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.symmetric(vertical: 12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
@@ -1097,9 +1124,13 @@ class _StudentDashboardState extends State<StudentDashboard>
                 size: 24,
               ),
               SizedBox(width: 8),
-              Text(
-                "Aking Silid-Aklatan (My Library)",
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+              Expanded(
+                child: Text(
+                  "Aking Silid-Aklatan (My Library)",
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                ),
               ),
             ],
           ),

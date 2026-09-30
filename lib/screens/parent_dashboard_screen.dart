@@ -1112,13 +1112,9 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
           color: Colors.white,
           shape: BoxShape.circle,
           border: Border.all(color: Colors.black, width: 2),
-<<<<<<< HEAD
           boxShadow: const [
             BoxShadow(color: Colors.black, offset: Offset(2, 2)),
           ],
-=======
-          boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(2, 2))],
->>>>>>> 51a53e9edcbf6faefb594c6a99d16bb46dcf0e51
         ),
         child: IconButton(
           padding: EdgeInsets.zero,
@@ -1144,15 +1140,11 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
               padding: const EdgeInsets.symmetric(horizontal: 12),
               child: Row(
                 children: [
-<<<<<<< HEAD
                   const Icon(
                     Icons.family_restroom,
                     color: Colors.white,
                     size: 26,
                   ),
-=======
-                  const Icon(Icons.family_restroom, color: Colors.white, size: 26),
->>>>>>> 51a53e9edcbf6faefb594c6a99d16bb46dcf0e51
                   const SizedBox(width: 8),
                   // Expanded + ellipsis so the title/email shrink instead of
                   // pushing the action buttons off screen.
@@ -1208,14 +1200,10 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                             decoration: BoxDecoration(
                               color: Colors.red,
                               shape: BoxShape.circle,
-<<<<<<< HEAD
                               border: Border.all(
                                 color: Colors.white,
                                 width: 1.5,
                               ),
-=======
-                              border: Border.all(color: Colors.white, width: 1.5),
->>>>>>> 51a53e9edcbf6faefb594c6a99d16bb46dcf0e51
                             ),
                           ),
                         ),

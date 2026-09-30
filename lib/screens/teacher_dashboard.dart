@@ -16,8 +16,8 @@ import '../widgets/responsive_layout.dart';
 import '../widgets/bouncy_tap.dart';
 import 'teacher_profile_screen.dart';
 import 'teacher_analytics_dashboard.dart';
-import 'login_screen.dart';
 import 'class_pre_post_summary_screen.dart';
+import 'login_screen.dart';
 
 String _safeString(dynamic value, [String fallback = ""]) {
   if (value == null) return fallback;
@@ -101,14 +101,6 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       (route) => false,
     );
   }
-
-  Navigator.push(context, MaterialPageRoute(
-     builder: (_) => ClassPrePostSummaryScreen(
-       baseUrl: baseUrl,
-       classId: c['id'],
-       className: _safeString(c['name']),
-     ),
-   ));
 
   @override
   Widget build(BuildContext context) {
@@ -1670,15 +1662,11 @@ class _LibraryTabState extends State<_LibraryTab> {
                     shape: BoxShape.circle,
                     border: Border.all(color: Colors.black, width: 2),
                   ),
-<<<<<<< HEAD
                   child: Icon(
                     Icons.delete,
                     color: Colors.red,
                     size: actionIcon,
                   ),
-=======
-                  child: Icon(Icons.delete, color: Colors.red, size: actionIcon),
->>>>>>> 51a53e9edcbf6faefb594c6a99d16bb46dcf0e51
                 ),
               ),
             ],
@@ -3209,7 +3197,33 @@ class _StudentsTabState extends State<_StudentsTab> {
                                 _liveTrackingPanel(
                                   _liveByClass[item['id']] ?? const [],
                                 ),
-                                const SizedBox(width: 6),
+                                const SizedBox(width: 4),
+                                IconButton(
+                                  tooltip: 'Pre vs Post Summary',
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(
+                                    minWidth: 36,
+                                    minHeight: 36,
+                                  ),
+                                  icon: const Icon(
+                                    Icons.compare_arrows_rounded,
+                                    size: 22,
+                                  ),
+                                  onPressed: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (_) =>
+                                            ClassPrePostSummaryScreen(
+                                              baseUrl: baseUrl,
+                                              classId: item['id'],
+                                              className: className,
+                                            ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 2),
                                 const Icon(
                                   Icons.arrow_forward_ios_rounded,
                                   size: 16,
