@@ -17,6 +17,7 @@ import '../widgets/bouncy_tap.dart';
 import 'teacher_profile_screen.dart';
 import 'teacher_analytics_dashboard.dart';
 import 'login_screen.dart';
+import 'class_pre_post_summary_screen.dart';
 
 String _safeString(dynamic value, [String fallback = ""]) {
   if (value == null) return fallback;
@@ -100,6 +101,14 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
       (route) => false,
     );
   }
+
+  Navigator.push(context, MaterialPageRoute(
+     builder: (_) => ClassPrePostSummaryScreen(
+       baseUrl: baseUrl,
+       classId: c['id'],
+       className: _safeString(c['name']),
+     ),
+   ));
 
   @override
   Widget build(BuildContext context) {
