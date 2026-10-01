@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 
 /// Class-level Pre-Test vs Post-Test summary (numeric gain + CSV export).
 /// Backend: GET /api/classes/{classId}/pre-post-summary  (ClassReportController)
@@ -72,17 +73,34 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
 
   Future<void> _copyCsv() async {
     try {
-      final res = await http.get(Uri.parse('$_url?format=csv'), headers: _headers);
+      final res = await http.get(
+        Uri.parse('$_url?format=csv'),
+        headers: _headers,
+      );
       if (res.statusCode != 200) throw Exception('status ${res.statusCode}');
       await Clipboard.setData(ClipboardData(text: utf8.decode(res.bodyBytes)));
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('CSV copied. Paste it into Excel / Google Sheets.'),
-      ));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('CSV copied. Paste it into Excel / Google Sheets.'),
+        ),
+      );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Could not export CSV. Try again.')),
+      );
+    }
+  }
+
+  Future<void> _openPdf() async {
+    final ok = await launchUrl(
+      Uri.parse('$_url?format=pdf'),
+      mode: LaunchMode.externalApplication,
+    );
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open the PDF. Try again.')),
       );
     }
   }
@@ -102,168 +120,248 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
   }
 
   Widget _box(Widget child) => Container(
-        width: double.infinity,
-        margin: const EdgeInsets.only(bottom: 14),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.brown, width: 2),
-        ),
-        child: child,
-      );
+    width: double.infinity,
+    margin: const EdgeInsets.only(bottom: 14),
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: Colors.brown, width: 2),
+    ),
+    child: child,
+  );
 
   Widget _chip(String label, dynamic value, Color color) => Expanded(
-        child: Column(children: [
-          Text('$value',
-              style: TextStyle(
-                  fontSize: 22, fontWeight: FontWeight.w900, color: color)),
-          Text(label,
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700)),
-        ]),
-      );
+    child: Column(
+      children: [
+        Text(
+          '$value',
+          style: TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.w900,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+        ),
+      ],
+    ),
+  );
 
   Widget _overview(Map s) {
     final mv = Map<String, dynamic>.from(s['movement'] ?? {});
-    return _box(Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('📊 Class Overview',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
-        const SizedBox(height: 4),
-        Text(
-          '${s['total_students']} students • ${s['with_pre']} with pre-test • '
-          '${s['with_post']} with post-test • ${s['paired_students']} with both',
-          style: const TextStyle(fontSize: 10, color: Colors.black54),
-        ),
-        const SizedBox(height: 10),
-        const Text('Instructional grade movement',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-        const SizedBox(height: 6),
-        Row(children: [
-          _chip('Improved', mv['improved'] ?? 0, Colors.green.shade700),
-          _chip('Same', mv['same'] ?? 0, Colors.black54),
-          _chip('Declined', mv['declined'] ?? 0, Colors.red.shade700),
-        ]),
-      ],
-    ));
+    return _box(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '📊 Class Overview',
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            '${s['total_students']} students • ${s['with_pre']} with pre-test • '
+            '${s['with_post']} with post-test • ${s['paired_students']} with both',
+            style: const TextStyle(fontSize: 10, color: Colors.black54),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Instructional grade movement',
+            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              _chip('Improved', mv['improved'] ?? 0, Colors.green.shade700),
+              _chip('Same', mv['same'] ?? 0, Colors.black54),
+              _chip('Declined', mv['declined'] ?? 0, Colors.red.shade700),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _metricsTable(Map s) {
     final metrics = Map<String, dynamic>.from(s['metrics'] ?? {});
-    return _box(Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('📈 Average Pre vs Post (paired students only)',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
-        const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            headingRowHeight: 34,
-            dataRowMinHeight: 34,
-            dataRowMaxHeight: 38,
-            columnSpacing: 16,
-            columns: const [
-              DataColumn(label: Text('Measure', style: TextStyle(fontSize: 11))),
-              DataColumn(label: Text('n', style: TextStyle(fontSize: 11))),
-              DataColumn(label: Text('Pre', style: TextStyle(fontSize: 11))),
-              DataColumn(label: Text('Post', style: TextStyle(fontSize: 11))),
-              DataColumn(label: Text('Mean gain', style: TextStyle(fontSize: 11))),
-              DataColumn(label: Text('SD', style: TextStyle(fontSize: 11))),
-              DataColumn(label: Text('t (df)', style: TextStyle(fontSize: 11))),
-            ],
-            rows: [
-              for (final d in _metricDefs)
-                () {
-                  final m = Map<String, dynamic>.from(metrics[d[0]] ?? {});
-                  final suffix = d[2];
-                  final t = m['t'] == null
-                      ? '—'
-                      : '${m['t']} (${m['df']})';
-                  return DataRow(cells: [
-                    DataCell(Text(d[1], style: const TextStyle(fontSize: 11))),
-                    DataCell(Text('${m['n'] ?? 0}',
-                        style: const TextStyle(fontSize: 11))),
-                    DataCell(Text(_fmt(m['pre_mean'], suffix: suffix),
-                        style: const TextStyle(fontSize: 11))),
-                    DataCell(Text(_fmt(m['post_mean'], suffix: suffix),
-                        style: const TextStyle(fontSize: 11))),
-                    DataCell(Text(
-                      _fmt(m['mean_gain'], suffix: suffix, sign: true),
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: _gainColor(m['mean_gain'])),
-                    )),
-                    DataCell(Text(_fmt(m['sd_gain']),
-                        style: const TextStyle(fontSize: 11))),
-                    DataCell(Text(t, style: const TextStyle(fontSize: 11))),
-                  ]);
-                }(),
-            ],
+    return _box(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '📈 Average Pre vs Post (paired students only)',
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
           ),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Mean gain = average of (post − pre) per student. t is the paired '
-          't-statistic; use the CSV export for the p-value in Excel/SPSS.',
-          style: TextStyle(fontSize: 9, fontStyle: FontStyle.italic, color: Colors.black54),
-        ),
-      ],
-    ));
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowHeight: 34,
+              dataRowMinHeight: 34,
+              dataRowMaxHeight: 38,
+              columnSpacing: 16,
+              columns: const [
+                DataColumn(
+                  label: Text('Measure', style: TextStyle(fontSize: 11)),
+                ),
+                DataColumn(label: Text('n', style: TextStyle(fontSize: 11))),
+                DataColumn(label: Text('Pre', style: TextStyle(fontSize: 11))),
+                DataColumn(label: Text('Post', style: TextStyle(fontSize: 11))),
+                DataColumn(
+                  label: Text('Mean gain', style: TextStyle(fontSize: 11)),
+                ),
+                DataColumn(label: Text('SD', style: TextStyle(fontSize: 11))),
+                DataColumn(
+                  label: Text('t (df)', style: TextStyle(fontSize: 11)),
+                ),
+              ],
+              rows: [
+                for (final d in _metricDefs)
+                  () {
+                    final m = Map<String, dynamic>.from(metrics[d[0]] ?? {});
+                    final suffix = d[2];
+                    final t = m['t'] == null ? '—' : '${m['t']} (${m['df']})';
+                    return DataRow(
+                      cells: [
+                        DataCell(
+                          Text(d[1], style: const TextStyle(fontSize: 11)),
+                        ),
+                        DataCell(
+                          Text(
+                            '${m['n'] ?? 0}',
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            _fmt(m['pre_mean'], suffix: suffix),
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            _fmt(m['post_mean'], suffix: suffix),
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            _fmt(m['mean_gain'], suffix: suffix, sign: true),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              color: _gainColor(m['mean_gain']),
+                            ),
+                          ),
+                        ),
+                        DataCell(
+                          Text(
+                            _fmt(m['sd_gain']),
+                            style: const TextStyle(fontSize: 11),
+                          ),
+                        ),
+                        DataCell(Text(t, style: const TextStyle(fontSize: 11))),
+                      ],
+                    );
+                  }(),
+              ],
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Mean gain = average of (post − pre) per student. t is the paired '
+            't-statistic; use the CSV export for the p-value in Excel/SPSS.',
+            style: TextStyle(
+              fontSize: 9,
+              fontStyle: FontStyle.italic,
+              color: Colors.black54,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _studentTable(List students) {
-    return _box(Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('🧒 Per-Student Results',
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13)),
-        const SizedBox(height: 8),
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            headingRowHeight: 34,
-            dataRowMinHeight: 34,
-            dataRowMaxHeight: 38,
-            columnSpacing: 14,
-            columns: const [
-              DataColumn(label: Text('Student', style: TextStyle(fontSize: 11))),
-              DataColumn(label: Text('Inst. Gr. (pre→post)', style: TextStyle(fontSize: 11))),
-              DataColumn(label: Text('Gain', style: TextStyle(fontSize: 11))),
-              DataColumn(label: Text('WR % (pre→post)', style: TextStyle(fontSize: 11))),
-              DataColumn(label: Text('Comp % (pre→post)', style: TextStyle(fontSize: 11))),
-              DataColumn(label: Text('WPM (pre→post)', style: TextStyle(fontSize: 11))),
-            ],
-            rows: [
-              for (final raw in students)
-                () {
-                  final r = Map<String, dynamic>.from(raw as Map);
-                  String pair(String k, {String suffix = ''}) =>
-                      '${_fmt(r['pre_$k'], suffix: suffix)} → ${_fmt(r['post_$k'], suffix: suffix)}';
-                  const st = TextStyle(fontSize: 11);
-                  return DataRow(cells: [
-                    DataCell(Text('${r['name']}', style: st)),
-                    DataCell(Text(pair('instructional'), style: st)),
-                    DataCell(Text(
-                      _fmt(r['gain_instructional'], sign: true),
-                      style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w900,
-                          color: _gainColor(r['gain_instructional'])),
-                    )),
-                    DataCell(Text(pair('wr', suffix: '%'), style: st)),
-                    DataCell(Text(pair('comp', suffix: '%'), style: st)),
-                    DataCell(Text(pair('wpm'), style: st)),
-                  ]);
-                }(),
-            ],
+    return _box(
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '🧒 Per-Student Results',
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
           ),
-        ),
-      ],
-    ));
+          const SizedBox(height: 8),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowHeight: 34,
+              dataRowMinHeight: 34,
+              dataRowMaxHeight: 38,
+              columnSpacing: 14,
+              columns: const [
+                DataColumn(
+                  label: Text('Student', style: TextStyle(fontSize: 11)),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Inst. Gr. (pre→post)',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ),
+                DataColumn(label: Text('Gain', style: TextStyle(fontSize: 11))),
+                DataColumn(
+                  label: Text(
+                    'WR % (pre→post)',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Comp % (pre→post)',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ),
+                DataColumn(
+                  label: Text('WPM (pre→post)', style: TextStyle(fontSize: 11)),
+                ),
+              ],
+              rows: [
+                for (final raw in students)
+                  () {
+                    final r = Map<String, dynamic>.from(raw as Map);
+                    String pair(String k, {String suffix = ''}) =>
+                        '${_fmt(r['pre_$k'], suffix: suffix)} → ${_fmt(r['post_$k'], suffix: suffix)}';
+                    const st = TextStyle(fontSize: 11);
+                    return DataRow(
+                      cells: [
+                        DataCell(Text('${r['name']}', style: st)),
+                        DataCell(Text(pair('instructional'), style: st)),
+                        DataCell(
+                          Text(
+                            _fmt(r['gain_instructional'], sign: true),
+                            style: TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              color: _gainColor(r['gain_instructional']),
+                            ),
+                          ),
+                        ),
+                        DataCell(Text(pair('wr', suffix: '%'), style: st)),
+                        DataCell(Text(pair('comp', suffix: '%'), style: st)),
+                        DataCell(Text(pair('wpm'), style: st)),
+                      ],
+                    );
+                  }(),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _body() {
@@ -272,11 +370,14 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
     }
     if (_error != null || _data == null) {
       return Center(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Text(_error ?? 'Something went wrong.'),
-          const SizedBox(height: 10),
-          ElevatedButton(onPressed: _load, child: const Text('Try Again')),
-        ]),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(_error ?? 'Something went wrong.'),
+            const SizedBox(height: 10),
+            ElevatedButton(onPressed: _load, child: const Text('Try Again')),
+          ],
+        ),
       );
     }
     final s = Map<String, dynamic>.from(_data!['summary'] as Map);
@@ -285,11 +386,7 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
       onRefresh: _load,
       child: ListView(
         padding: const EdgeInsets.all(14),
-        children: [
-          _overview(s),
-          _metricsTable(s),
-          _studentTable(students),
-        ],
+        children: [_overview(s), _metricsTable(s), _studentTable(students)],
       ),
     );
   }
@@ -299,11 +396,18 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFFAF6F6),
       appBar: AppBar(
-        title: Text('Pre vs Post • ${widget.className}',
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16)),
+        title: Text(
+          'Pre vs Post • ${widget.className}',
+          style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
+        ),
         backgroundColor: _maroon,
         foregroundColor: Colors.white,
         actions: [
+          IconButton(
+            tooltip: 'Download PDF',
+            icon: const Icon(Icons.picture_as_pdf_rounded),
+            onPressed: _data == null ? null : _openPdf,
+          ),
           IconButton(
             tooltip: 'Copy CSV',
             icon: const Icon(Icons.copy_all_rounded),

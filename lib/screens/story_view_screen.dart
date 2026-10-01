@@ -586,9 +586,16 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     );
     if (cleanWord.isEmpty) return;
 
-    await _flutterTts.speak(originalWord);
+    // Walang await: awaitSpeakCompletion(true) ang naka-set, kaya kapag inawait
+    // ito, naghihintay ang sheet na matapos ang TTS (at minsan hindi na lumalabas).
+    _flutterTts.speak(originalWord);
 
     if (!mounted) return;
+
+    final String cleanBaseUrl = widget.baseUrl.endsWith('/api')
+        ? widget.baseUrl.substring(0, widget.baseUrl.length - 4)
+        : widget.baseUrl;
+
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -597,6 +604,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           originalWord: originalWord,
           cleanWord: cleanWord,
           flutterTts: _flutterTts,
+          baseUrl: cleanBaseUrl,
         );
       },
     );
@@ -2363,11 +2371,13 @@ class _DefinitionSheet extends StatefulWidget {
   final String originalWord;
   final String cleanWord;
   final FlutterTts flutterTts;
+  final String baseUrl;
 
   const _DefinitionSheet({
     required this.originalWord,
     required this.cleanWord,
     required this.flutterTts,
+    required this.baseUrl,
   });
 
   @override
@@ -2388,66 +2398,54 @@ class _DefinitionSheetState extends State<_DefinitionSheet> {
   }
 
   Future<void> _fetchDefinition() async {
-    if (_dictCache.containsKey(widget.cleanWord)) {
-      if (mounted) {
-        setState(() {
-          _partOfSpeech = _dictCache[widget.cleanWord]!['pos']!;
-          _definition = _dictCache[widget.cleanWord]!['def']!;
-          _isLoading = false;
-        });
-      }
+    final cached = _dictCache[widget.cleanWord];
+    if (cached != null) {
+      if (!mounted) return;
+      setState(() {
+        _partOfSpeech = cached['pos']!;
+        _definition = cached['def']!;
+        _isLoading = false;
+      });
       return;
     }
 
     try {
-      final response = await http.get(
-        Uri.parse(
-          'https://api.dictionaryapi.dev/api/v2/entries/en/${widget.cleanWord}',
-        ),
-      );
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        if (data.isNotEmpty && data[0]['meanings'].isNotEmpty) {
-          final firstMeaning = data[0]['meanings'][0];
-          final pos = firstMeaning['partOfSpeech'] ?? '';
-          if (firstMeaning['definitions'].isNotEmpty) {
-            final def =
-                firstMeaning['definitions'][0]['definition'] ??
-                'No definition found.';
-            _dictCache[widget.cleanWord] = {'pos': pos, 'def': def};
-            if (mounted) {
-              setState(() {
-                _partOfSpeech = pos;
-                _definition = def;
-                _isLoading = false;
-              });
-            }
-            return;
-          }
-        }
-      } else if (response.statusCode == 404) {
-        if (mounted) {
+      final res = await http
+          .get(
+            Uri.parse(
+              '${widget.baseUrl}/api/define?word=${Uri.encodeQueryComponent(widget.originalWord)}',
+            ),
+            headers: const {"ngrok-skip-browser-warning": "69420"},
+          )
+          .timeout(const Duration(seconds: 10));
+
+      if (!mounted) return;
+
+      if (res.statusCode == 200) {
+        final d = jsonDecode(res.body);
+        final pos = (d['part_of_speech'] ?? '').toString();
+        final def = (d['definition'] ?? '').toString();
+        if (def.isNotEmpty) {
+          _dictCache[widget.cleanWord] = {'pos': pos, 'def': def};
           setState(() {
-            _definition = "Word not found in dictionary.";
+            _partOfSpeech = pos;
+            _definition = def;
             _isLoading = false;
           });
+          return;
         }
-        return;
       }
-    } catch (e) {
-      debugPrint("Dictionary API Error: $e");
-      if (mounted) {
-        setState(() {
-          _definition = "Error: Network or CORS issue.";
-          _isLoading = false;
-        });
-      }
-      return;
-    }
 
-    if (mounted) {
       setState(() {
-        _definition = "Definition not available.";
+        _definition = "No definition found for this word.";
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint("Define API Error: $e");
+      if (!mounted) return;
+      setState(() {
+        _definition =
+            "Can't reach the server. Check your internet and try again.";
         _isLoading = false;
       });
     }
