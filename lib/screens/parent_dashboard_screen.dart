@@ -32,39 +32,28 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
   static const Color paperColor = Color(0xFFFFF6E4);
 
   bool _isSubmitting = false;
-  // The real backend supports exactly one linked child per parent
-  // (parent_id is a single column on users, not a pivot) — so this is
-  // the student's identity, held once...
-  int? _studentId;
-  String? _studentName;
-  // ...and a LIST of classes, since a student can belong to more than
-  // one class. The backend used to return only the first class via
-  // ->classes()->first(); fixed on the ParentController side to return
-  // all of them, and this list is what renders "YOUR CHILD'S CLASSES".
-  List<Map<String, dynamic>> _classes = [];
+  // A parent can have several children. Each child has their own id,
+  // name and list of classes: [{student_id, student_name, classes: [...]}]
+  List<Map<String, dynamic>> _children = [];
   List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = true;
 
-  // Reading snapshot shown on the dashboard itself (not just after tapping
-  // into a class) — latest progress + the words the child is struggling
-  // with, pulled from the same endpoints StudentProgressScreen already
-  // uses for this student.
-  List<dynamic> _progressRecords = [];
-  List<dynamic> _mispronunciations = [];
-  bool _isLoadingHighlights = false;
+  // Reading snapshot data, kept PER CHILD (keyed by student id).
+  final Map<int, List<dynamic>> _progressByChild = {};
+  final Map<int, List<dynamic>> _mispronunciationsByChild = {};
+  final Set<int> _loadingHighlights = {};
 
-  Future<void> _fetchProgressHighlights() async {
-    if (_studentId == null) return;
-    setState(() => _isLoadingHighlights = true);
+  Future<void> _fetchProgressHighlights(int studentId) async {
+    setState(() => _loadingHighlights.add(studentId));
     try {
       final results = await Future.wait([
         http.get(
-          Uri.parse("${widget.baseUrl}/api/student/$_studentId/all-progress"),
+          Uri.parse("${widget.baseUrl}/api/student/$studentId/all-progress"),
           headers: const {"ngrok-skip-browser-warning": "69420"},
         ),
         http.get(
           Uri.parse(
-            "${widget.baseUrl}/api/students/$_studentId/mispronunciations",
+            "${widget.baseUrl}/api/students/$studentId/mispronunciations",
           ),
           headers: const {"ngrok-skip-browser-warning": "69420"},
         ),
@@ -72,26 +61,26 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       if (mounted) {
         setState(() {
           if (results[0].statusCode == 200) {
-            _progressRecords = jsonDecode(results[0].body)['data'] ?? [];
+            _progressByChild[studentId] =
+                jsonDecode(results[0].body)['data'] ?? [];
           }
           if (results[1].statusCode == 200) {
-            _mispronunciations = jsonDecode(results[1].body)['data'] ?? [];
+            _mispronunciationsByChild[studentId] =
+                jsonDecode(results[1].body)['data'] ?? [];
           }
         });
       }
     } catch (e) {
-      debugPrint("Error fetching progress highlights: $e");
+      debugPrint("Error fetching progress highlights for $studentId: $e");
     } finally {
-      if (mounted) setState(() => _isLoadingHighlights = false);
+      if (mounted) setState(() => _loadingHighlights.remove(studentId));
     }
   }
 
-  // Top few words the child has struggled with most, across all stories —
-  // same data StudentProgressScreen's "Words" tab charts, just condensed
-  // to a handful of chips for the dashboard.
-  List<String> get _topStruggleWords {
+  // Top few words this child struggled with most, across all stories.
+  List<String> _topStruggleWords(int studentId) {
     final Map<String, int> counts = {};
-    for (final m in _mispronunciations) {
+    for (final m in _mispronunciationsByChild[studentId] ?? const []) {
       final word = m['word']?.toString();
       if (word == null || word.isEmpty) continue;
       counts[word] = (counts[word] ?? 0) + 1;
@@ -101,19 +90,27 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     return sorted.take(5).map((e) => e.key).toList();
   }
 
-  Widget _buildProgressHighlightsCard() {
-    if (_isLoadingHighlights) {
+  // "Grade 5" stays "Grade 5"; a bare "5" becomes "Grade 5".
+  String _gradeLabel(dynamic g) {
+    final s = g.toString();
+    return s.toLowerCase().startsWith('grade') ? s : 'Grade $s';
+  }
+
+  Widget _buildProgressHighlightsCard(int studentId) {
+    if (_loadingHighlights.contains(studentId)) {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 12),
         child: Center(child: CircularProgressIndicator()),
       );
     }
-    if (_progressRecords.isEmpty && _mispronunciations.isEmpty) {
+    final progressRecords = _progressByChild[studentId] ?? const [];
+    final mispronunciations = _mispronunciationsByChild[studentId] ?? const [];
+    if (progressRecords.isEmpty && mispronunciations.isEmpty) {
       return const SizedBox.shrink();
     }
 
-    final latest = _progressRecords.isNotEmpty ? _progressRecords.last : null;
-    final struggleWords = _topStruggleWords;
+    final latest = progressRecords.isNotEmpty ? progressRecords.last : null;
+    final struggleWords = _topStruggleWords(studentId);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 14),
@@ -280,9 +277,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
       if (response.statusCode == 404) {
         if (mounted) {
           setState(() {
-            _studentId = null;
-            _studentName = null;
-            _classes = [];
+            _children = [];
             _isLoading = false;
           });
         }
@@ -297,27 +292,45 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
         if (data == null || data is! Map<String, dynamic>) {
           if (mounted) {
             setState(() {
-              _studentId = null;
-              _studentName = null;
-              _classes = [];
+              _children = [];
               _isLoading = false;
             });
           }
           return;
         }
 
-        List<dynamic> rawClasses = data['classes'] ?? [];
-        // Back-compat: the old response shape put a single class's fields
-        // directly on the top-level object instead of in a `classes` array.
-        if (rawClasses.isEmpty && data['class_name'] != null) {
-          rawClasses = [
+        // New shape: data['children'] = [{student_id, student_name, classes}].
+        List<dynamic> rawChildren = data['children'] ?? [];
+        // Back-compat: old single-child shape.
+        if (rawChildren.isEmpty && data['student_id'] != null) {
+          List<dynamic> oldClasses = data['classes'] ?? [];
+          if (oldClasses.isEmpty && data['class_name'] != null) {
+            oldClasses = [
+              {
+                'class_name': data['class_name'],
+                'class_code': data['class_code'],
+                'grade_level': data['grade_level'],
+              },
+            ];
+          }
+          rawChildren = [
             {
-              'class_name': data['class_name'],
-              'class_code': data['class_code'],
-              'grade_level': data['grade_level'],
+              'student_id': data['student_id'],
+              'student_name': data['student_name'],
+              'classes': oldClasses,
             },
           ];
         }
+        final children = rawChildren
+            .whereType<Map<String, dynamic>>()
+            .map((c) => <String, dynamic>{
+                  ...c,
+                  'classes':
+                      (c['classes'] as List<dynamic>? ?? const [])
+                          .whereType<Map<String, dynamic>>()
+                          .toList(),
+                })
+            .toList();
 
         final List<dynamic> rawNotifications = data['notifications'] ?? [];
         final notifications = rawNotifications
@@ -326,13 +339,14 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
 
         if (mounted) {
           setState(() {
-            _studentId = data['student_id'];
-            _studentName = data['student_name'];
-            _classes = rawClasses.whereType<Map<String, dynamic>>().toList();
+            _children = children;
             _notifications = notifications;
             _isLoading = false;
           });
-          if (_studentId != null) _fetchProgressHighlights();
+          for (final c in children) {
+            final id = int.tryParse(c['student_id'].toString());
+            if (id != null) _fetchProgressHighlights(id);
+          }
         }
       } else {
         if (mounted) setState(() => _isLoading = false);
@@ -732,6 +746,188 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
     );
   }
 
+  Widget _buildClassCard(
+    Map<String, dynamic> classInfo,
+    int? studentId,
+    String studentName,
+  ) {
+    return Container(
+                          margin: const EdgeInsets.only(bottom: 14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(color: Colors.black, width: 3.5),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black,
+                                offset: Offset(5, 5),
+                              ),
+                            ],
+                          ),
+                          child: Material(
+                            color: Colors.transparent,
+                            child: InkWell(
+                              borderRadius: BorderRadius.circular(18),
+                              onTap: studentId == null
+                                  ? null
+                                  : () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder: (_) => StudentProgressScreen(
+                                            studentId: studentId,
+                                            baseUrl: widget.baseUrl,
+                                            studentName:
+                                                studentName,
+                                          ),
+                                        ),
+                                      );
+                                    },
+                              child: Padding(
+                                padding: const EdgeInsets.all(16.0),
+                                child: Row(
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.all(12),
+                                      decoration: BoxDecoration(
+                                        color: cyanAccent,
+                                        borderRadius: BorderRadius.circular(12),
+                                        border: Border.all(
+                                          color: Colors.black,
+                                          width: 2.5,
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.school_rounded,
+                                        color: Colors.black,
+                                        size: 28,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: Column(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        mainAxisAlignment:
+                                            MainAxisAlignment.center,
+                                        children: [
+                                          Text(
+                                            classInfo['class_name'] ?? 'Class',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w900,
+                                              fontSize: 18,
+                                              color: Colors.black,
+                                            ),
+                                          ),
+                                          if (classInfo['grade_level'] !=
+                                              null) ...[
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              _gradeLabel(classInfo['grade_level']),
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                                color: Colors.black87,
+                                              ),
+                                            ),
+                                          ],
+                                          const SizedBox(height: 4),
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.grey[200],
+                                              borderRadius:
+                                                  BorderRadius.circular(6),
+                                              border: Border.all(
+                                                color: Colors.black,
+                                                width: 1.5,
+                                              ),
+                                            ),
+                                            child: Text(
+                                              "Code: ${classInfo['class_code'] ?? '—'}",
+                                              style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 12,
+                                                color: Colors.black,
+                                              ),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 16,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: accentTheme,
+                                        borderRadius: BorderRadius.circular(10),
+                                        border: Border.all(
+                                          color: Colors.black,
+                                          width: 2.5,
+                                        ),
+                                      ),
+                                      child: const Text(
+                                        "VIEW PROGRESS",
+                                        style: TextStyle(
+                                          fontWeight: FontWeight.w900,
+                                          color: Colors.black,
+                                          fontSize: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+  }
+
+  // One block per child: name header, reading snapshot, then their classes.
+  List<Widget> _buildChildSection(Map<String, dynamic> child) {
+    final int? studentId = int.tryParse(child['student_id'].toString());
+    final String studentName = (child['student_name'] ?? 'Your child').toString();
+    final List<Map<String, dynamic>> classes =
+        (child['classes'] as List<Map<String, dynamic>>? ?? const []);
+
+    return [
+      Padding(
+        padding: const EdgeInsets.only(bottom: 12, left: 4, top: 4),
+        child: Row(
+          children: [
+            const Icon(Icons.face_rounded, color: maroonTheme, size: 20),
+            const SizedBox(width: 8),
+            Text(
+              studentName,
+              style: const TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 15,
+                color: maroonTheme,
+              ),
+            ),
+          ],
+        ),
+      ),
+      if (studentId != null) _buildProgressHighlightsCard(studentId),
+      const SizedBox(height: 6),
+      if (classes.isEmpty)
+        const Padding(
+          padding: EdgeInsets.only(left: 4, bottom: 14),
+          child: Text(
+            "Not in a class yet — tap JOIN above with this child's LRN and class code.",
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          ),
+        ),
+      ...classes.map((c) => _buildClassCard(c, studentId, studentName)),
+      const SizedBox(height: 20),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isPhone = MediaQuery.of(context).size.width < 600;
@@ -870,7 +1066,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                 ? const Center(
                     child: CircularProgressIndicator(color: maroonTheme),
                   )
-                : _classes.isEmpty
+                : _children.isEmpty
                 ? Center(
                     child: Container(
                       padding: const EdgeInsets.all(24),
@@ -903,7 +1099,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           ),
                           const SizedBox(height: 16),
                           const Text(
-                            "Not connected to any class yet!",
+                            "No child linked yet!",
                             style: TextStyle(
                               fontSize: 20,
                               fontWeight: FontWeight.w900,
@@ -912,7 +1108,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                           ),
                           const SizedBox(height: 6),
                           const Text(
-                            "Click 'Join' above to enroll your child.",
+                            "Please ask the school admin to link your child's account.",
                             textAlign: TextAlign.center,
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
@@ -931,169 +1127,7 @@ class _ParentDashboardScreenState extends State<ParentDashboardScreen> {
                       top: 2,
                     ),
                     children: [
-                      // One-time header showing which child this dashboard
-                      // belongs to, since every class card below links to
-                      // the SAME student's progress.
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 12, left: 4),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.face_rounded,
-                              color: maroonTheme,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              _studentName ?? 'Your child',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 15,
-                                color: maroonTheme,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      _buildProgressHighlightsCard(),
-                      const SizedBox(height: 14),
-                      ..._classes.map((classInfo) {
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(18),
-                            border: Border.all(color: Colors.black, width: 3.5),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Colors.black,
-                                offset: Offset(5, 5),
-                              ),
-                            ],
-                          ),
-                          child: Material(
-                            color: Colors.transparent,
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(18),
-                              onTap: _studentId == null
-                                  ? null
-                                  : () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (_) => StudentProgressScreen(
-                                            studentId: _studentId!,
-                                            baseUrl: widget.baseUrl,
-                                            studentName:
-                                                _studentName ?? 'Student',
-                                          ),
-                                        ),
-                                      );
-                                    },
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Row(
-                                  children: [
-                                    Container(
-                                      padding: const EdgeInsets.all(12),
-                                      decoration: BoxDecoration(
-                                        color: cyanAccent,
-                                        borderRadius: BorderRadius.circular(12),
-                                        border: Border.all(
-                                          color: Colors.black,
-                                          width: 2.5,
-                                        ),
-                                      ),
-                                      child: const Icon(
-                                        Icons.school_rounded,
-                                        color: Colors.black,
-                                        size: 28,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 16),
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment:
-                                            CrossAxisAlignment.start,
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            classInfo['class_name'] ?? 'Class',
-                                            style: const TextStyle(
-                                              fontWeight: FontWeight.w900,
-                                              fontSize: 18,
-                                              color: Colors.black,
-                                            ),
-                                          ),
-                                          if (classInfo['grade_level'] !=
-                                              null) ...[
-                                            const SizedBox(height: 2),
-                                            Text(
-                                              "Grade ${classInfo['grade_level']}",
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 12,
-                                                color: Colors.black87,
-                                              ),
-                                            ),
-                                          ],
-                                          const SizedBox(height: 4),
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 8,
-                                              vertical: 4,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: Colors.grey[200],
-                                              borderRadius:
-                                                  BorderRadius.circular(6),
-                                              border: Border.all(
-                                                color: Colors.black,
-                                                width: 1.5,
-                                              ),
-                                            ),
-                                            child: Text(
-                                              "Code: ${classInfo['class_code'] ?? '—'}",
-                                              style: const TextStyle(
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 12,
-                                                color: Colors.black,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 16,
-                                        vertical: 10,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: accentTheme,
-                                        borderRadius: BorderRadius.circular(10),
-                                        border: Border.all(
-                                          color: Colors.black,
-                                          width: 2.5,
-                                        ),
-                                      ),
-                                      child: const Text(
-                                        "VIEW PROGRESS",
-                                        style: TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          color: Colors.black,
-                                          fontSize: 12,
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
+                      ..._children.expand((c) => _buildChildSection(c)),
                     ],
                   ),
           ),
