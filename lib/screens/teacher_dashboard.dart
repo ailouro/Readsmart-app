@@ -2896,9 +2896,14 @@ class _StudentsTabState extends State<_StudentsTab> {
         if (level != levelKey) continue;
 
         final num? acc = s['avg_accuracy'] as num?;
+        final num? comp = s['avg_comprehension'] as num?;
         result.add({
           'name': _safeString(s['name'], 'N/A'),
           'accuracy': (acc ?? 0).toDouble().clamp(0, 100).toDouble(),
+          'comprehension': (comp ?? 0).toDouble().clamp(0, 100).toDouble(),
+          'wr_level': _safeString(s['wr_level']).toLowerCase(),
+          'comp_level': _safeString(s['comp_level']).toLowerCase(),
+          'stories_read': (s['stories_read'] as num?)?.toInt() ?? 0,
         });
       }
 
@@ -3319,8 +3324,8 @@ class _StudentsTabState extends State<_StudentsTab> {
 
   /// Dropdown panel shown below the stat card row when a Frustration /
   /// Instructional / Independent card is tapped — one row per student
-  /// currently in that level, each with a progress bar for their oral
-  /// fluency accuracy on their latest reading attempt.
+  /// currently in that level, each showing the Phil-IRI computation:
+  /// Word Reading % + level, Comprehension % + level (final level = the lower).
   Widget _buildLevelStudentsDropdown(String levelKey) {
     final Color barColor = levelKey == "frustration"
         ? Colors.red.shade700
@@ -3375,44 +3380,47 @@ class _StudentsTabState extends State<_StudentsTab> {
               const SizedBox(height: 8),
               ...list.map((s) {
                 final double accuracy = s['accuracy'] as double;
+                final double comp = s['comprehension'] as double;
+                final int stories = s['stories_read'] as int;
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5),
-                  child: Row(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      SizedBox(
-                        width: 110,
-                        child: Text(
-                          s['name'] as String,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              s['name'] as String,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w900,
+                                fontSize: 13,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
+                          Text(
+                            "$stories story${stories == 1 ? '' : 's'}",
+                            style: const TextStyle(
+                              fontSize: 10,
+                              color: Colors.black54,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: LinearProgressIndicator(
-                            value: accuracy / 100.0,
-                            minHeight: 14,
-                            backgroundColor: Colors.black12,
-                            valueColor: AlwaysStoppedAnimation<Color>(barColor),
-                          ),
-                        ),
+                      const SizedBox(height: 4),
+                      _philIriScoreBar(
+                        label: "Word Reading",
+                        pct: accuracy,
+                        level: s['wr_level'] as String,
                       ),
-                      const SizedBox(width: 8),
-                      SizedBox(
-                        width: 36,
-                        child: Text(
-                          "${accuracy.toStringAsFixed(0)}%",
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 11,
-                          ),
-                          textAlign: TextAlign.right,
-                        ),
+                      const SizedBox(height: 3),
+                      _philIriScoreBar(
+                        label: "Comprehension",
+                        pct: comp,
+                        level: s['comp_level'] as String,
                       ),
                     ],
                   ),
@@ -3422,6 +3430,81 @@ class _StudentsTabState extends State<_StudentsTab> {
           );
         },
       ),
+    );
+  }
+
+  Color _philIriLevelColor(String level) {
+    switch (level) {
+      case 'frustration':
+        return Colors.red.shade700;
+      case 'instructional':
+        return Colors.amber.shade800;
+      case 'independent':
+        return const Color(0xFF8BCA84);
+      default:
+        return Colors.black38;
+    }
+  }
+
+  /// One line of the Phil-IRI computation: label, bar, percent, and the
+  /// level that percent falls under (Word Reading and Comprehension use
+  /// different cut-offs, so each gets its own level chip). The overall
+  /// level is the LOWER of the two, which is the group the learner is
+  /// listed under.
+  Widget _philIriScoreBar({
+    required String label,
+    required double pct,
+    required String level,
+  }) {
+    final Color color = _philIriLevelColor(level);
+    final String levelLabel = level.isEmpty
+        ? '-'
+        : level[0].toUpperCase() + level.substring(1);
+    return Row(
+      children: [
+        SizedBox(
+          width: 88,
+          child: Text(
+            label,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+          ),
+        ),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: pct / 100.0,
+              minHeight: 10,
+              backgroundColor: Colors.black12,
+              valueColor: AlwaysStoppedAnimation<Color>(color),
+            ),
+          ),
+        ),
+        const SizedBox(width: 6),
+        SizedBox(
+          width: 34,
+          child: Text(
+            "${pct.toStringAsFixed(0)}%",
+            textAlign: TextAlign.right,
+            style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+          ),
+        ),
+        const SizedBox(width: 6),
+        Container(
+          width: 74,
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: color, width: 1.5),
+          ),
+          child: Text(
+            levelLabel,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+          ),
+        ),
+      ],
     );
   }
 
