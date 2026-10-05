@@ -40,6 +40,9 @@ class TeacherDashboard extends StatefulWidget {
 
 class _TeacherDashboardState extends State<TeacherDashboard> {
   int _selectedIndex = 0;
+  bool _isLoading = false;
+  dynamic _analyticsData;
+  dynamic _teacherId;
 
   void _onItemTapped(int index) {
     setState(() {

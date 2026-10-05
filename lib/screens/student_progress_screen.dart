@@ -37,12 +37,8 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
   bool get _hasTestTypes =>
       _records.any((r) => (r['test_type'] ?? '').toString().isNotEmpty);
 
-  // Ilang magkakaibang story ang natapos (hindi nadodoble kapag may pre at post).
-  int get _storiesDone => _view
-      .map((r) => (r['story_id'] ?? r['story_title'] ?? r['id']).toString())
-      .toSet()
-      .length;
   List<dynamic> _mispronunciations = [];
+  Map<String, dynamic> _totals = {};
 
   // Ilang words ang ipapakita bago mag-"Show all" (para hindi sobrang haba
   // ng page sa mobile).
@@ -72,7 +68,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
       final results = await Future.wait([
         http.get(
           Uri.parse(
-            "${widget.baseUrl}/api/student/${widget.studentId}/all-progress",
+            "${widget.baseUrl}/api/student/${widget.studentId}/progress-detail",
           ),
           headers: const {"ngrok-skip-browser-warning": "69420"},
         ),
@@ -84,7 +80,10 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
         ),
       ]);
       if (results[0].statusCode == 200) {
-        _records = jsonDecode(results[0].body)['data'] ?? [];
+        final body = jsonDecode(results[0].body);
+        _records = body['data'] ?? [];
+        final t = body['totals'];
+        _totals = t is Map ? Map<String, dynamic>.from(t) : {};
       }
       if (results[1].statusCode == 200) {
         _mispronunciations = jsonDecode(results[1].body)['data'] ?? [];
@@ -119,13 +118,6 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
             (r['reading_level'] ?? '').toString().toLowerCase().contains(key),
       )
       .length;
-
-  double get _avgScore {
-    final v = _view;
-    if (v.isEmpty) return 0;
-    final sum = v.fold<double>(0, (s, r) => s + _score(r));
-    return sum / v.length;
-  }
 
   List<MapEntry<String, int>> _sortedWords() {
     final Map<String, int> wordCounts = {};
@@ -245,110 +237,440 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
   }
 
   // ==========================================
-  // 1. SUMMARY (nasa taas, para kita agad ang overall)
+  // 1. PRE-TEST vs POST-TEST — kabuuang total ng lahat ng stories
   // ==========================================
-  Widget _statCard(String value, String label, Color color) => Expanded(
-    child: Container(
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 6),
+  Map<String, dynamic> _tot(String key) {
+    final t = _totals[key];
+    return t is Map ? Map<String, dynamic>.from(t) : <String, dynamic>{};
+  }
+
+  int _i(dynamic v) => v is num ? v.toInt() : int.tryParse('${v ?? ''}') ?? 0;
+
+  double? _d(dynamic v) =>
+      v is num ? v.toDouble() : double.tryParse('${v ?? ''}');
+
+  String _levelLabel(String level) {
+    final l = level.toLowerCase();
+    if (l.contains('independent')) return 'Independent Explorer';
+    if (l.contains('instructional')) return 'Growing Reader';
+    if (l.contains('frustration')) return 'Needs Practice';
+    return '—';
+  }
+
+  String _dur(int s) => s <= 0 ? '—' : '${s ~/ 60}m ${s % 60}s';
+
+  Widget _levelChip(String level) {
+    final Color c = _levelColor(level);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: cardFill,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: cardBorder, width: 2),
-        boxShadow: const [BoxShadow(color: cardBorder, offset: Offset(2, 2))],
+        color: c.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: c, width: 1.5),
       ),
+      child: Text(
+        _levelLabel(level),
+        style: TextStyle(color: c, fontWeight: FontWeight.w900, fontSize: 11),
+      ),
+    );
+  }
+
+  Widget _kv(String k, String v) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 2),
+    child: Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          k,
+          style: const TextStyle(
+            color: inkSubtext,
+            fontSize: 12,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          v,
+          style: const TextStyle(
+            color: inkText,
+            fontSize: 12,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _totalBlock(String title, Map<String, dynamic> t, Color accent) {
+    final bool hasData = _i(t['stories']) > 0;
+    final int words = _i(t['total_words']);
+    final int quizQ = _i(t['quiz_questions']);
+    final double wr = _d(t['word_pct']) ?? 0;
+    final double comp = _d(t['comp_pct']) ?? 0;
+
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: paperColor,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: accent, width: 2),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: TextStyle(
+                color: accent,
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 6),
+            if (!hasData)
+              const Text(
+                'Wala pang natapos na story.',
+                style: TextStyle(color: inkSubtext, fontSize: 12),
+              )
+            else ...[
+              _kv('Stories', '${_i(t['stories'])}'),
+              _kv('Kabuuang salita', words > 0 ? '$words' : '—'),
+              _kv('Miscues', words > 0 ? '${_i(t['miscues'])}' : '—'),
+              _kv(
+                'Tamang salita',
+                words > 0 ? '${_i(t['correct_words'])}' : '—',
+              ),
+              const Divider(height: 14, color: Colors.black26),
+              const Text(
+                'Word Reading',
+                style: TextStyle(
+                  color: inkSubtext,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                words > 0
+                    ? '${_i(t['correct_words'])} ÷ $words × 100 = ${_fmt(wr)}%'
+                    : '${_fmt(wr)}% (average)',
+                style: const TextStyle(
+                  color: inkText,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 6),
+              const Text(
+                'Comprehension',
+                style: TextStyle(
+                  color: inkSubtext,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                quizQ > 0
+                    ? '${_i(t['quiz_correct'])} ÷ $quizQ × 100 = ${_fmt(comp)}%'
+                    : '${_fmt(comp)}% (average)',
+                style: const TextStyle(
+                  color: inkText,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 10),
+              _levelChip('${t['level'] ?? ''}'),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCompareSection() {
+    final pre = _tot('pre_test');
+    final post = _tot('post_test');
+    if (_i(pre['stories']) == 0 && _i(post['stories']) == 0) {
+      return const SizedBox.shrink();
+    }
+
+    const Color preColor = Color(0xFF5C6BC0);
+    final bool both = _i(pre['stories']) > 0 && _i(post['stories']) > 0;
+
+    double v(Map<String, dynamic> m, String k) => _d(m[k]) ?? 0;
+    BarChartRodData rod(double y, Color c) => BarChartRodData(
+      toY: y,
+      color: c,
+      width: 26,
+      borderRadius: BorderRadius.circular(4),
+    );
+
+    final chart = SizedBox(
+      height: 200,
+      child: BarChart(
+        BarChartData(
+          minY: 0,
+          maxY: 100,
+          alignment: BarChartAlignment.spaceAround,
+          borderData: FlBorderData(show: false),
+          gridData: const FlGridData(
+            show: true,
+            drawVerticalLine: false,
+            horizontalInterval: 20,
+          ),
+          barGroups: [
+            BarChartGroupData(
+              x: 0,
+              barsSpace: 6,
+              barRods: [
+                rod(v(pre, 'word_pct'), preColor),
+                rod(v(post, 'word_pct'), maroon),
+              ],
+            ),
+            BarChartGroupData(
+              x: 1,
+              barsSpace: 6,
+              barRods: [
+                rod(v(pre, 'comp_pct'), preColor),
+                rod(v(post, 'comp_pct'), maroon),
+              ],
+            ),
+          ],
+          titlesData: FlTitlesData(
+            topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false),
+            ),
+            leftTitles: const AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                interval: 20,
+                reservedSize: 34,
+              ),
+            ),
+            bottomTitles: AxisTitles(
+              sideTitles: SideTitles(
+                showTitles: true,
+                getTitlesWidget: (value, meta) => Padding(
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    value.toInt() == 0 ? 'Word Reading %' : 'Comprehension %',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    String? gainText;
+    if (both) {
+      String sign(double d) => d >= 0 ? '+${_fmt(d)}' : _fmt(d);
+      gainText =
+          'Pagbabago (Post − Pre): Word Reading '
+          '${sign(v(post, 'word_pct') - v(pre, 'word_pct'))}% • '
+          'Comprehension ${sign(v(post, 'comp_pct') - v(pre, 'comp_pct'))}%';
+    }
+
+    return _card(
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            value,
-            style: TextStyle(
-              color: color,
-              fontWeight: FontWeight.w900,
-              fontSize: 22,
-            ),
+          _sectionHeader(
+            'Pre-Test vs Post-Test 📊',
+            subtitle:
+                'Kabuuan ng lahat ng natapos na stories sa bawat test '
+                '(total ng salita at sagot, hindi average ng %).',
           ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: inkSubtext,
-              fontSize: 11,
-              fontWeight: FontWeight.bold,
-            ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 14,
+            children: [_dot(preColor, 'Pre-Test'), _dot(maroon, 'Post-Test')],
           ),
+          const SizedBox(height: 12),
+          chart,
+          const SizedBox(height: 14),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _totalBlock('Pre-Test', pre, preColor),
+              const SizedBox(width: 10),
+              _totalBlock('Post-Test', post, maroon),
+            ],
+          ),
+          if (gainText != null) ...[
+            const SizedBox(height: 12),
+            Text(
+              gainText,
+              style: const TextStyle(
+                color: inkText,
+                fontSize: 12,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // 2. BAWAT STORY — chart + computation breakdown
+  // ==========================================
+  Widget _wordSplitBar(int correct, int miscues) => ClipRRect(
+    borderRadius: BorderRadius.circular(6),
+    child: SizedBox(
+      height: 14,
+      child: Row(
+        children: [
+          if (correct > 0)
+            Expanded(
+              flex: correct,
+              child: Container(color: independentColor),
+            ),
+          if (miscues > 0)
+            Expanded(
+              flex: miscues,
+              child: Container(color: frustrationColor),
+            ),
         ],
       ),
     ),
   );
 
-  Widget _buildSummaryRow() {
-    final int words = _sortedWords().length;
-    return Row(
-      children: [
-        _statCard("$_storiesDone", "Stories Done", maroon),
-        const SizedBox(width: 10),
-        _statCard(
-          _view.isEmpty ? "—" : "${_fmt(_avgScore)}%",
-          "Average Score",
-          independentColor,
-        ),
-        const SizedBox(width: 10),
-        _statCard("$words", "Words to Practice", instructionalColor),
-      ],
-    );
-  }
-
-  // ==========================================
-  // 2. SCORES — isang row bawat story, buong title, walang na-truncate
-  // ==========================================
-  Widget _scoreBar(double score, Color color) {
+  Widget _storyChart(List<dynamic> recs) {
     return LayoutBuilder(
       builder: (context, c) {
-        final double w = c.maxWidth;
-        Widget tick(double pct) => Positioned(
-          left: (w * pct / 100) - 0.75,
-          top: 0,
-          bottom: 0,
-          child: Container(width: 1.5, color: inkText.withValues(alpha: 0.45)),
-        );
-        return SizedBox(
-          height: 14,
-          child: Stack(
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withValues(alpha: 0.08),
-                  borderRadius: BorderRadius.circular(7),
+        final double w = recs.length * 52.0 > c.maxWidth
+            ? recs.length * 52.0
+            : c.maxWidth;
+        final Color line = inkText.withValues(alpha: 0.5);
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: w,
+            height: 190,
+            child: BarChart(
+              BarChartData(
+                minY: 0,
+                maxY: 100,
+                alignment: BarChartAlignment.spaceAround,
+                borderData: FlBorderData(show: false),
+                gridData: const FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: 20,
+                ),
+                extraLinesData: ExtraLinesData(
+                  horizontalLines: [
+                    HorizontalLine(
+                      y: 90,
+                      color: line,
+                      strokeWidth: 1,
+                      dashArray: [5, 4],
+                    ),
+                    HorizontalLine(
+                      y: 97,
+                      color: line,
+                      strokeWidth: 1,
+                      dashArray: [5, 4],
+                    ),
+                  ],
+                ),
+                barGroups: [
+                  for (int i = 0; i < recs.length; i++)
+                    BarChartGroupData(
+                      x: i,
+                      barRods: [
+                        BarChartRodData(
+                          toY: _score(recs[i]).clamp(0.0, 100.0),
+                          width: 20,
+                          color: _levelColor(
+                            (recs[i]['reading_level'] ?? '').toString(),
+                          ),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                      ],
+                    ),
+                ],
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 20,
+                      reservedSize: 34,
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) => Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          '#${value.toInt() + 1}',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
-              Container(
-                width: w * score / 100,
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(7),
-                ),
-              ),
-              tick(90),
-              tick(97),
-            ],
+            ),
           ),
         );
       },
     );
   }
 
-  Widget _scoreRow(dynamic record) {
-    final double score = _score(record).clamp(0.0, 100.0);
-    final Color color = _levelColor((record['reading_level'] ?? '').toString());
-    final String title = (record['story_title'] ?? 'Untitled story').toString();
-    final String testType = (record['test_type'] ?? '').toString();
-    final String testLabel = testType == 'pre_test'
-        ? 'Pre-Test'
-        : testType == 'post_test'
-        ? 'Post-Test'
-        : '';
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
+  Widget _storyDetail(int n, dynamic r) {
+    final String title = (r['story_title'] ?? 'Untitled story').toString();
+    final String level = (r['reading_level'] ?? '').toString();
+    final int total = _i(r['total_words']);
+    final int miscues = _i(r['miscues_count']);
+    final int correct = _i(r['correct_words_count']);
+    final double wr = _score(r);
+    final int qc = _i(r['quiz_score']);
+    final int qt = _i(r['total_questions']);
+    final double comp = _d(r['comprehension_score_pct']) ?? 0;
+    final int wpm = _i(r['wpm']);
+    final int secs = _i(r['time_on_task']);
+
+    TextStyle label() => const TextStyle(
+      color: inkSubtext,
+      fontSize: 11,
+      fontWeight: FontWeight.bold,
+    );
+    TextStyle formula() => const TextStyle(
+      color: inkText,
+      fontSize: 13,
+      fontWeight: FontWeight.w900,
+    );
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: paperColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: cardBorder, width: 1.5),
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -357,54 +679,116 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
             children: [
               Expanded(
                 child: Text(
-                  testLabel.isEmpty ? title : '$title  ($testLabel)',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
+                  '#$n  $title',
                   style: const TextStyle(
                     color: inkText,
-                    fontWeight: FontWeight.w800,
+                    fontWeight: FontWeight.w900,
                     fontSize: 14,
                   ),
                 ),
               ),
               const SizedBox(width: 8),
-              Text(
-                "${_fmt(score)}%",
-                style: TextStyle(
-                  color: color,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 15,
-                ),
-              ),
+              _levelChip(level),
             ],
           ),
-          const SizedBox(height: 6),
-          _scoreBar(score, color),
+          const SizedBox(height: 10),
+          Text('Word Reading', style: label()),
+          const SizedBox(height: 2),
+          if (total > 0) ...[
+            Text(
+              '$total salita − $miscues miscues = $correct tama',
+              style: formula(),
+            ),
+            Text('$correct ÷ $total × 100 = ${_fmt(wr)}%', style: formula()),
+            const SizedBox(height: 6),
+            _wordSplitBar(correct, miscues),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                _dot(independentColor, 'Tama: $correct'),
+                const SizedBox(width: 14),
+                _dot(frustrationColor, 'Miscues: $miscues'),
+              ],
+            ),
+          ] else
+            Text(
+              '${_fmt(wr)}% (walang naka-save na bilang ng salita para sa story na ito)',
+              style: formula(),
+            ),
+          const SizedBox(height: 10),
+          Text('Comprehension', style: label()),
+          const SizedBox(height: 2),
+          Text(
+            qt > 0 ? '$qc ÷ $qt × 100 = ${_fmt(comp)}%' : '${_fmt(comp)}%',
+            style: formula(),
+          ),
+          const SizedBox(height: 10),
+          Text(
+            'Bilis: ${wpm > 0 ? '$wpm WPM' : '—'}  •  Oras: ${_dur(secs)}',
+            style: label(),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTestGroup(String type, List<dynamic> recs) {
+    final String name = type == 'pre_test'
+        ? 'Pre-Test'
+        : type == 'post_test'
+        ? 'Post-Test'
+        : 'Mga Kwento';
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(
+            '$name — Bawat Story 🎯',
+            subtitle:
+                'Isang bar kada story. Ang mga guhit ay 90% at 97% na cutoff.',
+          ),
+          const SizedBox(height: 12),
+          _buildLegend(),
+          const SizedBox(height: 14),
+          _storyChart(recs),
+          for (int i = 0; i < recs.length; i++) _storyDetail(i + 1, recs[i]),
         ],
       ),
     );
   }
 
   Widget _buildScoresSection() {
-    return _card(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionHeader(
-            "My Story Accuracy Scores 🎯",
-            subtitle: "Each bar is one story. Thin lines mark 90% and 97%.",
-          ),
-          const SizedBox(height: 12),
-          _buildLegend(),
-          const SizedBox(height: 16),
-          if (_view.isEmpty)
+    if (_view.isEmpty) {
+      return _card(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionHeader('My Story Accuracy Scores 🎯'),
             _emptyText(
-              "No missions completed yet.\nRead a story to earn stars!",
-            )
-          else
-            ..._view.map(_scoreRow),
+              'No missions completed yet.\nRead a story to earn stars!',
+            ),
+          ],
+        ),
+      );
+    }
+    String typeOf(dynamic r) => (r['test_type'] ?? '').toString();
+    final groups = <MapEntry<String, List<dynamic>>>[];
+    for (final t in ['pre_test', 'post_test']) {
+      final l = _view.where((r) => typeOf(r) == t).toList();
+      if (l.isNotEmpty) groups.add(MapEntry(t, l));
+    }
+    final other = _view
+        .where((r) => typeOf(r) != 'pre_test' && typeOf(r) != 'post_test')
+        .toList();
+    if (other.isNotEmpty) groups.add(MapEntry('', other));
+
+    return Column(
+      children: [
+        for (int g = 0; g < groups.length; g++) ...[
+          if (g > 0) const SizedBox(height: 18),
+          _buildTestGroup(groups[g].key, groups[g].value),
         ],
-      ),
+      ],
     );
   }
 
@@ -767,9 +1151,9 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildTestFilter(),
-                        _buildSummaryRow(),
+                        _buildCompareSection(),
                         const SizedBox(height: 18),
+                        _buildTestFilter(),
                         _buildScoresSection(),
                         const SizedBox(height: 18),
                         _buildPowerSection(),
