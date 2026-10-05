@@ -23,6 +23,25 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
   bool _isLoading = true;
   bool _showAllWords = false;
   List<dynamic> _records = [];
+  String _testFilter = 'all'; // 'all' | 'pre_test' | 'post_test'
+
+  // Mga record na tugma sa napiling Pre/Post filter. Dahil may sariling row na
+  // ang pre-test at post-test ng parehong story, ito ang gamit sa lahat ng
+  // bilang at listahan sa screen.
+  List<dynamic> get _view => _testFilter == 'all'
+      ? _records
+      : _records
+            .where((r) => (r['test_type'] ?? '').toString() == _testFilter)
+            .toList();
+
+  bool get _hasTestTypes =>
+      _records.any((r) => (r['test_type'] ?? '').toString().isNotEmpty);
+
+  // Ilang magkakaibang story ang natapos (hindi nadodoble kapag may pre at post).
+  int get _storiesDone => _view
+      .map((r) => (r['story_id'] ?? r['story_title'] ?? r['id']).toString())
+      .toSet()
+      .length;
   List<dynamic> _mispronunciations = [];
 
   // Ilang words ang ipapakita bago mag-"Show all" (para hindi sobrang haba
@@ -94,7 +113,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     return double.tryParse('$v') ?? 0;
   }
 
-  int _countLevel(String key) => _records
+  int _countLevel(String key) => _view
       .where(
         (r) =>
             (r['reading_level'] ?? '').toString().toLowerCase().contains(key),
@@ -102,9 +121,10 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
       .length;
 
   double get _avgScore {
-    if (_records.isEmpty) return 0;
-    final sum = _records.fold<double>(0, (s, r) => s + _score(r));
-    return sum / _records.length;
+    final v = _view;
+    if (v.isEmpty) return 0;
+    final sum = v.fold<double>(0, (s, r) => s + _score(r));
+    return sum / v.length;
   }
 
   List<MapEntry<String, int>> _sortedWords() {
@@ -206,6 +226,24 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     ],
   );
 
+  // Pre/Post filter. Lalabas lang kung may test_type ang data galing sa server.
+  Widget _buildTestFilter() {
+    if (!_hasTestTypes) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: SegmentedButton<String>(
+        segments: const [
+          ButtonSegment(value: 'all', label: Text('Lahat')),
+          ButtonSegment(value: 'pre_test', label: Text('Pre-Test')),
+          ButtonSegment(value: 'post_test', label: Text('Post-Test')),
+        ],
+        selected: {_testFilter},
+        showSelectedIcon: false,
+        onSelectionChanged: (s) => setState(() => _testFilter = s.first),
+      ),
+    );
+  }
+
   // ==========================================
   // 1. SUMMARY (nasa taas, para kita agad ang overall)
   // ==========================================
@@ -247,10 +285,10 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     final int words = _sortedWords().length;
     return Row(
       children: [
-        _statCard("${_records.length}", "Stories Done", maroon),
+        _statCard("$_storiesDone", "Stories Done", maroon),
         const SizedBox(width: 10),
         _statCard(
-          _records.isEmpty ? "—" : "${_fmt(_avgScore)}%",
+          _view.isEmpty ? "—" : "${_fmt(_avgScore)}%",
           "Average Score",
           independentColor,
         ),
@@ -303,6 +341,12 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     final double score = _score(record).clamp(0.0, 100.0);
     final Color color = _levelColor((record['reading_level'] ?? '').toString());
     final String title = (record['story_title'] ?? 'Untitled story').toString();
+    final String testType = (record['test_type'] ?? '').toString();
+    final String testLabel = testType == 'pre_test'
+        ? 'Pre-Test'
+        : testType == 'post_test'
+        ? 'Post-Test'
+        : '';
     return Padding(
       padding: const EdgeInsets.only(bottom: 14),
       child: Column(
@@ -313,7 +357,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
             children: [
               Expanded(
                 child: Text(
-                  title,
+                  testLabel.isEmpty ? title : '$title  ($testLabel)',
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -353,12 +397,12 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
           const SizedBox(height: 12),
           _buildLegend(),
           const SizedBox(height: 16),
-          if (_records.isEmpty)
+          if (_view.isEmpty)
             _emptyText(
               "No missions completed yet.\nRead a story to earn stars!",
             )
           else
-            ..._records.map(_scoreRow),
+            ..._view.map(_scoreRow),
         ],
       ),
     );
@@ -411,7 +455,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
       );
 
   Widget _buildPowerSection() {
-    if (_records.isEmpty) {
+    if (_view.isEmpty) {
       return _card(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -426,7 +470,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     final int indep = _countLevel('independent');
     final int instr = _countLevel('instructional');
     final int frust = _countLevel('frustration');
-    final int total = _records.length;
+    final int total = _view.length;
 
     String best = 'N/A';
     Color bestColor = inkText;
@@ -723,6 +767,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
+                        _buildTestFilter(),
                         _buildSummaryRow(),
                         const SizedBox(height: 18),
                         _buildScoresSection(),

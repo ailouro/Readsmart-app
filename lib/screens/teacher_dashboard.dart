@@ -1694,6 +1694,7 @@ class _StudentsTabState extends State<_StudentsTab> {
   bool _isLoading = true;
 
   bool _isLoadingAnalytics = true;
+  String _summaryTestType = 'post_test'; // 'pre_test' | 'post_test'
   Map<String, dynamic> _summaryData = {};
   List<dynamic> _mispronunciations = [];
   String _studentSearchQuery = '';
@@ -1844,7 +1845,9 @@ class _StudentsTabState extends State<_StudentsTab> {
       }
 
       final summaryRes = await http.get(
-        Uri.parse("$baseUrl/api/teachers/$tId/dashboard-summary"),
+        Uri.parse(
+          "$baseUrl/api/teachers/$tId/dashboard-summary?test_type=$_summaryTestType",
+        ),
         headers: networkHeaders,
       );
       // Mispronunciations are optional: if that endpoint fails, still show
@@ -2877,12 +2880,10 @@ class _StudentsTabState extends State<_StudentsTab> {
     await Future.wait([_fetchClasses(), _fetchAnalytics()]);
   }
 
-  /// Students whose MOST RECENT reading attempt falls under [levelKey]
-  /// ("frustration" / "instructional" / "independent"), each with that
-  /// attempt's oral fluency accuracy so we can draw a progress bar for them.
-  /// Reuses the same cached per-student progress fetch the Learners'
-  /// Records cards already use, so this doesn't add new network calls
-  /// beyond what the dashboard already needs.
+  /// Students whose averaged Phil-IRI level (from the dashboard-summary
+  /// endpoint) matches [levelKey] ("frustration" / "instructional" /
+  /// "independent"). The level is computed on the backend, so this list
+  /// always agrees with the counts above it and needs no extra network calls.
   Future<List<Map<String, dynamic>>> _studentsForLevel(String levelKey) {
     return _levelStudentsCache.putIfAbsent(levelKey, () async {
       final List students = (_summaryData['students'] as List?) ?? [];
@@ -2890,24 +2891,13 @@ class _StudentsTabState extends State<_StudentsTab> {
 
       for (final raw in students) {
         final s = Map<String, dynamic>.from(raw as Map);
-        final studentId = s['id'] ?? s['user_id'];
-        final logs = await _fetchStudentProgress(studentId);
-        if (logs.isEmpty) continue;
+        final String level = _safeString(s['reading_level']).toLowerCase();
+        if (level != levelKey) continue;
 
-        // Assumes the backend returns progress logs oldest-first, so the
-        // last entry is the most recent attempt. Flip to logs.first if the
-        // API actually returns newest-first.
-        final Map latest = Map.from(logs.last as Map);
-        final String level = _safeString(latest['reading_level']).toLowerCase();
-        if (!level.contains(levelKey)) continue;
-
-        final double accuracy = (latest['oral_fluency_accuracy'] != null)
-            ? (latest['oral_fluency_accuracy'] as num).toDouble().clamp(0, 100)
-            : 0.0;
-
+        final num? acc = s['avg_accuracy'] as num?;
         result.add({
           'name': _safeString(s['name'], 'N/A'),
-          'accuracy': accuracy,
+          'accuracy': (acc ?? 0).toDouble().clamp(0, 100).toDouble(),
         });
       }
 
@@ -2937,6 +2927,19 @@ class _StudentsTabState extends State<_StudentsTab> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const ComicBadgeHeader(title: "PHIL-IRI OVERVIEW"),
+              const SizedBox(height: 10),
+              _TestTypeFilterBar(
+                value: _summaryTestType,
+                onChanged: (v) {
+                  if (v == _summaryTestType) return;
+                  setState(() {
+                    _summaryTestType = v;
+                    _expandedLevelKey = null;
+                  });
+                  _levelStudentsCache.clear();
+                  _fetchAnalytics();
+                },
+              ),
               const SizedBox(height: 10),
               if (_isLoadingAnalytics)
                 const Center(
@@ -7770,6 +7773,40 @@ class _AlertsTabState extends State<_AlertsTab> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Pre/Post filter + legend para sa Phil-IRI overview. Ang bilang sa dashboard
+/// ay average ng lahat ng natapos na stories ng bata para sa napiling test.
+class _TestTypeFilterBar extends StatelessWidget {
+  final String value;
+  final ValueChanged<String> onChanged;
+  const _TestTypeFilterBar({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'pre_test', label: Text('Pre-Test')),
+            ButtonSegment(value: 'post_test', label: Text('Post-Test')),
+          ],
+          selected: {value},
+          showSelectedIcon: false,
+          onSelectionChanged: (s) => onChanged(s.first),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Average ng lahat ng natapos na stories ng bawat bata. '
+          'Word reading: 97%+ Independent, 90-96% Instructional, mas mababa sa 90% Frustration. '
+          'Comprehension: 80%+ Independent, 59-79% Instructional, mas mababa sa 59% Frustration. '
+          'Ang mas mababa sa dalawa ang final level.',
+          style: TextStyle(fontSize: 10, color: Colors.black54),
+        ),
+      ],
     );
   }
 }

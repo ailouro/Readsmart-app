@@ -23,6 +23,7 @@ class TeacherAnalyticsDashboard extends StatefulWidget {
 
 class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
   bool _isLoading = true;
+  String _summaryTestType = 'post_test'; // 'pre_test' | 'post_test'
   Map<String, dynamic> _summaryData = {};
   List<dynamic> _mispronunciations = [];
   List<dynamic> _selfCorrections = [];
@@ -319,7 +320,9 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
       }
 
       final summaryRes = await http.get(
-        Uri.parse("${widget.baseUrl}/api/teachers/$tId/dashboard-summary"),
+        Uri.parse(
+          "${widget.baseUrl}/api/teachers/$tId/dashboard-summary?test_type=$_summaryTestType",
+        ),
         headers: const {"ngrok-skip-browser-warning": "69420"},
       );
 
@@ -398,6 +401,15 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),
+                      ),
+                      const SizedBox(height: 8),
+                      _TestTypeFilterBar(
+                        value: _summaryTestType,
+                        onChanged: (v) {
+                          if (v == _summaryTestType) return;
+                          setState(() => _summaryTestType = v);
+                          _fetchDashboardData();
+                        },
                       ),
                       const SizedBox(height: 12),
 
@@ -1258,6 +1270,40 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
           ],
         ),
       ),
+    );
+  }
+}
+
+/// Pre/Post filter + legend para sa Phil-IRI overview. Ang bilang sa dashboard
+/// ay average ng lahat ng natapos na stories ng bata para sa napiling test.
+class _TestTypeFilterBar extends StatelessWidget {
+  final String value;
+  final ValueChanged<String> onChanged;
+  const _TestTypeFilterBar({required this.value, required this.onChanged});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'pre_test', label: Text('Pre-Test')),
+            ButtonSegment(value: 'post_test', label: Text('Post-Test')),
+          ],
+          selected: {value},
+          showSelectedIcon: false,
+          onSelectionChanged: (s) => onChanged(s.first),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Average ng lahat ng natapos na stories ng bawat bata. '
+          'Word reading: 97%+ Independent, 90-96% Instructional, mas mababa sa 90% Frustration. '
+          'Comprehension: 80%+ Independent, 59-79% Instructional, mas mababa sa 59% Frustration. '
+          'Ang mas mababa sa dalawa ang final level.',
+          style: TextStyle(fontSize: 10, color: Colors.black54),
+        ),
+      ],
     );
   }
 }
