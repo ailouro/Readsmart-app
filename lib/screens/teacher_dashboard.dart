@@ -14,6 +14,7 @@ import '../services/phil_iri_rules.dart';
 import '../services/phil_iri_session.dart';
 import '../widgets/responsive_layout.dart';
 import '../widgets/bouncy_tap.dart';
+import '../widgets/phil_iri_analytics_panel.dart';
 import 'teacher_profile_screen.dart';
 import 'teacher_analytics_dashboard.dart';
 import 'class_pre_post_summary_screen.dart';
@@ -2928,7 +2929,7 @@ class _StudentsTabState extends State<_StudentsTab> {
             children: [
               const ComicBadgeHeader(title: "PHIL-IRI OVERVIEW"),
               const SizedBox(height: 10),
-              _TestTypeFilterBar(
+              PhilIriTestTypeFilter(
                 value: _summaryTestType,
                 onChanged: (v) {
                   if (v == _summaryTestType) return;
@@ -2998,7 +2999,12 @@ class _StudentsTabState extends State<_StudentsTab> {
                     ),
                     const SizedBox(height: 20),
                     _buildClassLevelChart(),
-                    const SizedBox(height: 10),
+                    const SizedBox(height: 16),
+                    PhilIriAnalyticsPanel(
+                      summary: _summaryData,
+                      testType: _summaryTestType,
+                    ),
+                    const SizedBox(height: 16),
                   ],
                 ),
               Wrap(
@@ -7773,40 +7779,6 @@ class _AlertsTabState extends State<_AlertsTab> {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Pre/Post filter + legend para sa Phil-IRI overview. Ang bilang sa dashboard
-/// ay average ng lahat ng natapos na stories ng bata para sa napiling test.
-class _TestTypeFilterBar extends StatelessWidget {
-  final String value;
-  final ValueChanged<String> onChanged;
-  const _TestTypeFilterBar({required this.value, required this.onChanged});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SegmentedButton<String>(
-          segments: const [
-            ButtonSegment(value: 'pre_test', label: Text('Pre-Test')),
-            ButtonSegment(value: 'post_test', label: Text('Post-Test')),
-          ],
-          selected: {value},
-          showSelectedIcon: false,
-          onSelectionChanged: (s) => onChanged(s.first),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'Average ng lahat ng natapos na stories ng bawat bata. '
-          'Word reading: 97%+ Independent, 90-96% Instructional, mas mababa sa 90% Frustration. '
-          'Comprehension: 80%+ Independent, 59-79% Instructional, mas mababa sa 59% Frustration. '
-          'Ang mas mababa sa dalawa ang final level.',
-          style: TextStyle(fontSize: 10, color: Colors.black54),
-        ),
-      ],
     );
   }
 }
