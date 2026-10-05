@@ -35,6 +35,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
   bool _isPlayingAudio = false;
 
   final Map<dynamic, Future<List<dynamic>>> _progressCache = {};
+  final Map<dynamic, Map<String, dynamic>> _totalsByStudent = {};
   final Map<dynamic, Future<List<Map<String, dynamic>>>>
   _assessmentsFutureCache = {};
 
@@ -42,11 +43,16 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
     return _progressCache.putIfAbsent(studentId, () async {
       try {
         final res = await http.get(
-          Uri.parse("${widget.baseUrl}/api/student/$studentId/all-progress"),
+          Uri.parse("${widget.baseUrl}/api/student/$studentId/progress-detail"),
           headers: const {"ngrok-skip-browser-warning": "69420"},
         );
         if (res.statusCode == 200) {
           final decoded = jsonDecode(res.body);
+          if (decoded is Map && decoded['totals'] is Map) {
+            _totalsByStudent[studentId] = Map<String, dynamic>.from(
+              decoded['totals'] as Map,
+            );
+          }
           if (decoded is Map && decoded['data'] is List) {
             return decoded['data'] as List<dynamic>;
           }
@@ -414,35 +420,6 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                       ),
                       const SizedBox(height: 12),
 
-                      Row(
-                        children: [
-                          _buildStatCard(
-                            title: "Frustration",
-                            count:
-                                _summaryData['frustration_count']?.toString() ??
-                                "0",
-                            color: Colors.red.shade700,
-                          ),
-                          const SizedBox(width: 8),
-                          _buildStatCard(
-                            title: "Instructional",
-                            count:
-                                _summaryData['instructional_count']
-                                    ?.toString() ??
-                                "0",
-                            color: Colors.amber.shade800,
-                          ),
-                          const SizedBox(width: 8),
-                          _buildStatCard(
-                            title: "Independent",
-                            count:
-                                _summaryData['independent_count']?.toString() ??
-                                "0",
-                            color: Colors.green.shade700,
-                          ),
-                        ],
-                      ),
-
                       const SizedBox(height: 20),
                       _buildClassLevelChart(),
                       const SizedBox(height: 16),
@@ -632,6 +609,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
           ),
           const SizedBox(height: 12),
           _buildPhilIriComparisonCard(assessments),
+          _buildStudentTotals(student['id']),
           if (progressLogs.isEmpty)
             Container(
               padding: const EdgeInsets.all(8),
@@ -785,7 +763,19 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
               ? "${log['oral_fluency_accuracy']}%"
               : 'N/A';
           String totalWords = log['total_words']?.toString() ?? '?';
-          String correctWords = log['correct_words']?.toString() ?? '?';
+          if (totalWords == '0') totalWords = '?';
+          String correctWords =
+              (log['correct_words_count'] ?? log['correct_words'])
+                  ?.toString() ??
+              '?';
+          if (totalWords == '?') correctWords = '?';
+          String miscuesCount = log['miscues_count']?.toString() ?? '?';
+          final int qScore = int.tryParse('${log['quiz_score'] ?? 0}') ?? 0;
+          final int qTotal =
+              int.tryParse('${log['total_questions'] ?? 0}') ?? 0;
+          String quizPct = qTotal > 0
+              ? ' (${(qScore / qTotal * 100).round()}%)'
+              : '';
 
           String timeSpentDisplay = '? mins';
           if (log['time_on_task'] != null) {
@@ -830,7 +820,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                     ),
                     Tooltip(
                       message:
-                          "Accuracy Breakdown:\nCorrect: $correctWords words\nTotal: $totalWords words",
+                          "Word Reading:\n$totalWords words − $miscuesCount miscues = $correctWords correct\n$correctWords ÷ $totalWords × 100 = $accuracyValue",
                       triggerMode: TooltipTriggerMode.tap,
                       padding: const EdgeInsets.all(12),
                       showDuration: const Duration(seconds: 4),
@@ -855,7 +845,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
               Padding(
                 padding: const EdgeInsets.all(8.0),
                 child: Text(
-                  "${log['quiz_score'] ?? 0}/${log['total_questions'] ?? 0}",
+                  "${log['quiz_score'] ?? 0}/${log['total_questions'] ?? 0}$quizPct",
                   style: const TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
@@ -1025,6 +1015,8 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
               style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
             ),
           ),
+          _buildStoryBarChart(logs),
+          const SizedBox(height: 8),
           _buildReadingRecordsTable(
             logs,
             studentMispronunciations,
@@ -1236,45 +1228,373 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
     );
   }
 
-  Widget _buildStatCard({
-    required String title,
-    required String count,
-    required Color color,
-  }) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: Colors.black, width: 3),
-          boxShadow: const [
-            BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-          ],
+  // ----------------------------------------------------------
+  // Pre-Test vs Post-Test totals + per-story chart helpers
+  // ----------------------------------------------------------
+  double _numOf(dynamic v) =>
+      v is num ? v.toDouble() : (double.tryParse('${v ?? ''}') ?? 0);
+
+  String _pct1(double v) =>
+      v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+
+  Color _lvlColor(String level) {
+    final l = level.toLowerCase();
+    if (l.contains('independent')) return const Color(0xFF4CAF50);
+    if (l.contains('instructional')) return const Color(0xFFFFA726);
+    return const Color(0xFFE53935);
+  }
+
+  String _lvlLabel(String level) {
+    final l = level.toLowerCase();
+    if (l.contains('independent')) return 'Independent';
+    if (l.contains('instructional')) return 'Instructional';
+    if (l.contains('frustration')) return 'Frustration';
+    return '—';
+  }
+
+  Widget _buildStudentTotals(dynamic studentId) {
+    final totals = _totalsByStudent[studentId];
+    if (totals == null) return const SizedBox.shrink();
+
+    Map<String, dynamic> tot(String k) {
+      final v = totals[k];
+      return v is Map ? Map<String, dynamic>.from(v) : <String, dynamic>{};
+    }
+
+    final pre = tot('pre_test');
+    final post = tot('post_test');
+    final bool hasPre = _numOf(pre['stories']) > 0;
+    final bool hasPost = _numOf(post['stories']) > 0;
+    if (!hasPre && !hasPost) return const SizedBox.shrink();
+
+    const Color preColor = Color(0xFF5C6BC0);
+    const Color postColor = Color(0xFF940D0D);
+
+    BarChartRodData rod(double y, Color c) => BarChartRodData(
+      toY: y,
+      color: c,
+      width: 24,
+      borderRadius: BorderRadius.circular(4),
+    );
+
+    Widget block(String title, Map<String, dynamic> t, Color accent) {
+      final bool has = _numOf(t['stories']) > 0;
+      final int words = _numOf(t['total_words']).toInt();
+      final int quizQ = _numOf(t['quiz_questions']).toInt();
+      const TextStyle small = TextStyle(
+        fontSize: 11,
+        fontWeight: FontWeight.w600,
+      );
+      const TextStyle bold = TextStyle(
+        fontSize: 12,
+        fontWeight: FontWeight.w900,
+      );
+      return Expanded(
+        child: Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: Colors.amber.shade50,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: accent, width: 2),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  color: accent,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
+                ),
+              ),
+              const SizedBox(height: 6),
+              if (!has)
+                const Text('Wala pang natapos.', style: small)
+              else ...[
+                Text('Stories: ${_numOf(t['stories']).toInt()}', style: small),
+                if (words > 0) ...[
+                  Text('Kabuuang salita: $words', style: small),
+                  Text(
+                    'Miscues: ${_numOf(t['miscues']).toInt()}',
+                    style: small,
+                  ),
+                  Text(
+                    'Tamang salita: ${_numOf(t['correct_words']).toInt()}',
+                    style: small,
+                  ),
+                ],
+                const SizedBox(height: 6),
+                const Text('Word Reading', style: small),
+                Text(
+                  words > 0
+                      ? '${_numOf(t['correct_words']).toInt()} ÷ $words × 100 = ${_pct1(_numOf(t['word_pct']))}%'
+                      : '${_pct1(_numOf(t['word_pct']))}% (average)',
+                  style: bold,
+                ),
+                const SizedBox(height: 4),
+                const Text('Comprehension', style: small),
+                Text(
+                  quizQ > 0
+                      ? '${_numOf(t['quiz_correct']).toInt()} ÷ $quizQ × 100 = ${_pct1(_numOf(t['comp_pct']))}%'
+                      : '${_pct1(_numOf(t['comp_pct']))}% (average)',
+                  style: bold,
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _lvlLabel('${t['level'] ?? ''}'),
+                  style: TextStyle(
+                    color: _lvlColor('${t['level'] ?? ''}'),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ],
+          ),
         ),
-        child: Column(
-          children: [
-            Text(
-              count,
-              style: const TextStyle(
-                fontSize: 26,
-                fontWeight: FontWeight.w900,
-                color: Colors.white,
-                shadows: [Shadow(color: Colors.black, offset: Offset(1, 1))],
+      );
+    }
+
+    String? gain;
+    if (hasPre && hasPost) {
+      String sign(double d) => d >= 0 ? '+${_pct1(d)}' : _pct1(d);
+      gain =
+          'Pagbabago (Post − Pre): Word Reading '
+          '${sign(_numOf(post['word_pct']) - _numOf(pre['word_pct']))}% • '
+          'Comprehension '
+          '${sign(_numOf(post['comp_pct']) - _numOf(pre['comp_pct']))}%';
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.brown, width: 2),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '📊 PRE-TEST vs POST-TEST (KABUUAN)',
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+          ),
+          const Text(
+            'Total ng lahat ng stories sa bawat test, hindi average ng %.',
+            style: TextStyle(fontSize: 10, color: Colors.black54),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 180,
+            child: BarChart(
+              BarChartData(
+                minY: 0,
+                maxY: 100,
+                alignment: BarChartAlignment.spaceAround,
+                borderData: FlBorderData(show: false),
+                gridData: const FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: 20,
+                ),
+                barGroups: [
+                  BarChartGroupData(
+                    x: 0,
+                    barsSpace: 6,
+                    barRods: [
+                      rod(_numOf(pre['word_pct']), preColor),
+                      rod(_numOf(post['word_pct']), postColor),
+                    ],
+                  ),
+                  BarChartGroupData(
+                    x: 1,
+                    barsSpace: 6,
+                    barRods: [
+                      rod(_numOf(pre['comp_pct']), preColor),
+                      rod(_numOf(post['comp_pct']), postColor),
+                    ],
+                  ),
+                ],
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      interval: 20,
+                      reservedSize: 32,
+                    ),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      getTitlesWidget: (value, meta) => Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          value.toInt() == 0
+                              ? 'Word Reading %'
+                              : 'Comprehension %',
+                          style: const TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
             ),
-            const SizedBox(height: 4),
+          ),
+          const SizedBox(height: 6),
+          const Row(
+            children: [
+              Icon(Icons.circle, size: 10, color: preColor),
+              SizedBox(width: 4),
+              Text('Pre-Test', style: TextStyle(fontSize: 11)),
+              SizedBox(width: 14),
+              Icon(Icons.circle, size: 10, color: postColor),
+              SizedBox(width: 4),
+              Text('Post-Test', style: TextStyle(fontSize: 11)),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              block('Pre-Test', pre, preColor),
+              const SizedBox(width: 8),
+              block('Post-Test', post, postColor),
+            ],
+          ),
+          if (gain != null) ...[
+            const SizedBox(height: 10),
             Text(
-              title,
-              style: const TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
-              ),
-              textAlign: TextAlign.center,
+              gain,
+              style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
             ),
           ],
-        ),
+        ],
+      ),
+    );
+  }
+
+  /// Bar chart: isang bar kada story (Word Reading %), kulay ayon sa level.
+  Widget _buildStoryBarChart(List logs) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(8, 10, 8, 6),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.brown, width: 2),
+      ),
+      child: LayoutBuilder(
+        builder: (context, c) {
+          final double w = logs.length * 52.0 > c.maxWidth
+              ? logs.length * 52.0
+              : c.maxWidth;
+          const Color line = Colors.black45;
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Word Reading % bawat story (guhit: 90% at 97%)',
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: w,
+                  height: 170,
+                  child: BarChart(
+                    BarChartData(
+                      minY: 0,
+                      maxY: 100,
+                      alignment: BarChartAlignment.spaceAround,
+                      borderData: FlBorderData(show: false),
+                      gridData: const FlGridData(
+                        show: true,
+                        drawVerticalLine: false,
+                        horizontalInterval: 20,
+                      ),
+                      extraLinesData: ExtraLinesData(
+                        horizontalLines: [
+                          HorizontalLine(
+                            y: 90,
+                            color: line,
+                            strokeWidth: 1,
+                            dashArray: [5, 4],
+                          ),
+                          HorizontalLine(
+                            y: 97,
+                            color: line,
+                            strokeWidth: 1,
+                            dashArray: [5, 4],
+                          ),
+                        ],
+                      ),
+                      barGroups: [
+                        for (int i = 0; i < logs.length; i++)
+                          BarChartGroupData(
+                            x: i,
+                            barRods: [
+                              BarChartRodData(
+                                toY: _numOf(
+                                  logs[i]['oral_fluency_accuracy'],
+                                ).clamp(0.0, 100.0),
+                                width: 20,
+                                color: _lvlColor(
+                                  '${logs[i]['reading_level'] ?? ''}',
+                                ),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                            ],
+                          ),
+                      ],
+                      titlesData: FlTitlesData(
+                        topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        leftTitles: const AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            interval: 20,
+                            reservedSize: 32,
+                          ),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            getTitlesWidget: (value, meta) => Padding(
+                              padding: const EdgeInsets.only(top: 6),
+                              child: Text(
+                                '#${value.toInt() + 1}',
+                                style: const TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
