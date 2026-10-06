@@ -33,6 +33,9 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
   List<dynamic> _selfCorrections = [];
   bool _isExporting = false; // gumagawa ng class PDF report
   Future<List<List<dynamic>>>? _rosterFuture; // totals ng lahat ng estudyante
+  final TextEditingController _rosterSearch = TextEditingController();
+  String _rosterFilter = 'all'; // all | needs_help | improved | no_post
+  int? _selectedStudentId; // para sa master-detail sa malapad na screen
 
   // 🔊 Audio player state for playing struggle word recordings
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -41,6 +44,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
 
   final Map<dynamic, Future<List<dynamic>>> _progressCache = {};
   final Map<dynamic, Map<String, dynamic>> _totalsByStudent = {};
+  final Map<dynamic, List<dynamic>> _recordsByStudent = {};
   final Map<dynamic, Future<List<Map<String, dynamic>>>>
   _assessmentsFutureCache = {};
 
@@ -59,6 +63,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
             );
           }
           if (decoded is Map && decoded['data'] is List) {
+            _recordsByStudent[studentId] = decoded['data'] as List<dynamic>;
             return decoded['data'] as List<dynamic>;
           }
           if (decoded is List) return decoded;
@@ -324,6 +329,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
       // Pull-to-refresh / refresh button: kunin ulit ang bagong progress.
       _progressCache.clear();
       _totalsByStudent.clear();
+      _recordsByStudent.clear();
       _assessmentsFutureCache.clear();
       _rosterFuture = null;
     }
@@ -457,6 +463,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
 
   @override
   void dispose() {
+    _rosterSearch.dispose();
     _audioPlayer.dispose();
     super.dispose();
   }
@@ -604,9 +611,68 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
     '${_safeStr(s['grade_level'])} ${_safeStr(s['section'])}'.trim(),
   );
 
-  void _openStudent(Map<String, dynamic> s) {
+  String _studentLrn(Map<String, dynamic> s) => _safeStr(s['lrn']);
+
+  String _initials(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return (parts.first[0] + parts.last[0]).toUpperCase();
+  }
+
+  double? _changeOf(Map<String, dynamic> s) => _rosterWordChange(
+    _rosterTest(s['id'], 'pre_test'),
+    _rosterTest(s['id'], 'post_test'),
+  );
+
+  // "Needs help": parehong rule ng Alerts tab (AlertController) -- ang
+  // huling 2 natapos na story ay parehong Frustration. Kailangan ng hindi
+  // bababa sa 2 story.
+  bool _needsHelp(Map<String, dynamic> s) {
+    final recs = _recordsByStudent[s['id']] ?? const <dynamic>[];
+    if (recs.length < 2) return false;
+    return recs
+        .sublist(recs.length - 2)
+        .every(
+          (r) =>
+              '${r['reading_level'] ?? ''}'.trim().toLowerCase() ==
+              'frustration',
+        );
+  }
+
+  bool _rosterMatches(Map<String, dynamic> s) {
+    final q = _rosterSearch.text.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      final hay = '${_studentName(s)} ${_studentLrn(s)}'.toLowerCase();
+      if (!hay.contains(q)) return false;
+    }
+    final post = _rosterTest(s['id'], 'post_test');
+    switch (_rosterFilter) {
+      case 'needs_help':
+        return _needsHelp(s);
+      case 'improved':
+        final ch = _changeOf(s);
+        return ch != null && ch > 0;
+      case 'no_post':
+        return !_rosterHas(post);
+      default:
+        return true;
+    }
+  }
+
+  // Malapad (laptop/tablet landscape) -> ipapakita sa kanang pane.
+  // Makitid (phone) -> bubukas ang bagong screen.
+  void _openStudent(Map<String, dynamic> s, {required bool wide}) {
     final id = int.tryParse('${s['id']}');
     if (id == null) return;
+    if (wide) {
+      setState(() => _selectedStudentId = id);
+      return;
+    }
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -614,31 +680,39 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
           studentId: id,
           baseUrl: widget.baseUrl,
           studentName: _studentName(s),
+          teacherView: true,
+          lrn: _studentLrn(s),
+          className: _studentClass(s),
         ),
       ),
     );
   }
 
-  Widget _rosterLevelTag(String label, String lv) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(color: _lvColor(lv), shape: BoxShape.circle),
+  Widget _levelPill(String lv) {
+    final bool none = lv.isEmpty;
+    final Color c = none ? Colors.black45 : _lvColor(lv);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: none
+            ? Colors.black.withValues(alpha: 0.05)
+            : c.withValues(alpha: 0.18),
+        borderRadius: BorderRadius.circular(20),
       ),
-      const SizedBox(width: 5),
-      Text(
-        lv.isEmpty ? '$label: no test yet' : '$label: ${_lvLabel(lv)}',
-        style: const TextStyle(fontSize: 12, color: Colors.black54),
+      child: Text(
+        none ? 'No post-test yet' : _lvLabel(lv),
+        style: TextStyle(color: c, fontWeight: FontWeight.w900, fontSize: 11),
       ),
-    ],
-  );
+    );
+  }
 
-  Widget _rosterRow(Map<String, dynamic> s) {
-    final pre = _rosterTest(s['id'], 'pre_test');
+  Widget _rosterRow(Map<String, dynamic> s, {required bool wide}) {
+    final id = int.tryParse('${s['id']}');
+    final bool selected = wide && id != null && id == _selectedStudentId;
     final post = _rosterTest(s['id'], 'post_test');
-    final change = _rosterWordChange(pre, post);
+    final change = _changeOf(s);
+    final name = _studentName(s);
+    final lrn = _studentLrn(s);
     final cls = _studentClass(s);
 
     String changeText = '--';
@@ -651,69 +725,110 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
       changeColor = change < 0 ? _lvFrustration : _lvIndependent;
     }
 
-    return InkWell(
-      onTap: () => _openStudent(s),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _studentName(s),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                    ),
+    return Material(
+      color: selected ? const Color(0xFFE8F1FB) : Colors.transparent,
+      child: InkWell(
+        onTap: () => _openStudent(s, wide: wide),
+        hoverColor: const Color(0xFFF1F6FC),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
+          child: Row(
+            children: [
+              CircleAvatar(
+                radius: 22,
+                backgroundColor: const Color(0xFFD6E6FA),
+                child: Text(
+                  _initials(name),
+                  style: const TextStyle(
+                    color: Color(0xFF1F4E8C),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
                   ),
-                  if (cls.isNotEmpty)
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Text(
-                      cls,
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
-                        fontSize: 12,
-                        color: Colors.black45,
+                        fontSize: 15,
+                        fontWeight: FontWeight.w900,
                       ),
                     ),
-                  const SizedBox(height: 6),
-                  Wrap(
-                    spacing: 14,
-                    runSpacing: 4,
-                    children: [
-                      _rosterLevelTag('Pre', _rosterLevel(pre)),
-                      _rosterLevelTag('Post', _rosterLevel(post)),
-                    ],
+                    if (lrn.isNotEmpty || cls.isNotEmpty)
+                      Text(
+                        lrn.isNotEmpty ? 'LRN $lrn' : cls,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.black54,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _levelPill(_rosterLevel(post)),
+                  const SizedBox(height: 4),
+                  Text(
+                    changeText,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: changeColor,
+                    ),
                   ),
                 ],
               ),
-            ),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Text(
-                  changeText,
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w900,
-                    color: changeColor,
-                  ),
-                ),
-                const Text(
-                  'word reading',
-                  style: TextStyle(fontSize: 11, color: Colors.black45),
-                ),
-              ],
-            ),
-            const SizedBox(width: 4),
-            const Icon(Icons.chevron_right, color: Colors.black38),
-          ],
+              if (!wide) const Icon(Icons.chevron_right, color: Colors.black38),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _rosterStat(String label, int value) => Expanded(
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 12, color: Colors.black54),
+        ),
+        Text(
+          '$value',
+          style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w900),
+        ),
+      ],
+    ),
+  );
+
+  Widget _rosterCardShell({required Widget child}) => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.06),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
+    ),
+    child: child,
+  );
 
   Widget _buildStudentRoster() {
     final raw = _summaryData['students'];
@@ -732,81 +847,200 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
       students.map((s) => _fetchStudentProgress(s['id'])),
     );
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.06),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            "Students (${students.length})",
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 2),
-          const Text(
-            "Pre-test and post-test. Needs help first. Tap a student for the full record.",
-            style: TextStyle(fontSize: 12, color: Colors.black54),
-          ),
-          const SizedBox(height: 4),
-          FutureBuilder<List<List<dynamic>>>(
-            future: _rosterFuture,
-            builder: (context, snapshot) {
-              if (snapshot.connectionState != ConnectionState.done) {
-                return const Padding(
+    return LayoutBuilder(
+      builder: (context, box) {
+        final bool wide = box.maxWidth >= 900;
+
+        return FutureBuilder<List<List<dynamic>>>(
+          future: _rosterFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState != ConnectionState.done) {
+              return _rosterCardShell(
+                child: const Padding(
                   padding: EdgeInsets.symmetric(vertical: 28),
                   child: Center(child: CircularProgressIndicator()),
-                );
-              }
-
-              // Students who need the most support first (by post-test
-              // level), then students with no post-test yet; ties by name.
-              int priority(Map<String, dynamic> s) {
-                final lv = _rosterLevel(_rosterTest(s['id'], 'post_test'));
-                return lv == 'frustration'
-                    ? 0
-                    : lv == 'instructional'
-                    ? 1
-                    : lv == 'independent'
-                    ? 2
-                    : 3;
-              }
-
-              final sorted = [...students]
-                ..sort((a, b) {
-                  final p = priority(a).compareTo(priority(b));
-                  if (p != 0) return p;
-                  return _studentName(
-                    a,
-                  ).toLowerCase().compareTo(_studentName(b).toLowerCase());
-                });
-
-              return Column(
-                children: [
-                  for (int i = 0; i < sorted.length; i++) ...[
-                    if (i > 0)
-                      Divider(
-                        height: 1,
-                        color: Colors.black.withValues(alpha: 0.07),
-                      ),
-                    _rosterRow(sorted[i]),
-                  ],
-                ],
+                ),
               );
-            },
-          ),
-        ],
-      ),
+            }
+
+            // Students who need the most support first (by post-test
+            // level), then students with no post-test yet; ties by name.
+            int priority(Map<String, dynamic> s) {
+              final lv = _rosterLevel(_rosterTest(s['id'], 'post_test'));
+              return lv == 'frustration'
+                  ? 0
+                  : lv == 'instructional'
+                  ? 1
+                  : lv == 'independent'
+                  ? 2
+                  : 3;
+            }
+
+            final sorted = [...students]
+              ..sort((a, b) {
+                final p = priority(a).compareTo(priority(b));
+                if (p != 0) return p;
+                return _studentName(
+                  a,
+                ).toLowerCase().compareTo(_studentName(b).toLowerCase());
+              });
+
+            final int finishedPost = students
+                .where((s) => _rosterHas(_rosterTest(s['id'], 'post_test')))
+                .length;
+            final int needHelp = students.where(_needsHelp).length;
+            final visible = sorted.where(_rosterMatches).toList();
+
+            Widget chip(String key, String label) => ChoiceChip(
+              label: Text(label),
+              selected: _rosterFilter == key,
+              onSelected: (_) => setState(() => _rosterFilter = key),
+            );
+
+            final Widget topPart = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Students",
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                Text(
+                  "${students.length} enrolled",
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    _rosterStat('Finished post-test', finishedPost),
+                    _rosterStat('Need help', needHelp),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: _rosterSearch,
+                  onChanged: (_) => setState(() {}),
+                  decoration: InputDecoration(
+                    hintText: 'Search student or LRN',
+                    prefixIcon: const Icon(Icons.search),
+                    isDense: true,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    chip('all', 'All'),
+                    chip('needs_help', 'Needs help'),
+                    chip('improved', 'Improved'),
+                    chip('no_post', 'No post-test'),
+                  ],
+                ),
+                const SizedBox(height: 4),
+              ],
+            );
+
+            final Widget emptyMsg = const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(
+                child: Text(
+                  'No students match.',
+                  style: TextStyle(color: Colors.black54),
+                ),
+              ),
+            );
+
+            Widget divider() =>
+                Divider(height: 1, color: Colors.black.withValues(alpha: 0.07));
+
+            // ---- Phone: isang column, bubukas ang bagong screen -----------
+            if (!wide) {
+              return _rosterCardShell(
+                child: Column(
+                  children: [
+                    topPart,
+                    if (visible.isEmpty) emptyMsg,
+                    for (int i = 0; i < visible.length; i++) ...[
+                      if (i > 0) divider(),
+                      _rosterRow(visible[i], wide: false),
+                    ],
+                  ],
+                ),
+              );
+            }
+
+            // ---- Laptop: roster sa kaliwa, profile sa kanan ---------------
+            final double h = (MediaQuery.of(context).size.height - 160)
+                .clamp(520.0, 900.0)
+                .toDouble();
+
+            Map<String, dynamic>? selected;
+            for (final s in students) {
+              if (int.tryParse('${s['id']}') == _selectedStudentId) {
+                selected = s;
+              }
+            }
+
+            return SizedBox(
+              height: h,
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  SizedBox(
+                    width: 380,
+                    child: _rosterCardShell(
+                      child: Column(
+                        children: [
+                          topPart,
+                          Expanded(
+                            child: visible.isEmpty
+                                ? emptyMsg
+                                : ListView.separated(
+                                    itemCount: visible.length,
+                                    separatorBuilder: (context, index) =>
+                                        divider(),
+                                    itemBuilder: (_, i) =>
+                                        _rosterRow(visible[i], wide: true),
+                                  ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: selected == null
+                        ? _rosterCardShell(
+                            child: const Center(
+                              child: Text(
+                                'Select a student to see their progress.',
+                                style: TextStyle(color: Colors.black54),
+                              ),
+                            ),
+                          )
+                        : StudentProgressScreen(
+                            key: ValueKey(_selectedStudentId),
+                            studentId: _selectedStudentId!,
+                            baseUrl: widget.baseUrl,
+                            studentName: _studentName(selected),
+                            teacherView: true,
+                            embedded: true,
+                            lrn: _studentLrn(selected),
+                            className: _studentClass(selected),
+                          ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 

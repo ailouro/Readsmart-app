@@ -10,11 +10,25 @@ class StudentProgressScreen extends StatefulWidget {
   final String baseUrl;
   final String studentName;
 
+  // Teacher view: nagpapakita ng header (pangalan, klase, LRN, level, PDF)
+  // sa taas ng page. Hindi ito lumalabas sa student mismo.
+  final bool teacherView;
+
+  // embedded = true kapag nasa loob ng master-detail ng teacher (malapad na
+  // screen), kaya walang sariling Scaffold/AppBar.
+  final bool embedded;
+  final String lrn;
+  final String className;
+
   const StudentProgressScreen({
     super.key,
     required this.studentId,
     required this.baseUrl,
     required this.studentName,
+    this.teacherView = false,
+    this.embedded = false,
+    this.lrn = '',
+    this.className = '',
   });
 
   @override
@@ -1117,12 +1131,500 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
   }
 
   // ==========================================
+  // PROGRESS OVER TIME — isang tuldok kada natapos na story
+  // ==========================================
+  String _trendMetric = 'word'; // 'word' | 'comp'
+  static const Color _preColor = Color(0xFF5C6BC0);
+  static const Color _practiceColor = Color(0xFF9E9E9E);
+
+  DateTime? _when(dynamic r) =>
+      DateTime.tryParse('${r['date_completed'] ?? ''}')?.toLocal();
+
+  double? _trendValue(dynamic r) => _trendMetric == 'word'
+      ? _d(r['oral_fluency_accuracy'])
+      : _d(r['comprehension_score_pct']);
+
+  Color _typeColor(String t) => t == 'pre_test'
+      ? _preColor
+      : t == 'post_test'
+      ? maroon
+      : _practiceColor;
+
+  String _typeLabel(String t) => t == 'pre_test'
+      ? 'Pre-Test'
+      : t == 'post_test'
+      ? 'Post-Test'
+      : 'Practice';
+
+  // Mga story na may halaga para sa napiling chart, nakaayos ayon sa petsa.
+  List<dynamic> _trendRecords() {
+    final list = _records.where((r) => _trendValue(r) != null).toList();
+    if (list.isNotEmpty && list.every((r) => _when(r) != null)) {
+      final indexed = list.asMap().entries.toList()
+        ..sort((a, b) {
+          final c = _when(a.value)!.compareTo(_when(b.value)!);
+          return c != 0 ? c : a.key.compareTo(b.key);
+        });
+      return indexed.map((e) => e.value).toList();
+    }
+    return list;
+  }
+
+  Widget _trendChart(List<dynamic> recs) {
+    final bool word = _trendMetric == 'word';
+    // Phil-IRI cutoffs: word reading 90 / 97, comprehension 59 / 80.
+    final List<double> cuts = word ? [90, 97] : [59, 80];
+    final int n = recs.length;
+    final List<double> values = [
+      for (final r in recs) _trendValue(r)!.clamp(0.0, 100.0).toDouble(),
+    ];
+    final double lowest = values.reduce((a, b) => a < b ? a : b);
+    final double minY = word
+        ? ((lowest / 10).floor() * 10.0).clamp(0.0, 80.0).toDouble()
+        : 0.0;
+    final Set<int> ticks = {
+      minY.round(),
+      cuts[0].round(),
+      cuts[1].round(),
+      100,
+    };
+    final int xInterval = n > 6 ? (n / 6).ceil() : 1;
+
+    HorizontalRangeAnnotation band(double lo, double hi, Color c) =>
+        HorizontalRangeAnnotation(
+          y1: lo < minY ? minY : lo,
+          y2: hi,
+          color: c.withValues(alpha: 0.18),
+        );
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        final double w = n * 48.0 > c.maxWidth ? n * 48.0 : c.maxWidth;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: w,
+            height: 220,
+            child: Padding(
+              padding: const EdgeInsets.only(top: 22, right: 12),
+              child: LineChart(
+                LineChartData(
+                  minX: n == 1 ? -1 : 0,
+                  maxX: n == 1 ? 1 : (n - 1).toDouble(),
+                  minY: minY,
+                  maxY: 100,
+                  gridData: const FlGridData(show: false),
+                  borderData: FlBorderData(show: false),
+                  rangeAnnotations: RangeAnnotations(
+                    horizontalRangeAnnotations: [
+                      if (cuts[0] > minY) band(0, cuts[0], frustrationColor),
+                      band(cuts[0], cuts[1], instructionalColor),
+                      band(cuts[1], 100, independentColor),
+                    ],
+                  ),
+                  titlesData: FlTitlesData(
+                    topTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    rightTitles: const AxisTitles(
+                      sideTitles: SideTitles(showTitles: false),
+                    ),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 34,
+                        interval: 1,
+                        getTitlesWidget: (value, meta) {
+                          final int v = value.round();
+                          if ((value - v).abs() > 0.01 || !ticks.contains(v)) {
+                            return const SizedBox.shrink();
+                          }
+                          return Text(
+                            '$v',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              color: inkSubtext,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 26,
+                        interval: n == 1 ? 1 : xInterval.toDouble(),
+                        getTitlesWidget: (value, meta) {
+                          final int idx = value.round();
+                          if ((value - idx).abs() > 0.01 ||
+                              idx < 0 ||
+                              idx >= n) {
+                            return const SizedBox.shrink();
+                          }
+                          final dt = _when(recs[idx]);
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(
+                              dt == null
+                                  ? '#${idx + 1}'
+                                  : '${dt.month}/${dt.day}',
+                              style: const TextStyle(
+                                fontSize: 10,
+                                color: inkSubtext,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  lineTouchData: LineTouchData(
+                    touchTooltipData: LineTouchTooltipData(
+                      getTooltipItems: (spots) => spots.map((s) {
+                        final r = recs[s.spotIndex];
+                        final String title =
+                            (r['story_title'] ?? 'Untitled story').toString();
+                        final String type = (r['test_type'] ?? '').toString();
+                        return LineTooltipItem(
+                          '$title\n${_typeLabel(type)}  •  ${_fmt(s.y)}%',
+                          const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: [
+                        for (int i = 0; i < n; i++)
+                          FlSpot(i.toDouble(), values[i]),
+                      ],
+                      isCurved: false,
+                      barWidth: 2,
+                      color: inkText.withValues(alpha: 0.45),
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, pct, bar, idx) => _LabeledDot(
+                          label: _fmt(values[idx]),
+                          radius: 5.5,
+                          color: _typeColor(
+                            (recs[idx]['test_type'] ?? '').toString(),
+                          ),
+                          strokeWidth: 2,
+                          strokeColor: Colors.white,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _changeStat(String label, double? v) {
+    final String text = v == null
+        ? '—'
+        : (v >= 0 ? '+${_fmt(v)}%' : '${_fmt(v)}%');
+    final Color color = v == null
+        ? inkSubtext
+        : (v < 0 ? frustrationColor : independentColor);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: inkSubtext,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          text,
+          style: TextStyle(
+            color: color,
+            fontSize: 24,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildTrendCard() {
+    final bool word = _trendMetric == 'word';
+    final recs = _trendRecords();
+
+    final toggle = SegmentedButton<String>(
+      segments: const [
+        ButtonSegment(value: 'word', label: Text('Word reading')),
+        ButtonSegment(value: 'comp', label: Text('Comprehension')),
+      ],
+      selected: {_trendMetric},
+      showSelectedIcon: false,
+      onSelectionChanged: (s) => setState(() => _trendMetric = s.first),
+    );
+
+    if (recs.isEmpty) {
+      return _card(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _sectionHeader('Progress over time'),
+            const SizedBox(height: 10),
+            toggle,
+            _emptyText('No finished stories yet.'),
+          ],
+        ),
+      );
+    }
+
+    final double first = _trendValue(recs.first)!;
+    final double last = _trendValue(recs.last)!;
+    final String lastLevel = '${recs.last['reading_level'] ?? ''}';
+
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionHeader(
+            'Progress over time',
+            subtitle:
+                '${word ? 'Word reading' : 'Comprehension'} per story. '
+                'Tap or hover a dot for details.',
+          ),
+          const SizedBox(height: 10),
+          toggle,
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 14,
+            runSpacing: 6,
+            children: [
+              _dot(_preColor, 'Pre-Test'),
+              _dot(maroon, 'Post-Test'),
+              _dot(_practiceColor, 'Practice'),
+            ],
+          ),
+          const SizedBox(height: 6),
+          _buildLegend(),
+          const SizedBox(height: 10),
+          _trendChart(recs),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 28,
+            runSpacing: 12,
+            children: [
+              _bigStat('First story', '${_fmt(first)}%', null),
+              _bigStat('Latest story', '${_fmt(last)}%', null),
+              _changeStat('Change', recs.length > 1 ? last - first : null),
+              _bigStat('Stories finished', '${_records.length}', null),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              const Text(
+                'Current level  ',
+                style: TextStyle(
+                  color: inkSubtext,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              _levelChip(lastLevel),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
+  // TEACHER HEADER — pangalan, klase, LRN, level, PDF, at buod
+  // ==========================================
+  String _initialsOf(String name) {
+    final parts = name
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((p) => p.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '?';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+    return (parts.first[0] + parts.last[0]).toUpperCase();
+  }
+
+  Widget _buildTeacherHeader() {
+    final pre = _tot('pre_test');
+    final post = _tot('post_test');
+    final bool hasPre = _i(pre['stories']) > 0;
+    final bool hasPost = _i(post['stories']) > 0;
+    final base = hasPost ? post : pre;
+    final bool hasBase = hasPre || hasPost;
+
+    double? change;
+    if (hasPre && hasPost) {
+      final a = _d(pre['word_pct']);
+      final b = _d(post['word_pct']);
+      if (a != null && b != null) change = b - a;
+    }
+
+    String pct(dynamic v) {
+      final d = _d(v);
+      return d == null ? '—' : '${_fmt(d)}%';
+    }
+
+    final String meta = [
+      if (widget.className.isNotEmpty) widget.className,
+      if (widget.lrn.isNotEmpty) 'LRN ${widget.lrn}',
+    ].join('  •  ');
+
+    return _card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 28,
+                backgroundColor: const Color(0xFFD6E6FA),
+                child: Text(
+                  _initialsOf(widget.studentName),
+                  style: const TextStyle(
+                    color: Color(0xFF1F4E8C),
+                    fontWeight: FontWeight.w900,
+                    fontSize: 18,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      widget.studentName,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: inkText,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 18,
+                      ),
+                    ),
+                    if (meta.isNotEmpty)
+                      Text(
+                        meta,
+                        style: const TextStyle(
+                          color: inkSubtext,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (hasBase) _levelChip('${base['level'] ?? ''}'),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: _exportReport,
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              label: const Text('Download report (PDF)'),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 28,
+            runSpacing: 12,
+            children: [
+              _bigStat(
+                'Word reading',
+                hasBase ? pct(base['word_pct']) : '—',
+                hasBase ? (hasPost ? 'Post-test' : 'Pre-test') : null,
+              ),
+              _bigStat(
+                'Comprehension',
+                hasBase ? pct(base['comp_pct']) : '—',
+                hasBase ? (hasPost ? 'Post-test' : 'Pre-test') : null,
+              ),
+              _bigStat('Stories finished', '${_records.length}', null),
+              _changeStat('Change (post − pre)', change),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================
   // BUILD — isang scrollable page, walang tabs
   // ==========================================
+  Widget _buildBody(bool isWide, double bottomInset) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: maroon));
+    }
+    return RefreshIndicator(
+      color: maroon,
+      onRefresh: () => _fetchData(silent: true),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: EdgeInsets.fromLTRB(16, 16, 16, 32 + bottomInset),
+        child: Center(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxWidth: isWide ? 900 : double.infinity,
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (widget.teacherView) ...[
+                  _buildTeacherHeader(),
+                  const SizedBox(height: 18),
+                ],
+                _buildCompareSection(),
+                const SizedBox(height: 18),
+                _buildTrendCard(),
+                const SizedBox(height: 18),
+                _buildTestFilter(),
+                _buildScoresSection(),
+                const SizedBox(height: 18),
+                _buildPowerSection(),
+                const SizedBox(height: 18),
+                _buildWordsSection(),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final bool isWide = MediaQuery.of(context).size.width >= 800;
     final double bottomInset = MediaQuery.of(context).padding.bottom;
+
+    // Nasa loob ng teacher master-detail: body lang, walang Scaffold.
+    if (widget.embedded) {
+      return Material(
+        color: paperColor,
+        borderRadius: BorderRadius.circular(16),
+        clipBehavior: Clip.antiAlias,
+        child: _buildBody(false, 0),
+      );
+    }
 
     return Scaffold(
       backgroundColor: paperColor,
@@ -1135,11 +1637,11 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              "My Hero Progress 🏆",
+            Text(
+              widget.teacherView ? "Student record" : "My Hero Progress 🏆",
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 18),
             ),
             Text(
               widget.studentName,
@@ -1150,11 +1652,13 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
           ],
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf_outlined),
-            tooltip: "Download report (PDF)",
-            onPressed: _exportReport,
-          ),
+          // Sa teacher view, nasa header na ang Download button.
+          if (!widget.teacherView)
+            IconButton(
+              icon: const Icon(Icons.picture_as_pdf_outlined),
+              tooltip: "Download report (PDF)",
+              onPressed: _exportReport,
+            ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: "Refresh",
@@ -1163,36 +1667,43 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
           const SizedBox(width: 4),
         ],
       ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator(color: maroon))
-          : RefreshIndicator(
-              color: maroon,
-              onRefresh: () => _fetchData(silent: true),
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: EdgeInsets.fromLTRB(16, 16, 16, 32 + bottomInset),
-                child: Center(
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxWidth: isWide ? 900 : double.infinity,
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _buildCompareSection(),
-                        const SizedBox(height: 18),
-                        _buildTestFilter(),
-                        _buildScoresSection(),
-                        const SizedBox(height: 18),
-                        _buildPowerSection(),
-                        const SizedBox(height: 18),
-                        _buildWordsSection(),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
+      body: _buildBody(isWide, bottomInset),
+    );
+  }
+}
+
+/// Tuldok na may numero sa itaas (halaga ng score ng story).
+class _LabeledDot extends FlDotCirclePainter {
+  final String label;
+
+  _LabeledDot({
+    required this.label,
+    super.color,
+    super.radius,
+    super.strokeColor,
+    super.strokeWidth,
+  });
+
+  @override
+  void draw(Canvas canvas, FlSpot spot, Offset offsetInCanvas) {
+    super.draw(canvas, spot, offsetInCanvas);
+    final tp = TextPainter(
+      text: TextSpan(
+        text: label,
+        style: const TextStyle(
+          color: Color(0xFF201A1A),
+          fontSize: 11,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    tp.paint(
+      canvas,
+      Offset(
+        offsetInCanvas.dx - tp.width / 2,
+        offsetInCanvas.dy - radius - tp.height - 3,
+      ),
     );
   }
 }
