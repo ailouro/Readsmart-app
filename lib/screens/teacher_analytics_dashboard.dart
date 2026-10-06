@@ -4,6 +4,9 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:printing/printing.dart';
+import 'class_report_pdf.dart';
+import 'student_progress_screen.dart';
 import '../widgets/guide_comic_background.dart';
 import '../widgets/phil_iri_analytics_panel.dart';
 
@@ -28,6 +31,8 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
   Map<String, dynamic> _summaryData = {};
   List<dynamic> _mispronunciations = [];
   List<dynamic> _selfCorrections = [];
+  bool _isExporting = false; // gumagawa ng class PDF report
+  Future<List<List<dynamic>>>? _rosterFuture; // totals ng lahat ng estudyante
 
   // 🔊 Audio player state for playing struggle word recordings
   final AudioPlayer _audioPlayer = AudioPlayer();
@@ -313,8 +318,15 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
     }
   }
 
-  Future<void> _fetchDashboardData() async {
+  Future<void> _fetchDashboardData({bool keepStudentCache = false}) async {
     setState(() => _isLoading = true);
+    if (!keepStudentCache) {
+      // Pull-to-refresh / refresh button: kunin ulit ang bagong progress.
+      _progressCache.clear();
+      _totalsByStudent.clear();
+      _assessmentsFutureCache.clear();
+      _rosterFuture = null;
+    }
     try {
       int tId = widget.teacherId;
       if (tId <= 0) {
@@ -372,6 +384,77 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
     }
   }
 
+  // ==========================================
+  // CLASS PERFORMANCE REPORT (PDF)
+  // ==========================================
+  // Kinukuha ang Pre/Post totals ng BAWAT naka-enroll na estudyante (hindi
+  // lang ang mga card na nabuksan na) para kumpleto ang report, tapos
+  // binubuksan ang share/save sheet (download sa web).
+  Future<void> _exportClassReport() async {
+    if (_isExporting) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final raw = _summaryData['students'];
+    if (raw is! List || raw.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Wala pang naka-enroll na estudyante para sa report.'),
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isExporting = true);
+    try {
+      final students = raw
+          .whereType<Map>()
+          .map((e) => Map<String, dynamic>.from(e))
+          .toList();
+
+      // Parehong cache ang gamit ng mga record card, kaya walang doble
+      // na request para sa mga nakuha na.
+      await Future.wait(students.map((s) => _fetchStudentProgress(s['id'])));
+
+      final rows = students.map((s) {
+        final totals = _totalsByStudent[s['id']] ?? const <String, dynamic>{};
+        final first = _safeStr(s['first_name']);
+        final last = _safeStr(s['last_name']);
+        final fullName = '$first $last'.trim();
+        return <String, dynamic>{
+          'name': _safeStr(
+            s['name'],
+            fullName.isEmpty ? 'Unnamed student' : fullName,
+          ),
+          'class_name': _safeStr(
+            s['class_name'],
+            '${_safeStr(s['grade_level'])} ${_safeStr(s['section'])}'.trim(),
+          ),
+          'pre': totals['pre_test'],
+          'post': totals['post_test'],
+        };
+      }).toList();
+
+      final bytes = await ClassReportPdf.build(
+        students: rows,
+        mispronunciations: _mispronunciations,
+      );
+
+      final n = DateTime.now();
+      final stamp =
+          '${n.year}-${n.month.toString().padLeft(2, '0')}-${n.day.toString().padLeft(2, '0')}';
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename: 'class_reading_report_$stamp.pdf',
+      );
+    } catch (e) {
+      debugPrint('Error creating class report: $e');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Hindi nagawa ang report. Subukan ulit.')),
+      );
+    } finally {
+      if (mounted) setState(() => _isExporting = false);
+    }
+  }
+
   @override
   void dispose() {
     _audioPlayer.dispose();
@@ -385,6 +468,11 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
         title: const Text("Teacher Analytics"),
         backgroundColor: Colors.teal,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: "Download class report (PDF)",
+            onPressed: _exportClassReport,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _fetchDashboardData,
@@ -415,7 +503,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                         onChanged: (v) {
                           if (v == _summaryTestType) return;
                           setState(() => _summaryTestType = v);
-                          _fetchDashboardData();
+                          _fetchDashboardData(keepStudentCache: true);
                         },
                       ),
                       const SizedBox(height: 12),
@@ -427,39 +515,297 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                         summary: _summaryData,
                         testType: _summaryTestType,
                       ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        "Learner's Individual Record Card",
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w900,
-                          color: Colors.brown,
+                      const SizedBox(height: 16),
+                      OutlinedButton.icon(
+                        onPressed: _isExporting ? null : _exportClassReport,
+                        icon: _isExporting
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Icon(Icons.picture_as_pdf_outlined),
+                        label: Text(
+                          _isExporting
+                              ? "Gumagawa ng report..."
+                              : "Download class report (PDF)",
                         ),
                       ),
-                      const SizedBox(height: 12),
-
-                      if (_summaryData['students'] == null ||
-                          (_summaryData['students'] as List).isEmpty)
-                        const Text(
-                          "No students enrolled yet.",
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        )
-                      else
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: (_summaryData['students'] as List).length,
-                          itemBuilder: (context, index) {
-                            final student = Map<String, dynamic>.from(
-                              _summaryData['students'][index] as Map,
-                            );
-                            return _buildLearnerRecordCard(student);
-                          },
-                        ),
+                      const SizedBox(height: 24),
+                      _buildStudentRoster(),
                     ],
                   ),
                 ),
               ),
+      ),
+    );
+  }
+
+  // ==========================================
+  // STUDENT ROSTER — isang simpleng row kada naka-enroll na estudyante.
+  // Pag-tap, bubukas ang buong record ng estudyante.
+  // ==========================================
+  static const Color _lvIndependent = Color(0xFF4CAF50);
+  static const Color _lvInstructional = Color(0xFFFFA726);
+  static const Color _lvFrustration = Color(0xFFE53935);
+
+  Color _lvColor(String k) => k == 'independent'
+      ? _lvIndependent
+      : k == 'instructional'
+      ? _lvInstructional
+      : k == 'frustration'
+      ? _lvFrustration
+      : Colors.black26;
+
+  String _lvLabel(String k) => k == 'independent'
+      ? 'Independent'
+      : k == 'instructional'
+      ? 'Instructional'
+      : k == 'frustration'
+      ? 'Frustration'
+      : '';
+
+  Map<String, dynamic> _rosterTest(dynamic id, String key) {
+    final t = _totalsByStudent[id]?[key];
+    return t is Map ? Map<String, dynamic>.from(t) : <String, dynamic>{};
+  }
+
+  bool _rosterHas(Map<String, dynamic> t) =>
+      (num.tryParse('${t['stories'] ?? 0}') ?? 0) > 0;
+
+  String _rosterLevel(Map<String, dynamic> t) {
+    if (!_rosterHas(t)) return '';
+    final lv = '${t['level'] ?? ''}'.toLowerCase();
+    return const ['independent', 'instructional', 'frustration'].contains(lv)
+        ? lv
+        : '';
+  }
+
+  double? _rosterWordChange(
+    Map<String, dynamic> pre,
+    Map<String, dynamic> post,
+  ) {
+    if (!_rosterHas(pre) || !_rosterHas(post)) return null;
+    final a = double.tryParse('${pre['word_pct']}');
+    final b = double.tryParse('${post['word_pct']}');
+    return (a == null || b == null) ? null : b - a;
+  }
+
+  String _studentName(Map<String, dynamic> s) {
+    final full = '${_safeStr(s['first_name'])} ${_safeStr(s['last_name'])}'
+        .trim();
+    return _safeStr(s['name'], full.isEmpty ? 'Unnamed student' : full);
+  }
+
+  String _studentClass(Map<String, dynamic> s) => _safeStr(
+    s['class_name'],
+    '${_safeStr(s['grade_level'])} ${_safeStr(s['section'])}'.trim(),
+  );
+
+  void _openStudent(Map<String, dynamic> s) {
+    final id = int.tryParse('${s['id']}');
+    if (id == null) return;
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => StudentProgressScreen(
+          studentId: id,
+          baseUrl: widget.baseUrl,
+          studentName: _studentName(s),
+        ),
+      ),
+    );
+  }
+
+  Widget _rosterLevelTag(String label, String lv) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: _lvColor(lv), shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 5),
+      Text(
+        lv.isEmpty ? '$label: no test yet' : '$label: ${_lvLabel(lv)}',
+        style: const TextStyle(fontSize: 12, color: Colors.black54),
+      ),
+    ],
+  );
+
+  Widget _rosterRow(Map<String, dynamic> s) {
+    final pre = _rosterTest(s['id'], 'pre_test');
+    final post = _rosterTest(s['id'], 'post_test');
+    final change = _rosterWordChange(pre, post);
+    final cls = _studentClass(s);
+
+    String changeText = '--';
+    Color changeColor = Colors.black38;
+    if (change != null) {
+      final v = change % 1 == 0
+          ? change.toStringAsFixed(0)
+          : change.toStringAsFixed(1);
+      changeText = change >= 0 ? '+$v%' : '$v%';
+      changeColor = change < 0 ? _lvFrustration : _lvIndependent;
+    }
+
+    return InkWell(
+      onTap: () => _openStudent(s),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _studentName(s),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w900,
+                    ),
+                  ),
+                  if (cls.isNotEmpty)
+                    Text(
+                      cls,
+                      style: const TextStyle(
+                        fontSize: 12,
+                        color: Colors.black45,
+                      ),
+                    ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 14,
+                    runSpacing: 4,
+                    children: [
+                      _rosterLevelTag('Pre', _rosterLevel(pre)),
+                      _rosterLevelTag('Post', _rosterLevel(post)),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(
+                  changeText,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w900,
+                    color: changeColor,
+                  ),
+                ),
+                const Text(
+                  'word reading',
+                  style: TextStyle(fontSize: 11, color: Colors.black45),
+                ),
+              ],
+            ),
+            const SizedBox(width: 4),
+            const Icon(Icons.chevron_right, color: Colors.black38),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStudentRoster() {
+    final raw = _summaryData['students'];
+    if (raw is! List || raw.isEmpty) {
+      return const Text(
+        "No students enrolled yet.",
+        style: TextStyle(fontWeight: FontWeight.bold),
+      );
+    }
+    final students = raw
+        .whereType<Map>()
+        .map((e) => Map<String, dynamic>.from(e))
+        .toList();
+
+    _rosterFuture ??= Future.wait(
+      students.map((s) => _fetchStudentProgress(s['id'])),
+    );
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            "Students (${students.length})",
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w900),
+          ),
+          const SizedBox(height: 2),
+          const Text(
+            "Pre-test and post-test. Needs help first. Tap a student for the full record.",
+            style: TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+          const SizedBox(height: 4),
+          FutureBuilder<List<List<dynamic>>>(
+            future: _rosterFuture,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState != ConnectionState.done) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 28),
+                  child: Center(child: CircularProgressIndicator()),
+                );
+              }
+
+              // Students who need the most support first (by post-test
+              // level), then students with no post-test yet; ties by name.
+              int priority(Map<String, dynamic> s) {
+                final lv = _rosterLevel(_rosterTest(s['id'], 'post_test'));
+                return lv == 'frustration'
+                    ? 0
+                    : lv == 'instructional'
+                    ? 1
+                    : lv == 'independent'
+                    ? 2
+                    : 3;
+              }
+
+              final sorted = [...students]
+                ..sort((a, b) {
+                  final p = priority(a).compareTo(priority(b));
+                  if (p != 0) return p;
+                  return _studentName(
+                    a,
+                  ).toLowerCase().compareTo(_studentName(b).toLowerCase());
+                });
+
+              return Column(
+                children: [
+                  for (int i = 0; i < sorted.length; i++) ...[
+                    if (i > 0)
+                      Divider(
+                        height: 1,
+                        color: Colors.black.withValues(alpha: 0.07),
+                      ),
+                    _rosterRow(sorted[i]),
+                  ],
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }

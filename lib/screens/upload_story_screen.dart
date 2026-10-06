@@ -86,14 +86,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
   String? _gradeLevel;
   String? _setLetter;
 
-  static const List<String> _availableGrades = [
-    'Grade 2',
-    'Grade 3',
-    'Grade 4',
-    'Grade 5',
-    'Grade 6',
-    'Grade 7',
-  ];
+  static const List<String> _availableGrades = ['Grade 5', 'Grade 6'];
   static const List<String> _availableSets = [
     'Set A',
     'Set B',

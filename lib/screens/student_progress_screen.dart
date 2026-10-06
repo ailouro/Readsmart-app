@@ -2,6 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
+import 'package:printing/printing.dart';
+import 'student_report_pdf.dart';
 
 class StudentProgressScreen extends StatefulWidget {
   final int studentId;
@@ -96,6 +98,46 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
   }
 
   // ==========================================
+  // PDF REPORT
+  // ==========================================
+  // Gumagawa ng PDF report ng estudyanteng ito (lahat ng natapos na stories,
+  // hindi lang ang napiling Pre/Post filter) at binubuksan ang share/save
+  // sheet (download sa web).
+  Future<void> _exportReport() async {
+    final messenger = ScaffoldMessenger.of(context);
+    if (_records.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Wala pang natapos na story para sa report.'),
+        ),
+      );
+      return;
+    }
+    try {
+      final bytes = await StudentReportPdf.build(
+        studentName: widget.studentName,
+        records: _records,
+        totals: _totals,
+        words: _sortedWords(),
+      );
+      final safeName = widget.studentName.trim().replaceAll(
+        RegExp(r'[^A-Za-z0-9]+'),
+        '_',
+      );
+      await Printing.sharePdf(
+        bytes: bytes,
+        filename:
+            'reading_report_${safeName.isEmpty ? 'student' : safeName}.pdf',
+      );
+    } catch (e) {
+      debugPrint('Error creating report: $e');
+      messenger.showSnackBar(
+        const SnackBar(content: Text('Hindi nagawa ang report. Subukan ulit.')),
+      );
+    }
+  }
+
+  // ==========================================
   // HELPERS
   // ==========================================
   Color _levelColor(String level) {
@@ -141,8 +183,13 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     decoration: BoxDecoration(
       color: cardFill,
       borderRadius: BorderRadius.circular(16),
-      border: Border.all(color: cardBorder, width: 2.5),
-      boxShadow: const [BoxShadow(color: cardBorder, offset: Offset(3, 3))],
+      boxShadow: [
+        BoxShadow(
+          color: Colors.black.withValues(alpha: 0.06),
+          blurRadius: 12,
+          offset: const Offset(0, 4),
+        ),
+      ],
     ),
     child: child,
   );
@@ -266,7 +313,6 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
       decoration: BoxDecoration(
         color: c.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: c, width: 1.5),
       ),
       child: Text(
         _levelLabel(level),
@@ -300,8 +346,33 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     ),
   );
 
+  Widget _bigStat(String label, String value, String? sub) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(
+        label,
+        style: const TextStyle(
+          color: inkSubtext,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      Text(
+        value,
+        style: const TextStyle(
+          color: inkText,
+          fontSize: 24,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+      if (sub != null)
+        Text(sub, style: const TextStyle(color: inkSubtext, fontSize: 11)),
+    ],
+  );
+
   Widget _totalBlock(String title, Map<String, dynamic> t, Color accent) {
     final bool hasData = _i(t['stories']) > 0;
+    final int stories = _i(t['stories']);
     final int words = _i(t['total_words']);
     final int quizQ = _i(t['quiz_questions']);
     final double wr = _d(t['word_pct']) ?? 0;
@@ -309,11 +380,10 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
 
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: paperColor,
+          color: accent.withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: accent, width: 2),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -323,62 +393,37 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
               style: TextStyle(
                 color: accent,
                 fontWeight: FontWeight.w900,
-                fontSize: 14,
+                fontSize: 15,
               ),
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 2),
             if (!hasData)
               const Text(
                 'Wala pang natapos na story.',
                 style: TextStyle(color: inkSubtext, fontSize: 12),
               )
             else ...[
-              _kv('Stories', '${_i(t['stories'])}'),
-              _kv('Kabuuang salita', words > 0 ? '$words' : '—'),
-              _kv('Miscues', words > 0 ? '${_i(t['miscues'])}' : '—'),
-              _kv(
-                'Tamang salita',
-                words > 0 ? '${_i(t['correct_words'])}' : '—',
+              Text(
+                '$stories ${stories == 1 ? 'story' : 'stories'} natapos',
+                style: const TextStyle(color: inkSubtext, fontSize: 12),
               ),
-              const Divider(height: 14, color: Colors.black26),
-              const Text(
+              const SizedBox(height: 12),
+              _bigStat(
                 'Word Reading',
-                style: TextStyle(
-                  color: inkSubtext,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
+                '${_fmt(wr)}%',
                 words > 0
-                    ? '${_i(t['correct_words'])} ÷ $words × 100 = ${_fmt(wr)}%'
-                    : '${_fmt(wr)}% (average)',
-                style: const TextStyle(
-                  color: inkText,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-              const SizedBox(height: 6),
-              const Text(
-                'Comprehension',
-                style: TextStyle(
-                  color: inkSubtext,
-                  fontSize: 11,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              Text(
-                quizQ > 0
-                    ? '${_i(t['quiz_correct'])} ÷ $quizQ × 100 = ${_fmt(comp)}%'
-                    : '${_fmt(comp)}% (average)',
-                style: const TextStyle(
-                  color: inkText,
-                  fontSize: 13,
-                  fontWeight: FontWeight.w900,
-                ),
+                    ? '${_i(t['correct_words'])} sa $words salita tama'
+                    : null,
               ),
               const SizedBox(height: 10),
+              _bigStat(
+                'Comprehension',
+                '${_fmt(comp)}%',
+                quizQ > 0
+                    ? '${_i(t['quiz_correct'])} sa $quizQ tanong tama'
+                    : null,
+              ),
+              const SizedBox(height: 12),
               _levelChip('${t['level'] ?? ''}'),
             ],
           ],
@@ -524,27 +569,6 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
   // ==========================================
   // 2. BAWAT STORY — chart + computation breakdown
   // ==========================================
-  Widget _wordSplitBar(int correct, int miscues) => ClipRRect(
-    borderRadius: BorderRadius.circular(6),
-    child: SizedBox(
-      height: 14,
-      child: Row(
-        children: [
-          if (correct > 0)
-            Expanded(
-              flex: correct,
-              child: Container(color: independentColor),
-            ),
-          if (miscues > 0)
-            Expanded(
-              flex: miscues,
-              child: Container(color: frustrationColor),
-            ),
-        ],
-      ),
-    ),
-  );
-
   Widget _storyChart(List<dynamic> recs) {
     return LayoutBuilder(
       builder: (context, c) {
@@ -650,83 +674,79 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     final double comp = _d(r['comprehension_score_pct']) ?? 0;
     final int wpm = _i(r['wpm']);
     final int secs = _i(r['time_on_task']);
+    final Color lc = _levelColor(level);
 
-    TextStyle label() => const TextStyle(
-      color: inkSubtext,
-      fontSize: 11,
-      fontWeight: FontWeight.bold,
-    );
-    TextStyle formula() => const TextStyle(
-      color: inkText,
-      fontSize: 13,
-      fontWeight: FontWeight.w900,
-    );
+    const TextStyle detail = TextStyle(color: inkSubtext, fontSize: 12.5);
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 12),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: paperColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cardBorder, width: 1.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: Text(
-                  '#$n  $title',
-                  style: const TextStyle(
-                    color: inkText,
-                    fontWeight: FontWeight.w900,
-                    fontSize: 14,
-                  ),
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        key: PageStorageKey('story_${r['id']}'),
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(left: 28, bottom: 10),
+        expandedCrossAxisAlignment: CrossAxisAlignment.start,
+        shape: const Border(),
+        collapsedShape: const Border(),
+        iconColor: inkSubtext,
+        collapsedIconColor: inkSubtext,
+        title: Row(
+          children: [
+            SizedBox(
+              width: 28,
+              child: Text(
+                '#$n',
+                style: const TextStyle(
+                  color: inkSubtext,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 13,
                 ),
               ),
-              const SizedBox(width: 8),
-              _levelChip(level),
+            ),
+            Expanded(
+              child: Text(
+                title,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: inkText,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 14,
+                ),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(left: 28, top: 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _dot(lc, _levelLabel(level)),
+              const SizedBox(height: 3),
+              Text(
+                'Word Reading ${_fmt(wr)}%  •  Comprehension ${_fmt(comp)}%  •  ${wpm > 0 ? '$wpm WPM' : '— WPM'}',
+                style: const TextStyle(
+                  color: inkText,
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 10),
-          Text('Word Reading', style: label()),
-          const SizedBox(height: 2),
-          if (total > 0) ...[
-            Text(
-              '$total salita − $miscues miscues = $correct tama',
-              style: formula(),
-            ),
-            Text('$correct ÷ $total × 100 = ${_fmt(wr)}%', style: formula()),
-            const SizedBox(height: 6),
-            _wordSplitBar(correct, miscues),
+        ),
+        children: [
+          Text(
+            total > 0
+                ? 'Tamang salita: $correct sa $total  ($miscues miscues)'
+                : 'Walang naka-save na bilang ng salita',
+            style: detail,
+          ),
+          if (qt > 0) ...[
             const SizedBox(height: 4),
-            Row(
-              children: [
-                _dot(independentColor, 'Tama: $correct'),
-                const SizedBox(width: 14),
-                _dot(frustrationColor, 'Miscues: $miscues'),
-              ],
-            ),
-          ] else
-            Text(
-              '${_fmt(wr)}% (walang naka-save na bilang ng salita para sa story na ito)',
-              style: formula(),
-            ),
-          const SizedBox(height: 10),
-          Text('Comprehension', style: label()),
-          const SizedBox(height: 2),
-          Text(
-            qt > 0 ? '$qc ÷ $qt × 100 = ${_fmt(comp)}%' : '${_fmt(comp)}%',
-            style: formula(),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            'Bilis: ${wpm > 0 ? '$wpm WPM' : '—'}  •  Oras: ${_dur(secs)}',
-            style: label(),
-          ),
+            Text('Quiz: $qc sa $qt tama', style: detail),
+          ],
+          const SizedBox(height: 4),
+          Text('Oras ng pagbasa: ${_dur(secs)}', style: detail),
         ],
       ),
     );
@@ -745,13 +765,18 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
           _sectionHeader(
             '$name — Bawat Story 🎯',
             subtitle:
-                'Isang bar kada story. Ang mga guhit ay 90% at 97% na cutoff.',
+                'Isang bar kada story (guhit = 90% at 97% na cutoff). I-tap ang story para makita ang detalye.',
           ),
           const SizedBox(height: 12),
           _buildLegend(),
           const SizedBox(height: 14),
           _storyChart(recs),
-          for (int i = 0; i < recs.length; i++) _storyDetail(i + 1, recs[i]),
+          const SizedBox(height: 8),
+          for (int i = 0; i < recs.length; i++) ...[
+            if (i > 0)
+              Divider(height: 1, color: Colors.black.withValues(alpha: 0.07)),
+            _storyDetail(i + 1, recs[i]),
+          ],
         ],
       ),
     );
@@ -924,7 +949,6 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
             decoration: BoxDecoration(
               color: paperColor,
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: cardBorder, width: 2),
             ),
             child: Column(
               children: [
@@ -992,7 +1016,6 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                 decoration: BoxDecoration(
                   color: barColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: barColor, width: 1.5),
                 ),
                 child: Text(
                   "Missed ${e.value}x",
@@ -1028,7 +1051,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _sectionHeader("Words to Defeat ⚔️"),
+            _sectionHeader("Words to practice"),
             const SizedBox(height: 12),
             const Center(
               child: Icon(
@@ -1065,8 +1088,8 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionHeader(
-            "Words to Defeat ⚔️",
-            subtitle: "${sorted.length} tricky words • sorted by boss level",
+            "Words to practice",
+            subtitle: "${sorted.length} tricky words • most missed first",
           ),
           const SizedBox(height: 6),
           for (int i = 0; i < visible.length; i++) ...[
@@ -1127,6 +1150,11 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
           ],
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: "Download report (PDF)",
+            onPressed: _exportReport,
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: "Refresh",
