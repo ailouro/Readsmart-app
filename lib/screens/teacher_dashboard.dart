@@ -17,6 +17,7 @@ import '../widgets/bouncy_tap.dart';
 import '../widgets/phil_iri_analytics_panel.dart';
 import 'teacher_profile_screen.dart';
 import 'teacher_analytics_dashboard.dart';
+import 'student_roster_panel.dart';
 import 'class_pre_post_summary_screen.dart';
 import 'student_alert_detail_screen.dart';
 import 'login_screen.dart';
@@ -3015,6 +3016,18 @@ class _StudentsTabState extends State<_StudentsTab> {
                     const SizedBox(height: 16),
                   ],
                 ),
+              if (!_isLoadingAnalytics &&
+                  _summaryData['students'] is List &&
+                  (_summaryData['students'] as List).isNotEmpty) ...[
+                const ComicBadgeHeader(title: "STUDENT PROGRESS"),
+                const SizedBox(height: 10),
+                StudentRosterPanel(
+                  students: _summaryData['students'] as List,
+                  baseUrl: baseUrl,
+                  headers: networkHeaders,
+                ),
+                const SizedBox(height: 24),
+              ],
               Wrap(
                 alignment: WrapAlignment.spaceBetween,
                 crossAxisAlignment: WrapCrossAlignment.center,
