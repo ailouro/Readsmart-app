@@ -802,9 +802,15 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            _sectionHeader('My Story Accuracy Scores 🎯'),
+            _sectionHeader(
+              widget.teacherView
+                  ? 'Story records'
+                  : 'My Story Accuracy Scores 🎯',
+            ),
             _emptyText(
-              'No missions completed yet.\nRead a story to earn stars!',
+              widget.teacherView
+                  ? 'No finished stories yet.'
+                  : 'No missions completed yet.\nRead a story to earn stars!',
             ),
           ],
         ),
@@ -1067,17 +1073,21 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
           children: [
             _sectionHeader("Words to practice"),
             const SizedBox(height: 12),
-            const Center(
-              child: Icon(
-                Icons.military_tech_rounded,
-                color: independentColor,
-                size: 56,
+            if (!widget.teacherView) ...[
+              const Center(
+                child: Icon(
+                  Icons.military_tech_rounded,
+                  color: independentColor,
+                  size: 56,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            const Center(
+              const SizedBox(height: 8),
+            ],
+            Center(
               child: Text(
-                "Perfect Pronunciation!\nNo words to practice right now! 🎉",
+                widget.teacherView
+                    ? "No mispronounced words recorded."
+                    : "Perfect Pronunciation!\nNo words to practice right now! 🎉",
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: inkText,
@@ -1593,15 +1603,25 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                   _buildTeacherHeader(),
                   const SizedBox(height: 18),
                 ],
-                _buildCompareSection(),
-                const SizedBox(height: 18),
-                _buildTrendCard(),
+                // Teacher: chart muna, tapos Pre vs Post. Student: dati.
+                if (widget.teacherView) ...[
+                  _buildTrendCard(),
+                  const SizedBox(height: 18),
+                  _buildCompareSection(),
+                ] else ...[
+                  _buildCompareSection(),
+                  const SizedBox(height: 18),
+                  _buildTrendCard(),
+                ],
                 const SizedBox(height: 18),
                 _buildTestFilter(),
                 _buildScoresSection(),
                 const SizedBox(height: 18),
-                _buildPowerSection(),
-                const SizedBox(height: 18),
+                // "My Reading Power" (badge/pie) ay pang-bata lang.
+                if (!widget.teacherView) ...[
+                  _buildPowerSection(),
+                  const SizedBox(height: 18),
+                ],
                 _buildWordsSection(),
               ],
             ),
