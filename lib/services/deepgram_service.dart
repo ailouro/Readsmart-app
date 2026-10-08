@@ -7,64 +7,100 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 import 'package:record/record.dart';
 import 'package:path_provider/path_provider.dart';
 
+/// Tala kung malusog ang mic/connection habang nagbabasa ang bata.
+/// Ipadala ang [toJson] kasama ng progress para ang analytics ay may
+/// TOTOONG datos kung bakit mababa ang Word Reading (hindi hula).
+class MicHealth {
+  int chunksSent = 0;
+  int transcripts = 0;
+  int finals = 0;
+  int drops = 0; // ilang beses nawala ang connection
+  int reconnects = 0;
+  double peakLevel = 0; // 0..1, pinakamalakas na tunog na nahuli ng mic
+
+  /// ok | no_audio | no_sound | no_transcript | unstable
+  String get status {
+    if (chunksSent == 0) return 'no_audio'; // walang audio na nakuha
+    if (peakLevel < 0.02) return 'no_sound'; // tahimik ang mic (hardware/permission)
+    if (transcripts == 0) return 'no_transcript'; // may tunog pero walang sagot ang Deepgram
+    if (drops > 0) return 'unstable'; // nawalan ng connection habang nagbabasa
+    return 'ok';
+  }
+
+  Map<String, dynamic> toJson() => {
+        'mic_status': status,
+        'mic_peak_level': double.parse(peakLevel.toStringAsFixed(3)),
+        'asr_transcripts': transcripts,
+        'asr_drops': drops,
+      };
+}
+
 class DeepgramService {
-  final String apiKey = "92de17d736efd3034ac8e590d1d59c905931a823";
+  // HUWAG i-hardcode ang key. Ipasa sa build:
+  //   flutter run --dart-define=DEEPGRAM_API_KEY=xxxx
+  // (Mas ligtas pa: kumuha ng short-lived token mula sa Laravel.)
+  static const String _apiKey = String.fromEnvironment('DEEPGRAM_API_KEY');
+
+  // Ilang audio lang ang itatabi para sa "struggle word" recording
+  // (6 na segundo ng 16kHz 16-bit mono). Dati lumalaki ito buong session.
+  static const int _maxBufferBytes = 16000 * 2 * 6;
+  static const int _maxPendingChunks = 40; // ~ ilang segundo habang nagre-reconnect
+  static const Duration _warmUp = Duration(milliseconds: 250);
 
   WebSocketChannel? _channel;
   final AudioRecorder _audioRecorder = AudioRecorder();
   StreamSubscription<List<int>>? _audioStreamSubscription;
-  List<int> _audioBuffer = [];
+  StreamSubscription? _wsSubscription;
+  final List<int> _audioBuffer = [];
+  final List<List<int>> _pending = [];
   Timer? _keepAliveTimer;
+  Timer? _reconnectTimer;
   DateTime? _micStartedAt;
 
-  void clearAudioBuffer() {
-    _audioBuffer.clear();
-  }
+  bool _listening = false;
+  bool _socketReady = false;
+  int _retry = 0;
+  List<String> _keywords = const [];
+  Function(String word, bool isFinal)? _onResult;
 
+  MicHealth health = MicHealth();
+
+  void clearAudioBuffer() => _audioBuffer.clear();
+
+  // ---------------------------------------------------------------- WAV save
   Future<String?> saveFailedWordAudio(String word) async {
     if (_audioBuffer.isEmpty) return null;
 
     try {
       final dir = await getTemporaryDirectory();
       final String timestamp = DateTime.now().millisecondsSinceEpoch.toString();
-      final String fileName = "struggle_${word}_$timestamp.wav";
-      final File file = File('${dir.path}/$fileName');
+      final String safeWord = word.replaceAll(RegExp(r'[^\w-]'), '_');
+      final File file = File('${dir.path}/struggle_${safeWord}_$timestamp.wav');
 
-      final int sampleRate = 16000;
-      final int channels = 1;
-      final int byteRate = sampleRate * channels * 2; // 16-bit
+      const int sampleRate = 16000;
+      const int channels = 1;
+      const int byteRate = sampleRate * channels * 2;
       final int dataSize = _audioBuffer.length;
 
       final ByteData header = ByteData(44);
-      // RIFF chunk descriptor
-      header.setUint8(0, 0x52); // 'R'
-      header.setUint8(1, 0x49); // 'I'
-      header.setUint8(2, 0x46); // 'F'
-      header.setUint8(3, 0x46); // 'F'
-      header.setUint32(4, 36 + dataSize, Endian.little);
-      header.setUint8(8, 0x57); // 'W'
-      header.setUint8(9, 0x41); // 'A'
-      header.setUint8(10, 0x56); // 'V'
-      header.setUint8(11, 0x45); // 'E'
+      void tag(int offset, String s) {
+        for (int i = 0; i < s.length; i++) {
+          header.setUint8(offset + i, s.codeUnitAt(i));
+        }
+      }
 
-      // fmt sub-chunk
-      header.setUint8(12, 0x66); // 'f'
-      header.setUint8(13, 0x6D); // 'm'
-      header.setUint8(14, 0x74); // 't'
-      header.setUint8(15, 0x20); // ' '
-      header.setUint32(16, 16, Endian.little); // Subchunk1Size
-      header.setUint16(20, 1, Endian.little); // AudioFormat (PCM)
+      tag(0, 'RIFF');
+      header.setUint32(4, 36 + dataSize, Endian.little);
+      tag(8, 'WAVE');
+      tag(12, 'fmt ');
+      header.setUint32(16, 16, Endian.little);
+      header.setUint16(20, 1, Endian.little);
       header.setUint16(22, channels, Endian.little);
       header.setUint32(24, sampleRate, Endian.little);
       header.setUint32(28, byteRate, Endian.little);
-      header.setUint16(32, channels * 2, Endian.little); // BlockAlign
-      header.setUint16(34, 16, Endian.little); // BitsPerSample
-
-      // data sub-chunk
-      header.setUint8(36, 0x64); // 'd'
-      header.setUint8(37, 0x61); // 'a'
-      header.setUint8(38, 0x74); // 't'
-      header.setUint8(39, 0x61); // 'a'
+      header.setUint16(32, channels * 2, Endian.little);
+      header.setUint16(34, 16, Endian.little);
+      tag(36, 'data');
       header.setUint32(40, dataSize, Endian.little);
 
       final BytesBuilder builder = BytesBuilder();
@@ -79,65 +115,29 @@ class DeepgramService {
     }
   }
 
+  // ---------------------------------------------------------------- Listening
   Future<void> startListening({
     required List<String> targetKeywords,
     required Function(String word, bool isFinal) onResult,
   }) async {
+    if (_listening) return;
+    _listening = true;
     _audioBuffer.clear();
-    String keywordParams = targetKeywords.map((w) => "keywords=$w:2").join("&");
+    _pending.clear();
+    _retry = 0;
+    health = MicHealth(); // bagong sukat bawat pagbasa
+    _keywords = targetKeywords
+        .map((w) => w.trim())
+        .where((w) => w.isNotEmpty)
+        .toSet()
+        .toList();
+    _onResult = onResult;
 
-    // Use explicit linear16 encoding which is much more reliable across mobile devices.
-    // endpointing lowered to 10ms so word-final results fire almost immediately after
-    // each word instead of waiting ~100ms of silence. vad_events + utterance_end_ms
-    // give us a hard signal that speech has actually stopped (useful as a fallback
-    // if is_final is delayed on a shaky connection), without slowing down the happy
-    // path on a fully-connected network.
-    final uri = Uri.parse(
-      "wss://api.deepgram.com/v1/listen?model=nova-2&language=en&smart_format=false&encoding=linear16&sample_rate=16000&channels=1&endpointing=10&vad_events=true&utterance_end_ms=1000&interim_results=true&$keywordParams",
-    );
+    await _connect();
 
-    _channel = WebSocketChannel.connect(uri, protocols: ['token', apiKey]);
-
-    _channel!.stream.listen(
-      (message) {
-        final data = jsonDecode(message);
-
-        // UtteranceEnd fires from vad_events when Deepgram is sure speech stopped.
-        // On a weak/lossy connection this can arrive even if a final transcript got
-        // dropped, so we can still nudge the UI forward instead of stalling.
-        if (data['type'] == 'UtteranceEnd') {
-          return;
-        }
-
-        if (data['channel'] != null) {
-          final alternatives = data['channel']['alternatives'];
-          if (alternatives != null && alternatives.isNotEmpty) {
-            String transcript = alternatives[0]['transcript'] ?? "";
-            bool isFinal = data['is_final'] ?? false;
-
-            if (transcript.isNotEmpty) {
-              onResult(transcript, isFinal);
-            }
-          }
-        }
-      },
-      onError: (error) {
-        debugPrint("Deepgram WS Error: $error");
-      },
-      onDone: () {
-        debugPrint(
-          "Deepgram WS closed (code: ${_channel?.closeCode}, reason: ${_channel?.closeReason})",
-        );
-      },
-    );
-
-    // Keep the socket alive during natural pauses in reading (e.g. child thinking
-    // between words). Without this, a lull longer than Deepgram's idle timeout can
-    // silently drop the connection on a weak signal, which then *looks* like slow
-    // highlighting because nothing comes back at all.
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (_channel != null) {
+      if (_socketReady && _channel != null) {
         try {
           _channel!.sink.add(jsonEncode({"type": "KeepAlive"}));
         } catch (e) {
@@ -150,32 +150,14 @@ class DeepgramService {
       try {
         final audioStream = await _audioRecorder.startStream(
           const RecordConfig(
-            encoder: AudioEncoder.pcm16bits, // More reliable for native Android
+            encoder: AudioEncoder.pcm16bits,
             sampleRate: 16000,
             numChannels: 1,
           ),
         );
 
         _micStartedAt = DateTime.now();
-        _audioStreamSubscription = audioStream.listen((chunk) {
-          _audioBuffer.addAll(
-            chunk,
-          ); // Keep in memory for struggle word recording
-
-          // Mute the very start of the mic feed. Right after a TTS prompt
-          // (e.g. "It's your turn!") finishes, there can be a brief tail of
-          // speaker audio still leaking into the mic before the child has
-          // actually said anything — without this, Deepgram sometimes ends
-          // up transcribing the app's own prompt instead of the child.
-          final bool warmedUp =
-              _micStartedAt == null ||
-              DateTime.now().difference(_micStartedAt!) >=
-                  const Duration(milliseconds: 250);
-
-          if (_channel != null && warmedUp) {
-            _channel!.sink.add(chunk);
-          }
-        });
+        _audioStreamSubscription = audioStream.listen(_onAudioChunk);
       } catch (e) {
         debugPrint("Mic Stream Error: $e");
       }
@@ -184,13 +166,171 @@ class DeepgramService {
     }
   }
 
+  void _onAudioChunk(List<int> chunk) {
+    // Para sa struggle-word recording (may limitasyon na ang laki).
+    _audioBuffer.addAll(chunk);
+    if (_audioBuffer.length > _maxBufferBytes) {
+      _audioBuffer.removeRange(0, _audioBuffer.length - _maxBufferBytes);
+    }
+
+    final peak = _peak(chunk);
+    if (peak > health.peakLevel) health.peakLevel = peak;
+
+    // Iwasang marinig ang sariling TTS prompt ng app sa pinakaunang sandali.
+    final bool warmedUp = _micStartedAt == null ||
+        DateTime.now().difference(_micStartedAt!) >= _warmUp;
+    if (!warmedUp) return;
+
+    if (_socketReady && _channel != null) {
+      try {
+        _channel!.sink.add(chunk);
+        health.chunksSent++;
+      } catch (e) {
+        debugPrint("Audio send failed: $e");
+      }
+    } else {
+      // Nawala ang connection: itabi sandali, ipapadala pagbalik ng socket
+      // para hindi mawala ang mga salitang binasa ng bata.
+      _pending.add(chunk);
+      if (_pending.length > _maxPendingChunks) _pending.removeAt(0);
+      health.chunksSent++; // may audio naman, ang connection ang may problema
+    }
+  }
+
+  double _peak(List<int> c) {
+    int max = 0;
+    for (int i = 0; i + 1 < c.length; i += 16) {
+      int s = c[i] | (c[i + 1] << 8);
+      if (s >= 32768) s -= 65536;
+      if (s < 0) s = -s;
+      if (s > max) max = s;
+    }
+    return max / 32768.0;
+  }
+
+  // --------------------------------------------------------------- Connection
+  Future<void> _connect() async {
+    _socketReady = false;
+    await _wsSubscription?.cancel();
+
+    final uri = Uri(
+      scheme: 'wss',
+      host: 'api.deepgram.com',
+      path: '/v1/listen',
+      queryParameters: {
+        'model': 'nova-2',
+        'language': 'en',
+        'smart_format': 'false',
+        'encoding': 'linear16',
+        'sample_rate': '16000',
+        'channels': '1',
+        'endpointing': '10',
+        'vad_events': 'true',
+        'utterance_end_ms': '1000',
+        'interim_results': 'true',
+        // naka-encode na nang tama (dati raw string kaya puwedeng masira)
+        if (_keywords.isNotEmpty) 'keywords': _keywords.map((w) => '$w:2'),
+      },
+    );
+
+    try {
+      final channel = WebSocketChannel.connect(uri, protocols: ['token', _apiKey]);
+      _channel = channel;
+      await channel.ready; // hintayin ang totoong koneksyon
+
+      _wsSubscription = channel.stream.listen(
+        _onMessage,
+        onError: (error) {
+          debugPrint("Deepgram WS Error: $error");
+          _onSocketLost();
+        },
+        onDone: () {
+          debugPrint(
+            "Deepgram WS closed (code: ${channel.closeCode}, reason: ${channel.closeReason})",
+          );
+          _onSocketLost();
+        },
+      );
+
+      _socketReady = true;
+      _retry = 0;
+
+      // Ipadala ang naipong audio habang wala ang connection.
+      for (final c in _pending) {
+        channel.sink.add(c);
+      }
+      _pending.clear();
+    } catch (e) {
+      debugPrint("Deepgram connect failed: $e");
+      _onSocketLost();
+    }
+  }
+
+  void _onMessage(dynamic message) {
+    try {
+      final data = jsonDecode(message);
+      if (data['type'] == 'UtteranceEnd') return;
+
+      final alternatives = data['channel']?['alternatives'];
+      if (alternatives is List && alternatives.isNotEmpty) {
+        final String transcript = alternatives[0]['transcript'] ?? '';
+        final bool isFinal = data['is_final'] ?? false;
+        if (transcript.isNotEmpty) {
+          health.transcripts++;
+          if (isFinal) health.finals++;
+          _onResult?.call(transcript, isFinal);
+        }
+      }
+    } catch (e) {
+      debugPrint("Deepgram parse error: $e");
+    }
+  }
+
+  void _onSocketLost() {
+    if (!_listening) return; // normal na pagsara
+    if (_socketReady) health.drops++;
+    _socketReady = false;
+    if (_reconnectTimer?.isActive ?? false) return;
+
+    // Exponential backoff: 0.5s, 1s, 2s ... hanggang 5s
+    final delay = Duration(milliseconds: (500 * (1 << _retry.clamp(0, 4))).clamp(500, 5000));
+    _retry++;
+    _reconnectTimer = Timer(delay, () async {
+      if (!_listening) return;
+      health.reconnects++;
+      await _connect();
+    });
+  }
+
+  // ------------------------------------------------------------------- Stop
   Future<void> stopListening() async {
+    _listening = false;
     _keepAliveTimer?.cancel();
     _keepAliveTimer = null;
+    _reconnectTimer?.cancel();
+    _reconnectTimer = null;
     _micStartedAt = null;
+
     await _audioStreamSubscription?.cancel();
+    _audioStreamSubscription = null;
     await _audioRecorder.stop();
-    await _channel?.sink.close();
+
+    // Hayaang mag-flush ang Deepgram ng huling salita bago isara.
+    // Dati agad isinasara kaya nawawala ang final transcript ng huling salita.
+    try {
+      if (_socketReady && _channel != null) {
+        _channel!.sink.add(jsonEncode({"type": "CloseStream"}));
+        await Future.delayed(const Duration(milliseconds: 400));
+      }
+    } catch (_) {}
+
+    await _wsSubscription?.cancel();
+    _wsSubscription = null;
+    try {
+      await _channel?.sink.close();
+    } catch (_) {}
     _channel = null;
+    _socketReady = false;
+    _pending.clear();
   }
 }
