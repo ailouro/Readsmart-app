@@ -21,18 +21,20 @@ class MicHealth {
   /// ok | no_audio | no_sound | no_transcript | unstable
   String get status {
     if (chunksSent == 0) return 'no_audio'; // walang audio na nakuha
-    if (peakLevel < 0.02) return 'no_sound'; // tahimik ang mic (hardware/permission)
-    if (transcripts == 0) return 'no_transcript'; // may tunog pero walang sagot ang Deepgram
+    if (peakLevel < 0.02)
+      return 'no_sound'; // tahimik ang mic (hardware/permission)
+    if (transcripts == 0)
+      return 'no_transcript'; // may tunog pero walang sagot ang Deepgram
     if (drops > 0) return 'unstable'; // nawalan ng connection habang nagbabasa
     return 'ok';
   }
 
   Map<String, dynamic> toJson() => {
-        'mic_status': status,
-        'mic_peak_level': double.parse(peakLevel.toStringAsFixed(3)),
-        'asr_transcripts': transcripts,
-        'asr_drops': drops,
-      };
+    'mic_status': status,
+    'mic_peak_level': double.parse(peakLevel.toStringAsFixed(3)),
+    'asr_transcripts': transcripts,
+    'asr_drops': drops,
+  };
 }
 
 class DeepgramService {
@@ -44,7 +46,8 @@ class DeepgramService {
   // Ilang audio lang ang itatabi para sa "struggle word" recording
   // (6 na segundo ng 16kHz 16-bit mono). Dati lumalaki ito buong session.
   static const int _maxBufferBytes = 16000 * 2 * 6;
-  static const int _maxPendingChunks = 40; // ~ ilang segundo habang nagre-reconnect
+  static const int _maxPendingChunks =
+      40; // ~ ilang segundo habang nagre-reconnect
   static const Duration _warmUp = Duration(milliseconds: 250);
 
   WebSocketChannel? _channel;
@@ -58,12 +61,17 @@ class DeepgramService {
   DateTime? _micStartedAt;
 
   bool _listening = false;
+  bool _trackHealth =
+      true; // false sa remediation retry: huwag guluhin ang sukat
   bool _socketReady = false;
   int _retry = 0;
   List<String> _keywords = const [];
   Function(String word, bool isFinal)? _onResult;
 
   MicHealth health = MicHealth();
+
+  /// Tawagin ng screen isang beses bawat pagbasa (hindi bawat listen segment).
+  void resetHealth() => health = MicHealth();
 
   void clearAudioBuffer() => _audioBuffer.clear();
 
@@ -119,13 +127,14 @@ class DeepgramService {
   Future<void> startListening({
     required List<String> targetKeywords,
     required Function(String word, bool isFinal) onResult,
+    bool trackHealth = true,
   }) async {
     if (_listening) return;
     _listening = true;
+    _trackHealth = trackHealth;
     _audioBuffer.clear();
     _pending.clear();
     _retry = 0;
-    health = MicHealth(); // bagong sukat bawat pagbasa
     _keywords = targetKeywords
         .map((w) => w.trim())
         .where((w) => w.isNotEmpty)
@@ -174,17 +183,18 @@ class DeepgramService {
     }
 
     final peak = _peak(chunk);
-    if (peak > health.peakLevel) health.peakLevel = peak;
+    if (_trackHealth && peak > health.peakLevel) health.peakLevel = peak;
 
     // Iwasang marinig ang sariling TTS prompt ng app sa pinakaunang sandali.
-    final bool warmedUp = _micStartedAt == null ||
+    final bool warmedUp =
+        _micStartedAt == null ||
         DateTime.now().difference(_micStartedAt!) >= _warmUp;
     if (!warmedUp) return;
 
     if (_socketReady && _channel != null) {
       try {
         _channel!.sink.add(chunk);
-        health.chunksSent++;
+        if (_trackHealth) health.chunksSent++;
       } catch (e) {
         debugPrint("Audio send failed: $e");
       }
@@ -193,7 +203,8 @@ class DeepgramService {
       // para hindi mawala ang mga salitang binasa ng bata.
       _pending.add(chunk);
       if (_pending.length > _maxPendingChunks) _pending.removeAt(0);
-      health.chunksSent++; // may audio naman, ang connection ang may problema
+      if (_trackHealth)
+        health.chunksSent++; // may audio naman, ang connection ang may problema
     }
   }
 
@@ -234,7 +245,10 @@ class DeepgramService {
     );
 
     try {
-      final channel = WebSocketChannel.connect(uri, protocols: ['token', _apiKey]);
+      final channel = WebSocketChannel.connect(
+        uri,
+        protocols: ['token', _apiKey],
+      );
       _channel = channel;
       await channel.ready; // hintayin ang totoong koneksyon
 
@@ -276,8 +290,10 @@ class DeepgramService {
         final String transcript = alternatives[0]['transcript'] ?? '';
         final bool isFinal = data['is_final'] ?? false;
         if (transcript.isNotEmpty) {
-          health.transcripts++;
-          if (isFinal) health.finals++;
+          if (_trackHealth) {
+            health.transcripts++;
+            if (isFinal) health.finals++;
+          }
           _onResult?.call(transcript, isFinal);
         }
       }
@@ -288,16 +304,18 @@ class DeepgramService {
 
   void _onSocketLost() {
     if (!_listening) return; // normal na pagsara
-    if (_socketReady) health.drops++;
+    if (_socketReady && _trackHealth) health.drops++;
     _socketReady = false;
     if (_reconnectTimer?.isActive ?? false) return;
 
     // Exponential backoff: 0.5s, 1s, 2s ... hanggang 5s
-    final delay = Duration(milliseconds: (500 * (1 << _retry.clamp(0, 4))).clamp(500, 5000));
+    final delay = Duration(
+      milliseconds: (500 * (1 << _retry.clamp(0, 4))).clamp(500, 5000),
+    );
     _retry++;
     _reconnectTimer = Timer(delay, () async {
       if (!_listening) return;
-      health.reconnects++;
+      if (_trackHealth) health.reconnects++;
       await _connect();
     });
   }

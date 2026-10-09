@@ -267,6 +267,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   final List<WordStatus> _allFailedWords = [];
 
   bool _isStoryAlreadyRecorded = false;
+  int _listenToken = 0; // para sa 8-segundong mic check
 
   // Shown as a speech bubble pointing at the "Start Oral Reading" button
   // after the student reaches the end without actually reading anything.
@@ -277,6 +278,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     super.initState();
     BgmService().stopBgm();
     _readingStartTime = DateTime.now();
+    _deepgramService.resetHealth();
     _configureAudioSession();
     _checkIfStoryRecorded();
     _initTtsEngine();
@@ -364,6 +366,16 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       await _clearSavedStoryProgress();
     }
 
+    // Ibalik ang oras na naipon na sa nakaraang session ng parehong kwento.
+    final int savedActive =
+        prefs.getInt(
+          'story_${widget.story['id']}_${widget.testType}_active_seconds',
+        ) ??
+        0;
+    if (savedActive > 0 && !widget.isPracticeOnly) {
+      _activeReadingDuration += Duration(seconds: savedActive);
+    }
+
     final String? savedStates = prefs.getString(
       'story_${widget.story['id']}_word_states',
     );
@@ -412,6 +424,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                 isCorrect: state['isCorrect'] == true,
                 isFailed: state['isFailed'] == true,
                 miscueType: state['miscueType'] ?? 'none',
+                isProperNoun: state['isProperNoun'] == true,
               ),
             );
           }
@@ -470,11 +483,26 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               'isCorrect': w.isCorrect,
               'isFailed': w.isFailed,
               'miscueType': w.miscueType,
+              'isProperNoun': w.isProperNoun,
             },
           )
           .toList();
       await prefs.setString(key, jsonEncode(allStates));
+      // Itabi rin ang oras ng pagbasa para tama ang WPM kapag nag-resume.
+      await prefs.setInt(
+        'story_${widget.story['id']}_${widget.testType}_active_seconds',
+        _currentActiveSeconds(),
+      );
     } catch (_) {}
+  }
+
+  /// Kabuuang oras ng aktibong pagbasa (kasama ang kasalukuyang segment).
+  int _currentActiveSeconds() {
+    var d = _activeReadingDuration;
+    if (_activeSegmentStart != null) {
+      d += DateTime.now().difference(_activeSegmentStart!);
+    }
+    return d.inSeconds;
   }
 
   String _firstReadingScript(dynamic rawScripts) {
@@ -773,6 +801,23 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     });
     _startActiveReadingSegment();
 
+    final int transcriptsBefore = _deepgramService.health.transcripts;
+    final int listenToken = ++_listenToken;
+    Future.delayed(const Duration(seconds: 8), () {
+      if (!mounted || !_isListening || listenToken != _listenToken) return;
+      if (_deepgramService.health.transcripts == transcriptsBefore) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              "Hindi marinig ang boses mo. Lakasan ang boses o lumapit sa mic, "
+              "at siguraduhing may internet.",
+            ),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    });
+
     await _deepgramService.startListening(
       targetKeywords: keywords,
       onResult: (transcript, isFinal) {
@@ -944,6 +989,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       final String storyId = (widget.story['id'] ?? widget.story['_id'])
           .toString();
       await prefs.remove('story_${storyId}_word_states');
+      await prefs.remove('story_${storyId}_${widget.testType}_active_seconds');
       await prefs.remove('story_${storyId}_page');
     } catch (_) {}
   }
@@ -1029,15 +1075,14 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       int correctWordsCount = totalWordsCount - failedWordsCount;
       if (correctWordsCount < 0) correctWordsCount = 0;
 
-      int activeSeconds = _activeReadingDuration.inSeconds;
-      if (activeSeconds <= 0 && _readingStartTime != null) {
-        activeSeconds = DateTime.now().difference(_readingStartTime!).inSeconds;
-      }
-      if (activeSeconds <= 0) activeSeconds = 1;
-
-      double timeInMinutes = activeSeconds / 60.0;
-      int computedWpm = (timeInMinutes > 0 && correctWordsCount > 0)
-          ? (correctWordsCount / timeInMinutes).round()
+      // Aktibong oras ng pagbasa LANG (mic-on). Hindi na babagsak sa oras
+      // mula nang buksan ang screen, at hindi na magiging "1 segundo" na
+      // nagbibigay ng hindi makatotohanang WPM.
+      final int activeSeconds = _currentActiveSeconds();
+      const int minSecondsForWpm = 5;
+      final int computedWpm =
+          (activeSeconds >= minSecondsForWpm && correctWordsCount > 0)
+          ? (correctWordsCount / (activeSeconds / 60.0)).round()
           : 0;
 
       double wrPct = totalWordsCount > 0
@@ -1124,8 +1169,10 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
               "oral_fluency_accuracy": wrPct,
               "total_words": totalWordsCount,
               "correct_words": correctWordsCount,
+              "miscues_count": failedWordsCount,
               "time_on_task": activeSeconds,
               "wpm": computedWpm,
+              ..._deepgramService.health.toJson(),
               "struggled_words": _allFailedWords
                   .map((w) => w.cleanWord)
                   .join(", "),
@@ -2145,6 +2192,7 @@ class _RemediationDialogState extends State<RemediationDialog> {
     });
 
     await widget.deepgramService.startListening(
+      trackHealth: false,
       targetKeywords: [word.cleanWord],
       onResult: (transcript, isFinal) {
         if (!mounted || _resultLocked) return;
