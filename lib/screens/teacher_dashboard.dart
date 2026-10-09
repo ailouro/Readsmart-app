@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:fl_chart/fl_chart.dart';
 import 'package:theapp/screens/story_view_screen.dart';
 import 'package:theapp/screens/upload_story_screen.dart';
 import 'package:theapp/screens/story_editor_screen.dart';
@@ -2962,42 +2961,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      children: [
-                        _buildStatCard(
-                          title: "Frustration",
-                          count:
-                              _summaryData['frustration_count']?.toString() ??
-                              "0",
-                          color: Colors.red.shade700,
-                          levelKey: "frustration",
-                          isExpanded: _expandedLevelKey == "frustration",
-                          onTap: () => _toggleLevelExpansion("frustration"),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildStatCard(
-                          title: "Instructional",
-                          count:
-                              _summaryData['instructional_count']?.toString() ??
-                              "0",
-                          color: Colors.amber.shade800,
-                          levelKey: "instructional",
-                          isExpanded: _expandedLevelKey == "instructional",
-                          onTap: () => _toggleLevelExpansion("instructional"),
-                        ),
-                        const SizedBox(width: 8),
-                        _buildStatCard(
-                          title: "Independent",
-                          count:
-                              _summaryData['independent_count']?.toString() ??
-                              "0",
-                          color: const Color(0xFF8BCA84),
-                          levelKey: "independent",
-                          isExpanded: _expandedLevelKey == "independent",
-                          onTap: () => _toggleLevelExpansion("independent"),
-                        ),
-                      ],
-                    ),
+                    _buildAtAGlance(),
                     AnimatedSize(
                       duration: const Duration(milliseconds: 250),
                       curve: Curves.easeInOut,
@@ -3006,8 +2970,6 @@ class _StudentsTabState extends State<_StudentsTab> {
                           ? const SizedBox.shrink()
                           : _buildLevelStudentsDropdown(_expandedLevelKey!),
                     ),
-                    const SizedBox(height: 20),
-                    _buildClassLevelChart(),
                     const SizedBox(height: 16),
                     PhilIriAnalyticsPanel(
                       summary: _summaryData,
@@ -3274,71 +3236,261 @@ class _StudentsTabState extends State<_StudentsTab> {
     );
   }
 
-  Widget _buildStatCard({
-    required String title,
-    required String count,
-    required Color color,
-    String? levelKey,
-    bool isExpanded = false,
-    VoidCallback? onTap,
-  }) {
-    return Expanded(
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(15),
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
-          decoration: BoxDecoration(
-            color: color,
-            borderRadius: BorderRadius.circular(15),
-            border: Border.all(color: Colors.black, width: 3),
-            boxShadow: const [
-              BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-            ],
-          ),
-          child: Column(
-            children: [
-              Text(
-                count,
-                style: const TextStyle(
-                  fontSize: 26,
-                  fontWeight: FontWeight.w900,
-                  color: Colors.white,
-                  shadows: [Shadow(color: Colors.black, offset: Offset(1, 1))],
-                ),
+  /// "Sa isang tingin": isang card na nagsasabi agad sa guro kung ano ang
+  /// kalagayan ng klase (plain language), isang bar ng bilang bawat level
+  /// (i-tap ang bahagi para makita ang mga pangalan), at 4 na sukatan na
+  /// HINDI inuulit ng ibang chart sa ibaba.
+  Widget _buildAtAGlance() {
+    final List students = (_summaryData['students'] as List?) ?? [];
+    int count(String k) =>
+        int.tryParse('${_summaryData['${k}_count'] ?? 0}') ?? 0;
+    final int fr = count('frustration');
+    final int ins = count('instructional');
+    final int ind = count('independent');
+    final int assessed = fr + ins + ind;
+    final String testLabel = _summaryTestType == 'pre_test'
+        ? 'Pre-Test'
+        : 'Post-Test';
+
+    BoxDecoration box() => BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(15),
+      border: Border.all(color: Colors.black, width: 3),
+      boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
+    );
+
+    if (assessed == 0) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(16),
+        decoration: box(),
+        child: Text(
+          "Wala pang batang nakatapos ng $testLabel, kaya wala pang maipapakita.",
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        ),
+      );
+    }
+
+    double? avgOf(String key, {bool positiveOnly = false}) {
+      double sum = 0;
+      int n = 0;
+      for (final s in students) {
+        if (s is! Map) continue;
+        if ((num.tryParse('${s['stories_read'] ?? 0}') ?? 0) <= 0) continue;
+        final v = num.tryParse('${s[key]}');
+        if (v == null || (positiveOnly && v <= 0)) continue;
+        sum += v.toDouble();
+        n++;
+      }
+      return n == 0 ? null : sum / n;
+    }
+
+    final double? wr = avgOf('avg_accuracy');
+    final double? comp = avgOf('avg_comprehension');
+    final double? wpm = avgOf('avg_wpm', positiveOnly: true);
+    final int micIssues = students
+        .whereType<Map>()
+        .where((s) => s['mic_suspect'] == true)
+        .length;
+
+    final Color frC = Colors.red.shade700;
+    final Color insC = Colors.amber.shade800;
+    const Color indC = Color(0xFF8BCA84);
+
+    final String headline;
+    final Color headColor;
+    if (fr > 0) {
+      headline =
+          "$fr sa $assessed bata ang nahihirapan (Frustration). Unahin silang tulungan.";
+      headColor = frC;
+    } else if (ins > 0) {
+      headline =
+          "Walang nahihirapan. $ins sa $assessed bata ang kailangan pa ng gabay (Instructional).";
+      headColor = insC;
+    } else {
+      headline = "Magaling! Lahat ng $assessed bata ay Independent na.";
+      headColor = indC;
+    }
+
+    Widget segment(String key, String label, int n, Color c) {
+      if (n == 0) return const SizedBox.shrink();
+      final bool selected = _expandedLevelKey == key;
+      final int pct = (n * 100 / assessed).round();
+      return Expanded(
+        flex: n,
+        child: InkWell(
+          onTap: () => _toggleLevelExpansion(key),
+          child: Container(
+            height: 56,
+            decoration: BoxDecoration(
+              color: c,
+              border: Border.all(
+                color: Colors.black,
+                width: selected ? 3 : 1.5,
               ),
-              const SizedBox(height: 4),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  title,
-                  maxLines: 1,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
+            ),
+            alignment: Alignment.center,
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    "$n bata · $pct%",
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                      shadows: [
+                        Shadow(color: Colors.black, offset: Offset(1, 1)),
+                      ],
+                    ),
                   ),
-                  textAlign: TextAlign.center,
-                ),
+                  Text(
+                    label,
+                    style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
               ),
-              if (onTap != null) ...[
-                const SizedBox(height: 2),
-                Icon(
-                  isExpanded
-                      ? Icons.keyboard_arrow_up
-                      : Icons.keyboard_arrow_down,
-                  color: Colors.white,
-                  size: 18,
-                ),
-              ],
-            ],
+            ),
           ),
         ),
+      );
+    }
+
+    Widget kpi(String value, String title, String hint, {Color? color}) {
+      return Container(
+        padding: const EdgeInsets.all(12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.black, width: 2),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.w900,
+                color: color ?? Colors.black,
+              ),
+            ),
+            Text(
+              title,
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              hint,
+              style: const TextStyle(fontSize: 11, color: Colors.black54),
+            ),
+          ],
+        ),
+      );
+    }
+
+    String pctText(double? v) => v == null ? '—' : '${v.round()}%';
+
+    final tiles = <Widget>[
+      kpi(pctText(wr), "Word Reading", "Karaniwang tamang basa ng klase"),
+      kpi(pctText(comp), "Comprehension", "Karaniwang tamang sagot sa tanong"),
+      kpi(
+        wpm == null ? '—' : wpm.round().toString(),
+        "Salita kada minuto",
+        "Bilis ng pagbasa (WPM)",
+      ),
+      kpi(
+        micIssues == 0 ? 'OK' : '$micIssues',
+        micIssues == 0 ? "Maayos ang mic" : "Posibleng sira ang mic",
+        micIssues == 0
+            ? "Walang problema sa pag-record"
+            : "Suriin muna bago husgahan ang mababang score",
+        color: micIssues == 0 ? Colors.green.shade700 : Colors.red.shade700,
+      ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: box(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 6,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: headColor,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  headline,
+                  style: const TextStyle(
+                    fontSize: 15,
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: Row(
+              children: [
+                segment('frustration', 'Frustration', fr, frC),
+                segment('instructional', 'Instructional', ins, insC),
+                segment('independent', 'Independent', ind, indC),
+              ],
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            "I-tap ang kulay para makita ang mga pangalan ng bata.",
+            style: TextStyle(fontSize: 11, color: Colors.black54),
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, c) {
+              if (c.maxWidth >= 640) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (int i = 0; i < tiles.length; i++) ...[
+                      if (i > 0) const SizedBox(width: 8),
+                      Expanded(child: tiles[i]),
+                    ],
+                  ],
+                );
+              }
+              final double w = (c.maxWidth - 8) / 2;
+              return Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [for (final t in tiles) SizedBox(width: w, child: t)],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 
-  /// Dropdown panel shown below the stat card row when a Frustration /
+  /// Dropdown panel shown below the summary bar when a Frustration /
   /// Instructional / Independent card is tapped — one row per student
   /// currently in that level, each showing the Phil-IRI computation:
   /// Word Reading % + level, Comprehension % + level (final level = the lower).
@@ -3521,200 +3673,6 @@ class _StudentsTabState extends State<_StudentsTab> {
           ),
         ),
       ],
-    );
-  }
-
-  // Distinct color per class/section bar in the chart below. Cycles if
-  // there are more classes than colors.
-  static const List<Color> _classChartPalette = [
-    Color(0xFF7CB342), // green
-    Color(0xFFEC80CB), // pink
-    Color(0xFF9FA8DA), // lavender
-    Color(0xFFFFC107), // amber
-    Color(0xFF4FC3F7), // sky blue
-    Color(0xFFFF8A65), // coral
-    Color(0xFFBA68C8), // purple
-    Color(0xFF4DB6AC), // teal
-  ];
-
-  /// "Reading Level by Class & Section" chart: one group per Phil-IRI level
-  /// (Frustration / Instructional / Independent), one colored bar per class
-  /// inside each group — same shape as the PHIL-IRI results chart teachers
-  /// already use in their reports. Hovering (web/desktop) or tapping
-  /// (mobile) a bar shows which class/section it belongs to and the count,
-  /// e.g. "Grade 5 - Magsaysay: 12 students".
-  Widget _buildClassLevelChart() {
-    final List classBreakdown =
-        (_summaryData['class_breakdown'] as List?) ?? [];
-
-    if (classBreakdown.isEmpty) {
-      return const SizedBox.shrink();
-    }
-
-    const levelKeys = ['frustration', 'instructional', 'independent'];
-    const levelLabels = ['Frustration', 'Instructional', 'Independent'];
-
-    double maxY = 1;
-    for (final c in classBreakdown) {
-      for (final key in levelKeys) {
-        final v = ((c[key] ?? 0) as num).toDouble();
-        if (v > maxY) maxY = v;
-      }
-    }
-    maxY = (maxY * 1.25).ceilToDouble();
-
-    final barGroups = List<BarChartGroupData>.generate(levelKeys.length, (
-      levelIndex,
-    ) {
-      final rods = List<BarChartRodData>.generate(classBreakdown.length, (
-        classIndex,
-      ) {
-        final c = classBreakdown[classIndex];
-        final value = ((c[levelKeys[levelIndex]] ?? 0) as num).toDouble();
-        return BarChartRodData(
-          toY: value,
-          width: 14,
-          color: _classChartPalette[classIndex % _classChartPalette.length],
-          borderRadius: BorderRadius.circular(3),
-        );
-      });
-      return BarChartGroupData(x: levelIndex, barRods: rods, barsSpace: 4);
-    });
-
-    String labelFor(dynamic c) {
-      final label = _safeString(c['label']);
-      if (label.isNotEmpty) return label;
-      final grade = _safeString(c['grade_level'], 'N/A');
-      final section = _safeString(c['section']);
-      return section.isEmpty ? "Grade $grade" : "Grade $grade - $section";
-    }
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black, width: 3),
-        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            "Reading Level by Class & Section",
-            style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900),
-          ),
-          const SizedBox(height: 2),
-          const Text(
-            "Hover or tap a bar to see the class/section and count.",
-            style: TextStyle(fontSize: 11, color: Colors.black54),
-          ),
-          const SizedBox(height: 16),
-          SizedBox(
-            height: 240,
-            child: BarChart(
-              BarChartData(
-                maxY: maxY,
-                barGroups: barGroups,
-                groupsSpace: 24,
-                gridData: const FlGridData(show: true, drawVerticalLine: false),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(showTitles: true, reservedSize: 32),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      getTitlesWidget: (value, meta) {
-                        final i = value.toInt();
-                        if (i < 0 || i >= levelLabels.length) {
-                          return const SizedBox.shrink();
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            levelLabels[i],
-                            style: const TextStyle(
-                              fontSize: 11,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                barTouchData: BarTouchData(
-                  enabled: true,
-                  touchTooltipData: BarTouchTooltipData(
-                    getTooltipColor: (_) => Colors.black87,
-                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      final c = classBreakdown[rodIndex];
-                      final levelLabel = levelLabels[group.x.toInt()];
-                      final count = rod.toY.toInt();
-                      return BarTooltipItem(
-                        "${labelFor(c)}\n",
-                        const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                        children: [
-                          TextSpan(
-                            text:
-                                "$levelLabel: $count student${count == 1 ? '' : 's'}",
-                            style: const TextStyle(
-                              color: Colors.white70,
-                              fontWeight: FontWeight.normal,
-                              fontSize: 11,
-                            ),
-                          ),
-                        ],
-                      );
-                    },
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            runSpacing: 8,
-            children: List.generate(classBreakdown.length, (i) {
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: _classChartPalette[i % _classChartPalette.length],
-                      borderRadius: BorderRadius.circular(3),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    labelFor(classBreakdown[i]),
-                    style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              );
-            }),
-          ),
-        ],
-      ),
     );
   }
 
