@@ -2896,14 +2896,19 @@ class _StudentsTabState extends State<_StudentsTab> {
       for (final raw in students) {
         final s = Map<String, dynamic>.from(raw as Map);
         final String level = _safeString(s['reading_level']).toLowerCase();
-        if (level != levelKey) continue;
+        // 'norecord' = walang final level pa (hindi pa nagbabasa, o kulang
+        // ang record: may binasa pero walang valid na quiz / pagbasa).
+        if (levelKey == 'norecord' ? level.isNotEmpty : level != levelKey) {
+          continue;
+        }
 
-        final num? acc = s['avg_accuracy'] as num?;
-        final num? comp = s['avg_comprehension'] as num?;
+        // null = walang datos. HUWAG gawing 0 -- magmumukhang totoong 0%.
+        final num? acc = num.tryParse('${s['avg_accuracy']}');
+        final num? comp = num.tryParse('${s['avg_comprehension']}');
         result.add({
           'name': _safeString(s['name'], 'N/A'),
-          'accuracy': (acc ?? 0).toDouble().clamp(0, 100).toDouble(),
-          'comprehension': (comp ?? 0).toDouble().clamp(0, 100).toDouble(),
+          'accuracy': acc?.toDouble().clamp(0, 100).toDouble(),
+          'comprehension': comp?.toDouble().clamp(0, 100).toDouble(),
           'wr_level': _safeString(s['wr_level']).toLowerCase(),
           'comp_level': _safeString(s['comp_level']).toLowerCase(),
           'stories_read': (s['stories_read'] as num?)?.toInt() ?? 0,
@@ -3248,6 +3253,9 @@ class _StudentsTabState extends State<_StudentsTab> {
     final int ins = count('instructional');
     final int ind = count('independent');
     final int assessed = fr + ins + ind;
+    final int total = students.length;
+    final int noRecord = (total - assessed).clamp(0, total).toInt();
+    final Color noRecC = Colors.grey.shade600;
     final String testLabel = _summaryTestType == 'pre_test'
         ? 'Pre-Test'
         : 'Post-Test';
@@ -3264,9 +3272,41 @@ class _StudentsTabState extends State<_StudentsTab> {
         width: double.infinity,
         padding: const EdgeInsets.all(16),
         decoration: box(),
-        child: Text(
-          "Wala pang batang nakatapos ng $testLabel, kaya wala pang maipapakita.",
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "Wala pang batang nakatapos ng $testLabel, kaya wala pang maipapakita.",
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+            ),
+            if (noRecord > 0) ...[
+              const SizedBox(height: 10),
+              InkWell(
+                onTap: () => _toggleLevelExpansion('norecord'),
+                child: Container(
+                  height: 44,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color: noRecC,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: Colors.black,
+                      width: _expandedLevelKey == 'norecord' ? 3 : 1.5,
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    "$noRecord bata · Walang record",
+                    style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w900,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ],
         ),
       );
     }
@@ -3315,7 +3355,7 @@ class _StudentsTabState extends State<_StudentsTab> {
     Widget segment(String key, String label, int n, Color c) {
       if (n == 0) return const SizedBox.shrink();
       final bool selected = _expandedLevelKey == key;
-      final int pct = (n * 100 / assessed).round();
+      final int pct = (n * 100 / total).round();
       return Expanded(
         flex: n,
         child: InkWell(
@@ -3447,6 +3487,13 @@ class _StudentsTabState extends State<_StudentsTab> {
               ),
             ],
           ),
+          if (noRecord > 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              "$noRecord sa $total bata ang wala pang record sa $testLabel.",
+              style: const TextStyle(fontSize: 12, color: Colors.black54),
+            ),
+          ],
           const SizedBox(height: 12),
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
@@ -3455,6 +3502,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                 segment('frustration', 'Frustration', fr, frC),
                 segment('instructional', 'Instructional', ins, insC),
                 segment('independent', 'Independent', ind, indC),
+                segment('norecord', 'Walang record', noRecord, noRecC),
               ],
             ),
           ),
@@ -3500,7 +3548,10 @@ class _StudentsTabState extends State<_StudentsTab> {
         : (levelKey == "instructional"
               ? Colors.amber.shade800
               : const Color(0xFF8BCA84));
-    final String levelLabel = levelKey[0].toUpperCase() + levelKey.substring(1);
+    final bool isNoRecord = levelKey == 'norecord';
+    final String levelLabel = isNoRecord
+        ? 'Walang record'
+        : levelKey[0].toUpperCase() + levelKey.substring(1);
 
     return Container(
       width: double.infinity,
@@ -3529,9 +3580,128 @@ class _StudentsTabState extends State<_StudentsTab> {
             return Padding(
               padding: const EdgeInsets.all(8),
               child: Text(
-                "Walang estudyanteng kasalukuyang nasa $levelLabel level.",
+                isNoRecord
+                    ? "Lahat ng bata ay may record na."
+                    : "Walang estudyanteng kasalukuyang nasa $levelLabel level.",
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
+            );
+          }
+
+          Widget studentRow(Map<String, dynamic> s) {
+            final double? accuracy = s['accuracy'] as double?;
+            final double? comp = s['comprehension'] as double?;
+            final int stories = s['stories_read'] as int;
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          s['name'] as String,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w900,
+                            fontSize: 13,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      Text(
+                        "$stories story${stories == 1 ? '' : 's'}",
+                        style: const TextStyle(
+                          fontSize: 10,
+                          color: Colors.black54,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  _philIriScoreBar(
+                    label: "Word Reading",
+                    pct: accuracy,
+                    level: s['wr_level'] as String,
+                  ),
+                  const SizedBox(height: 3),
+                  _philIriScoreBar(
+                    label: "Comprehension",
+                    pct: comp,
+                    level: s['comp_level'] as String,
+                  ),
+                ],
+              ),
+            );
+          }
+
+          // ---- Walang record: dalawang grupo ---------------------------
+          if (isNoRecord) {
+            final notStarted = list
+                .where(
+                  (s) => s['accuracy'] == null && s['comprehension'] == null,
+                )
+                .toList();
+            final partial = list
+                .where(
+                  (s) => s['accuracy'] != null || s['comprehension'] != null,
+                )
+                .toList();
+
+            Widget heading(String text) => Padding(
+              padding: const EdgeInsets.only(top: 4, bottom: 6),
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                ),
+              ),
+            );
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (notStarted.isNotEmpty) ...[
+                  heading("Hindi pa nagbabasa (${notStarted.length})"),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      for (final s in notStarted)
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withOpacity(0.06),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            s['name'] as String,
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ],
+                if (partial.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  heading("Kulang ang record (${partial.length})"),
+                  const Text(
+                    "May nabasa na, pero kulang ang isang bahagi (hal. walang nasagutang quiz).",
+                    style: TextStyle(fontSize: 11, color: Colors.black54),
+                  ),
+                  const SizedBox(height: 4),
+                  ...partial.map(studentRow),
+                ],
+              ],
             );
           }
 
@@ -3546,54 +3716,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                 ),
               ),
               const SizedBox(height: 8),
-              ...list.map((s) {
-                final double accuracy = s['accuracy'] as double;
-                final double comp = s['comprehension'] as double;
-                final int stories = s['stories_read'] as int;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 6),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              s['name'] as String,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w900,
-                                fontSize: 13,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          Text(
-                            "$stories story${stories == 1 ? '' : 's'}",
-                            style: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.black54,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      _philIriScoreBar(
-                        label: "Word Reading",
-                        pct: accuracy,
-                        level: s['wr_level'] as String,
-                      ),
-                      const SizedBox(height: 3),
-                      _philIriScoreBar(
-                        label: "Comprehension",
-                        pct: comp,
-                        level: s['comp_level'] as String,
-                      ),
-                    ],
-                  ),
-                );
-              }),
+              ...list.map(studentRow),
             ],
           );
         },
@@ -3621,13 +3744,14 @@ class _StudentsTabState extends State<_StudentsTab> {
   /// listed under.
   Widget _philIriScoreBar({
     required String label,
-    required double pct,
+    required double? pct,
     required String level,
   }) {
-    final Color color = _philIriLevelColor(level);
-    final String levelLabel = level.isEmpty
-        ? '-'
-        : level[0].toUpperCase() + level.substring(1);
+    final bool noData = pct == null;
+    final Color color = noData ? Colors.black38 : _philIriLevelColor(level);
+    final String levelLabel = noData
+        ? 'Walang record'
+        : (level.isEmpty ? '-' : level[0].toUpperCase() + level.substring(1));
     return Row(
       children: [
         SizedBox(
@@ -3641,7 +3765,7 @@ class _StudentsTabState extends State<_StudentsTab> {
           child: ClipRRect(
             borderRadius: BorderRadius.circular(6),
             child: LinearProgressIndicator(
-              value: pct / 100.0,
+              value: (pct ?? 0) / 100.0,
               minHeight: 10,
               backgroundColor: Colors.black12,
               valueColor: AlwaysStoppedAnimation<Color>(color),
@@ -3652,7 +3776,7 @@ class _StudentsTabState extends State<_StudentsTab> {
         SizedBox(
           width: 34,
           child: Text(
-            "${pct.toStringAsFixed(0)}%",
+            noData ? '—' : "${pct.toStringAsFixed(0)}%",
             textAlign: TextAlign.right,
             style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
           ),
@@ -3666,10 +3790,13 @@ class _StudentsTabState extends State<_StudentsTab> {
             borderRadius: BorderRadius.circular(6),
             border: Border.all(color: color, width: 1.5),
           ),
-          child: Text(
-            levelLabel,
-            textAlign: TextAlign.center,
-            style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            child: Text(
+              levelLabel,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w900),
+            ),
           ),
         ),
       ],
