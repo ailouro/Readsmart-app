@@ -738,7 +738,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
               _dot(lc, _levelLabel(level)),
               const SizedBox(height: 3),
               Text(
-                'Word Reading ${_fmt(wr)}%  •  Comprehension ${_fmt(comp)}%  •  ${wpm > 0 ? '$wpm WPM' : '— WPM'}',
+                'Word Reading ${_fmt(wr)}%  •  Comprehension ${_fmt(comp)}%  •  ${wpm > 0 ? '$wpm WPM' : '— Words per minute'}',
                 style: const TextStyle(
                   color: inkText,
                   fontSize: 12.5,
