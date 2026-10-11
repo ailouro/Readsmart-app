@@ -88,6 +88,46 @@ double? _asDouble(dynamic v) {
 }
 
 // ------------------------------------------------------------
+// Guide kung paano nakukuwenta ang Phil-IRI level: lalabas lang
+// bilang pop-out kapag pinindot ang (i) para hindi abala sa analytics.
+// ------------------------------------------------------------
+void showPhilIriGuide(BuildContext context) {
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => Dialog(
+      backgroundColor: Colors.white,
+      insetPadding: const EdgeInsets.all(16),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: Colors.black, width: 3),
+      ),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 1000),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                tooltip: 'Isara',
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () => Navigator.of(ctx).pop(),
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(20, 0, 20, 20),
+                child: const _FlowCard(),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ),
+  );
+}
+
+// ------------------------------------------------------------
 // Pre/Post filter (pamalit sa SegmentedButton na nagsisingit ang text)
 // ------------------------------------------------------------
 class PhilIriTestTypeFilter extends StatelessWidget {
@@ -165,6 +205,21 @@ class PhilIriTestTypeFilter extends StatelessWidget {
         children: [
           tab('pre_test', 'Pre-Test'),
           tab('post_test', 'Post-Test'),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              style: TextButton.styleFrom(
+                foregroundColor: PhilIriTheme.maroon,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+              ),
+              icon: const Icon(Icons.info_outline_rounded, size: 18),
+              label: const Text(
+                'Paano nakukuwenta?',
+                style: TextStyle(fontSize: 12, fontWeight: FontWeight.w800),
+              ),
+              onPressed: () => showPhilIriGuide(context),
+            ),
+          ),
           const SizedBox(height: 4),
           const Text(
             'Average ng lahat ng natapos na stories ng bawat bata.',
@@ -180,9 +235,17 @@ class PhilIriTestTypeFilter extends StatelessWidget {
         Wrap(
           spacing: 8,
           runSpacing: 6,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             chip('pre_test', 'Pre-Test'),
             chip('post_test', 'Post-Test'),
+            IconButton(
+              tooltip: 'Paano nakukuwenta ang Phil-IRI level',
+              visualDensity: VisualDensity.compact,
+              color: PhilIriTheme.maroon,
+              icon: const Icon(Icons.info_outline_rounded),
+              onPressed: () => showPhilIriGuide(context),
+            ),
           ],
         ),
         const SizedBox(height: 6),
@@ -290,8 +353,6 @@ class PhilIriAnalyticsPanel extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const _FlowCard(),
-            const SizedBox(height: 16),
             if (learners.isEmpty)
               _PanelCard(
                 title: 'Wala pang datos para sa $testLabel',
