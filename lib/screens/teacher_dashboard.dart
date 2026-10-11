@@ -3036,51 +3036,6 @@ class _StudentsTabState extends State<_StudentsTab> {
                 ),
                 const SizedBox(height: 24),
               ],
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 10,
-                runSpacing: 10,
-                children: [const ComicBadgeHeader(title: "LEARNERS' RECORDS")],
-              ),
-              const SizedBox(height: 10),
-              if (_summaryData['students'] == null ||
-                  (_summaryData['students'] as List).isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.black, width: 3),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Text(
-                      "No students enrolled yet.",
-                      style: TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                  ),
-                )
-              else
-                Wrap(
-                  spacing: 10,
-                  runSpacing: 10,
-                  children:
-                      _groupStudentsByClass(
-                        _summaryData['students'] as List,
-                      ).map((entry) {
-                        final String classLabel = entry.key;
-                        final students = entry.value;
-                        return _buildClassTabChip(
-                          context,
-                          classLabel,
-                          students,
-                        );
-                      }).toList(),
-                ),
               if (_summaryData['students'] != null)
                 _buildUnassignedStudentsSection(
                   _summaryData['students'] as List,
