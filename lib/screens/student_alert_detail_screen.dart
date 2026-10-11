@@ -392,7 +392,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
             Text('Comprehension: ${_p1(compPct)}%', style: small),
           const SizedBox(height: 2),
           Text(
-            'WPM: ${_p1(wpm)} • Oras: ${secs ~/ 60}m ${secs % 60}s',
+            'Words per minute: ${_p1(wpm)} • Oras: ${secs ~/ 60}m ${secs % 60}s',
             style: const TextStyle(fontSize: 11, color: Colors.black54),
           ),
         ],

@@ -283,7 +283,7 @@ class ClassReportPdf {
           _head('Post comp.', size: fs),
           _head('Post level', size: fs),
           _head('Word change', size: fs),
-          _head('Comp. change', size: fs),
+          _head('Comprehension change', size: fs),
         ],
       ),
     ];

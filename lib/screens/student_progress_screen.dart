@@ -5,6 +5,16 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:printing/printing.dart';
 import 'student_report_pdf.dart';
 
+/// Per-word tally for the "Words to practice" card.
+class _WordStat {
+  final String word;
+  int wrong = 0; // read wrong (mispronounced)
+  int skipped = 0; // never read (omission)
+  final Set<String> stories = {};
+  _WordStat(this.word);
+  int get total => wrong + skipped;
+}
+
 class StudentProgressScreen extends StatefulWidget {
   final int studentId;
   final String baseUrl;
@@ -175,14 +185,37 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
       )
       .length;
 
-  List<MapEntry<String, int>> _sortedWords() {
-    final Map<String, int> wordCounts = {};
-    for (var m in _mispronunciations) {
-      final String w = (m['word'] ?? '').toString();
-      wordCounts[w] = (wordCounts[w] ?? 0) + 1;
+  /// One entry per word: how many times it was read WRONG, how many times it
+  /// was SKIPPED (never read), and in how many different stories. Each log row
+  /// from the reading screen is one flagged occurrence of the word.
+  List<_WordStat> _wordStats() {
+    final Map<String, _WordStat> map = {};
+    for (final m in _mispronunciations) {
+      final String w = (m['word'] ?? '').toString().trim().toLowerCase();
+      if (w.isEmpty) continue;
+      final st = map.putIfAbsent(w, () => _WordStat(w));
+      final String type = (m['miscue_type'] ?? '').toString().toLowerCase();
+      if (type == 'omission') {
+        st.skipped++;
+      } else {
+        st.wrong++;
+      }
+      final sid = m['story_id'];
+      if (sid != null) st.stories.add('$sid');
     }
-    return wordCounts.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
+    return map.values.toList()..sort((a, b) {
+      final c = b.total.compareTo(a.total);
+      return c != 0 ? c : a.word.compareTo(b.word);
+    });
+  }
+
+  /// Used by the PDF report: only words that were really mispronounced
+  /// (skipped words are not counted as mispronunciations there).
+  List<MapEntry<String, int>> _sortedWords() {
+    return [
+      for (final w in _wordStats())
+        if (w.wrong > 0) MapEntry(w.word, w.wrong),
+    ]..sort((a, b) => b.value.compareTo(a.value));
   }
 
   String _fmt(double v) =>
@@ -738,7 +771,9 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
               _dot(lc, _levelLabel(level)),
               const SizedBox(height: 3),
               Text(
-                'Word Reading ${_fmt(wr)}%  •  Comprehension ${_fmt(comp)}%  •  ${wpm > 0 ? '$wpm WPM' : '— Words per minute'}',
+                '${(total > 0 && correct > 0) ? 'Word Reading ${_fmt(wr)}%' : 'Word Reading: no record'}  •  '
+                '${(qt > 0 && (qc > 0 || comp > 0)) ? 'Comprehension ${_fmt(comp)}%' : 'Comprehension: no record'}  •  '
+                '${wpm > 0 ? '$wpm words per minute' : 'Words per minute: no record'}',
                 style: const TextStyle(
                   color: inkText,
                   fontSize: 12.5,
@@ -1001,13 +1036,24 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
   // ==========================================
   // 4. WORDS
   // ==========================================
-  Widget _wordRow(MapEntry<String, int> e, int maxCount) {
-    final Color barColor = e.value >= 3
+  Widget _wordRow(_WordStat e, int maxCount) {
+    // Red/orange = the word was read wrong at least once. Gray = it was only
+    // skipped (never read), which can also mean the mic missed the voice.
+    final Color barColor = e.wrong == 0
+        ? Colors.grey
+        : e.total >= 3
         ? frustrationColor
-        : e.value == 2
+        : e.total == 2
         ? instructionalColor
         : Colors.amber;
-    final double barWidth = (e.value / maxCount).clamp(0.05, 1.0);
+    final double barWidth = (e.total / maxCount).clamp(0.05, 1.0);
+
+    final parts = <String>[
+      if (e.wrong > 0) 'read wrong ${e.wrong}x',
+      if (e.skipped > 0) 'skipped ${e.skipped}x',
+      if (e.stories.length > 1) 'in ${e.stories.length} stories',
+    ];
+
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 10),
       child: Column(
@@ -1017,7 +1063,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
             children: [
               Expanded(
                 child: Text(
-                  e.key,
+                  e.word,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
@@ -1038,7 +1084,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
-                  "Missed ${e.value}x",
+                  "${e.total} time${e.total == 1 ? '' : 's'}",
                   style: TextStyle(
                     color: barColor,
                     fontSize: 11,
@@ -1048,6 +1094,13 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
               ),
             ],
           ),
+          if (parts.isNotEmpty) ...[
+            const SizedBox(height: 2),
+            Text(
+              parts.join('  •  '),
+              style: const TextStyle(color: inkSubtext, fontSize: 11.5),
+            ),
+          ],
           const SizedBox(height: 8),
           ClipRRect(
             borderRadius: BorderRadius.circular(4),
@@ -1064,7 +1117,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
   }
 
   Widget _buildWordsSection() {
-    final sorted = _sortedWords();
+    final sorted = _wordStats();
 
     if (sorted.isEmpty) {
       return _card(
@@ -1105,7 +1158,9 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     final visible = (canCollapse && !_showAllWords)
         ? sorted.take(_wordsPreview).toList()
         : sorted;
-    final int maxCount = sorted.first.value;
+    final int maxCount = sorted.first.total;
+    final int allWrong = sorted.fold(0, (n, w) => n + w.wrong);
+    final int allSkipped = sorted.fold(0, (n, w) => n + w.skipped);
 
     return _card(
       child: Column(
@@ -1113,8 +1168,30 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
         children: [
           _sectionHeader(
             "Words to practice",
-            subtitle: "${sorted.length} tricky words • most missed first",
+            subtitle: "${sorted.length} words • flagged most often first",
           ),
+          const SizedBox(height: 4),
+          const Text(
+            "A word counts once each time it was read wrong or skipped. "
+            "If a word appears several times in a story, each one counts.",
+            style: TextStyle(color: inkSubtext, fontSize: 11.5),
+          ),
+          if (widget.teacherView && allSkipped > allWrong) ...[
+            const SizedBox(height: 6),
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: Colors.orange.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Text(
+                "Most of these were skipped, not read wrong. Easy words like "
+                "'a' or 'for' being skipped can mean the mic did not pick up "
+                "the voice. Check the mic before judging.",
+                style: TextStyle(color: inkText, fontSize: 11.5),
+              ),
+            ),
+          ],
           const SizedBox(height: 6),
           for (int i = 0; i < visible.length; i++) ...[
             if (i > 0) const Divider(height: 1, color: Colors.black12),

@@ -2712,7 +2712,7 @@ class _ReadingResultsDialogState extends State<_ReadingResultsDialog> {
                 const SizedBox(height: 16),
                 _buildScoreRow(
                   icon: Icons.record_voice_over,
-                  label: "Word Recognition (WR)",
+                  label: "Word Reading",
                   value: "${widget.wrPct}%",
                   sublabel:
                       "(${widget.totalWordsCount - widget.failedWordsCount} / ${widget.totalWordsCount} words correct)",

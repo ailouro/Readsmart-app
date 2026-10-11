@@ -35,8 +35,8 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
     ['instructional', 'Instructional Grade', '', '1'],
     ['independent', 'Independent Grade', '', '1'],
     ['frustration', 'Frustration Grade', '', '1'],
-    ['wr', 'Word Reading (WR)', '%', '1'],
-    ['comp', 'Comprehension (Comp)', '%', '1'],
+    ['wr', 'Word Reading', '%', '1'],
+    ['comp', 'Comprehension', '%', '1'],
     ['wpm', 'Words per Minute', '', '1'],
   ];
 
@@ -82,13 +82,15 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('CSV copied. Paste it into Excel / Google Sheets.'),
+          content: Text('Copied. Paste it into Excel or Google Sheets.'),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not export CSV. Try again.')),
+        const SnackBar(
+          content: Text('Could not copy the spreadsheet. Try again.'),
+        ),
       );
     }
   }
@@ -145,7 +147,7 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
         Text(
           label,
           textAlign: TextAlign.center,
-          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w700),
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
         ),
       ],
     ),
@@ -165,12 +167,12 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
           Text(
             '${s['total_students']} students • ${s['with_pre']} with pre-test • '
             '${s['with_post']} with post-test • ${s['paired_students']} with both',
-            style: const TextStyle(fontSize: 10, color: Colors.black54),
+            style: const TextStyle(fontSize: 13, color: Colors.black54),
           ),
           const SizedBox(height: 10),
           const Text(
             'Instructional grade movement',
-            style: TextStyle(fontSize: 11, fontWeight: FontWeight.w800),
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 6),
           Row(
@@ -205,17 +207,27 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
               columnSpacing: 16,
               columns: const [
                 DataColumn(
-                  label: Text('Measure', style: TextStyle(fontSize: 11)),
+                  label: Text('Measure', style: TextStyle(fontSize: 13)),
                 ),
-                DataColumn(label: Text('n', style: TextStyle(fontSize: 11))),
-                DataColumn(label: Text('Pre', style: TextStyle(fontSize: 11))),
-                DataColumn(label: Text('Post', style: TextStyle(fontSize: 11))),
                 DataColumn(
-                  label: Text('Mean gain', style: TextStyle(fontSize: 11)),
+                  label: Text('Students', style: TextStyle(fontSize: 13)),
                 ),
-                DataColumn(label: Text('SD', style: TextStyle(fontSize: 11))),
+                DataColumn(label: Text('Pre', style: TextStyle(fontSize: 13))),
+                DataColumn(label: Text('Post', style: TextStyle(fontSize: 13))),
                 DataColumn(
-                  label: Text('t (df)', style: TextStyle(fontSize: 11)),
+                  label: Text('Mean gain', style: TextStyle(fontSize: 13)),
+                ),
+                DataColumn(
+                  label: Text(
+                    'Standard deviation',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+                DataColumn(
+                  label: Text(
+                    'T-value (degrees of freedom)',
+                    style: TextStyle(fontSize: 13),
+                  ),
                 ),
               ],
               rows: [
@@ -227,31 +239,31 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
                     return DataRow(
                       cells: [
                         DataCell(
-                          Text(d[1], style: const TextStyle(fontSize: 11)),
+                          Text(d[1], style: const TextStyle(fontSize: 13)),
                         ),
                         DataCell(
                           Text(
                             '${m['n'] ?? 0}',
-                            style: const TextStyle(fontSize: 11),
+                            style: const TextStyle(fontSize: 13),
                           ),
                         ),
                         DataCell(
                           Text(
                             _fmt(m['pre_mean'], suffix: suffix),
-                            style: const TextStyle(fontSize: 11),
+                            style: const TextStyle(fontSize: 13),
                           ),
                         ),
                         DataCell(
                           Text(
                             _fmt(m['post_mean'], suffix: suffix),
-                            style: const TextStyle(fontSize: 11),
+                            style: const TextStyle(fontSize: 13),
                           ),
                         ),
                         DataCell(
                           Text(
                             _fmt(m['mean_gain'], suffix: suffix, sign: true),
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 13,
                               fontWeight: FontWeight.w900,
                               color: _gainColor(m['mean_gain']),
                             ),
@@ -260,10 +272,10 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
                         DataCell(
                           Text(
                             _fmt(m['sd_gain']),
-                            style: const TextStyle(fontSize: 11),
+                            style: const TextStyle(fontSize: 13),
                           ),
                         ),
-                        DataCell(Text(t, style: const TextStyle(fontSize: 11))),
+                        DataCell(Text(t, style: const TextStyle(fontSize: 13))),
                       ],
                     );
                   }(),
@@ -272,10 +284,11 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
           ),
           const SizedBox(height: 6),
           const Text(
-            'Mean gain = average of (post − pre) per student. t is the paired '
-            't-statistic; use the CSV export for the p-value in Excel/SPSS.',
+            'Mean gain = average of (post − pre) per student. The T-value is the '
+            'paired t-test result; copy the spreadsheet to get the p-value in '
+            'Excel or SPSS.',
             style: TextStyle(
-              fontSize: 9,
+              fontSize: 13,
               fontStyle: FontStyle.italic,
               color: Colors.black54,
             ),
@@ -304,29 +317,32 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
               columnSpacing: 14,
               columns: const [
                 DataColumn(
-                  label: Text('Student', style: TextStyle(fontSize: 11)),
+                  label: Text('Student', style: TextStyle(fontSize: 13)),
                 ),
                 DataColumn(
                   label: Text(
-                    'Inst. Gr. (pre→post)',
-                    style: TextStyle(fontSize: 11),
+                    'Instructional level (pre → post)',
+                    style: TextStyle(fontSize: 13),
                   ),
                 ),
-                DataColumn(label: Text('Gain', style: TextStyle(fontSize: 11))),
+                DataColumn(label: Text('Gain', style: TextStyle(fontSize: 13))),
                 DataColumn(
                   label: Text(
-                    'WR % (pre→post)',
-                    style: TextStyle(fontSize: 11),
+                    'Word Reading % (pre → post)',
+                    style: TextStyle(fontSize: 13),
                   ),
                 ),
                 DataColumn(
                   label: Text(
-                    'Comp % (pre→post)',
-                    style: TextStyle(fontSize: 11),
+                    'Comprehension % (pre → post)',
+                    style: TextStyle(fontSize: 13),
                   ),
                 ),
                 DataColumn(
-                  label: Text('WPM (pre→post)', style: TextStyle(fontSize: 11)),
+                  label: Text(
+                    'Words per minute (pre → post)',
+                    style: TextStyle(fontSize: 13),
+                  ),
                 ),
               ],
               rows: [
@@ -335,7 +351,7 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
                     final r = Map<String, dynamic>.from(raw as Map);
                     String pair(String k, {String suffix = ''}) =>
                         '${_fmt(r['pre_$k'], suffix: suffix)} → ${_fmt(r['post_$k'], suffix: suffix)}';
-                    const st = TextStyle(fontSize: 11);
+                    const st = TextStyle(fontSize: 13);
                     return DataRow(
                       cells: [
                         DataCell(Text('${r['name']}', style: st)),
@@ -344,7 +360,7 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
                           Text(
                             _fmt(r['gain_instructional'], sign: true),
                             style: TextStyle(
-                              fontSize: 11,
+                              fontSize: 13,
                               fontWeight: FontWeight.w900,
                               color: _gainColor(r['gain_instructional']),
                             ),
@@ -409,7 +425,7 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
             onPressed: _data == null ? null : _openPdf,
           ),
           IconButton(
-            tooltip: 'Copy CSV',
+            tooltip: 'Copy as spreadsheet',
             icon: const Icon(Icons.copy_all_rounded),
             onPressed: _data == null ? null : _copyCsv,
           ),

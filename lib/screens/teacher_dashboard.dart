@@ -2831,28 +2831,31 @@ class _StudentsTabState extends State<_StudentsTab> {
             Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w800),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 4),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  "${preVal.toStringAsFixed(1)}$suffix",
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "${preVal.toStringAsFixed(1)}$suffix",
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                Icon(arrow, size: 14, color: arrowColor),
-                Text(
-                  "${postVal.toStringAsFixed(1)}$suffix",
-                  style: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
+                  Icon(arrow, size: 14, color: arrowColor),
+                  Text(
+                    "${postVal.toStringAsFixed(1)}$suffix",
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -2872,23 +2875,27 @@ class _StudentsTabState extends State<_StudentsTab> {
         children: [
           const Text(
             "📈 Average Scores: Pre-Test vs Post-Test",
-            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 12),
+            style: TextStyle(fontWeight: FontWeight.w900, fontSize: 14),
           ),
           Text(
             "${preTestLogs.length} pre-test • ${postTestLogs.length} post-test stories",
-            style: const TextStyle(fontSize: 10, color: Colors.black54),
+            style: const TextStyle(fontSize: 14, color: Colors.black54),
           ),
           const SizedBox(height: 8),
           Row(
             children: [
-              scoreColumn("WR %", _avgWr(preTestLogs), _avgWr(postTestLogs)),
               scoreColumn(
-                "Comp %",
+                "Word Reading %",
+                _avgWr(preTestLogs),
+                _avgWr(postTestLogs),
+              ),
+              scoreColumn(
+                "Comprehension %",
                 _avgComp(preTestLogs),
                 _avgComp(postTestLogs),
               ),
               scoreColumn(
-                "WPM",
+                "Words per minute",
                 _avgWpm(preTestLogs),
                 _avgWpm(postTestLogs),
                 suffix: '',
@@ -3288,7 +3295,7 @@ class _StudentsTabState extends State<_StudentsTab> {
           children: [
             Text(
               "Wala pang batang nakatapos ng $testLabel, kaya wala pang maipapakita.",
-              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             if (noRecord > 0) ...[
               const SizedBox(height: 10),
@@ -3309,7 +3316,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                   child: Text(
                     "$noRecord bata · Walang record",
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
                     ),
@@ -3390,7 +3397,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                   Text(
                     "$n bata · $pct%",
                     style: const TextStyle(
-                      fontSize: 13,
+                      fontSize: 14,
                       fontWeight: FontWeight.w900,
                       color: Colors.white,
                       shadows: [
@@ -3401,7 +3408,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                   Text(
                     label,
                     style: const TextStyle(
-                      fontSize: 11,
+                      fontSize: 14,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                     ),
@@ -3429,19 +3436,19 @@ class _StudentsTabState extends State<_StudentsTab> {
             Text(
               value,
               style: TextStyle(
-                fontSize: 22,
+                fontSize: 34,
                 fontWeight: FontWeight.w900,
                 color: color ?? Colors.black,
               ),
             ),
             Text(
               title,
-              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w900),
             ),
             const SizedBox(height: 2),
             Text(
               hint,
-              style: const TextStyle(fontSize: 11, color: Colors.black54),
+              style: const TextStyle(fontSize: 14, color: Colors.black54),
             ),
           ],
         ),
@@ -3455,8 +3462,8 @@ class _StudentsTabState extends State<_StudentsTab> {
       kpi(pctText(comp), "Comprehension", "Karaniwang tamang sagot sa tanong"),
       kpi(
         wpm == null ? '—' : wpm.round().toString(),
-        "Salita kada minuto",
-        "Bilis ng pagbasa (WPM)",
+        "Words per minute",
+        "Bilis ng pagbasa ng klase",
       ),
       kpi(
         micIssues == 0 ? 'OK' : '$micIssues',
@@ -3502,7 +3509,7 @@ class _StudentsTabState extends State<_StudentsTab> {
             const SizedBox(height: 6),
             Text(
               "$noRecord sa $total bata ang wala pang record sa $testLabel.",
-              style: const TextStyle(fontSize: 12, color: Colors.black54),
+              style: const TextStyle(fontSize: 14, color: Colors.black54),
             ),
           ],
           const SizedBox(height: 12),
@@ -3520,7 +3527,7 @@ class _StudentsTabState extends State<_StudentsTab> {
           const SizedBox(height: 4),
           const Text(
             "I-tap ang kulay para makita ang mga pangalan ng bata.",
-            style: TextStyle(fontSize: 11, color: Colors.black54),
+            style: TextStyle(fontSize: 14, color: Colors.black54),
           ),
           const SizedBox(height: 12),
           LayoutBuilder(
@@ -3615,7 +3622,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                           s['name'] as String,
                           style: const TextStyle(
                             fontWeight: FontWeight.w900,
-                            fontSize: 13,
+                            fontSize: 14,
                           ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
@@ -3624,7 +3631,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                       Text(
                         "$stories story${stories == 1 ? '' : 's'}",
                         style: const TextStyle(
-                          fontSize: 10,
+                          fontSize: 14,
                           color: Colors.black54,
                           fontWeight: FontWeight.bold,
                         ),
@@ -3667,7 +3674,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                 text,
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 13,
+                  fontSize: 14,
                 ),
               ),
             );
@@ -3694,7 +3701,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                           child: Text(
                             s['name'] as String,
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 14,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -3707,7 +3714,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                   heading("Kulang ang record (${partial.length})"),
                   const Text(
                     "May nabasa na, pero kulang ang isang bahagi (hal. walang nasagutang quiz).",
-                    style: TextStyle(fontSize: 11, color: Colors.black54),
+                    style: TextStyle(fontSize: 14, color: Colors.black54),
                   ),
                   const SizedBox(height: 4),
                   ...partial.map(studentRow),
@@ -3723,7 +3730,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                 "$levelLabel Level (${list.length})",
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
-                  fontSize: 13,
+                  fontSize: 14,
                 ),
               ),
               const SizedBox(height: 8),
@@ -4825,7 +4832,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          "$computedWpm WPM",
+                          "$computedWpm words per minute",
                           style: const TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.w900,

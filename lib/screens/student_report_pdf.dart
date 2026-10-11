@@ -215,7 +215,7 @@ class StudentReportPdf {
           _head('Words correct'),
           _head('Word reading'),
           _head('Comprehension'),
-          _head('WPM'),
+          _head('Words per minute'),
           _head('Level'),
         ],
       ),
@@ -251,7 +251,7 @@ class StudentReportPdf {
       2: const pw.FlexColumnWidth(1.6),
       3: const pw.FlexColumnWidth(1.5),
       4: const pw.FlexColumnWidth(1.8),
-      5: const pw.FixedColumnWidth(34),
+      5: const pw.FlexColumnWidth(1.5),
       6: const pw.FlexColumnWidth(1.6),
     });
   }
