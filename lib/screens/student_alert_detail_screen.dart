@@ -517,8 +517,10 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
           const SizedBox(height: 4),
           ...words.take(8).map((w) {
             final n = (w['count'] as num?)?.toInt() ?? 1;
+            final List storyList = (w['stories'] as List?) ?? const [];
             return ListTile(
               dense: true,
+              isThreeLine: storyList.isNotEmpty,
               contentPadding: EdgeInsets.zero,
               leading: const Icon(
                 Icons.error_outline,
@@ -529,7 +531,22 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
                 '${w['word']}',
                 style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-              subtitle: Text(_attemptText(n)),
+              subtitle: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(_attemptText(n)),
+                  if (storyList.isNotEmpty)
+                    Text(
+                      storyList
+                          .map((st) => '📖 ${st['title']} · ${st['count']}x')
+                          .join('   '),
+                      style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.black54,
+                      ),
+                    ),
+                ],
+              ),
             );
           }),
         ],
