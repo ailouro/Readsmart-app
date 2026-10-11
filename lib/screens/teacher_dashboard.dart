@@ -2983,47 +2983,70 @@ class _StudentsTabState extends State<_StudentsTab> {
             children: [
               const ComicBadgeHeader(title: "PHIL-IRI OVERVIEW"),
               const SizedBox(height: 10),
-              PhilIriTestTypeFilter(
-                value: _summaryTestType,
-                onChanged: (v) {
-                  if (v == _summaryTestType) return;
-                  setState(() {
-                    _summaryTestType = v;
-                    _expandedLevelKey = null;
-                  });
-                  _levelStudentsCache.clear();
-                  _fetchAnalytics();
+              LayoutBuilder(
+                builder: (context, c) {
+                  // Malapad na screen: nasa kaliwang gilid ang Pre/Post tabs.
+                  final bool sideTabs = c.maxWidth >= 900;
+                  final Widget filter = PhilIriTestTypeFilter(
+                    value: _summaryTestType,
+                    vertical: sideTabs,
+                    onChanged: (v) {
+                      if (v == _summaryTestType) return;
+                      setState(() {
+                        _summaryTestType = v;
+                        _expandedLevelKey = null;
+                      });
+                      _levelStudentsCache.clear();
+                      _fetchAnalytics();
+                    },
+                  );
+                  final Widget content = _isLoadingAnalytics
+                      ? const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(20.0),
+                            child: CircularProgressIndicator(
+                              color: maroonTheme,
+                            ),
+                          ),
+                        )
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            _buildAtAGlance(),
+                            AnimatedSize(
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeInOut,
+                              alignment: Alignment.topCenter,
+                              child: _expandedLevelKey == null
+                                  ? const SizedBox.shrink()
+                                  : _buildLevelStudentsDropdown(
+                                      _expandedLevelKey!,
+                                    ),
+                            ),
+                            const SizedBox(height: 16),
+                            PhilIriAnalyticsPanel(
+                              summary: _summaryData,
+                              testType: _summaryTestType,
+                            ),
+                            const SizedBox(height: 16),
+                          ],
+                        );
+                  if (!sideTabs) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [filter, const SizedBox(height: 10), content],
+                    );
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(width: 150, child: filter),
+                      const SizedBox(width: 20),
+                      Expanded(child: content),
+                    ],
+                  );
                 },
               ),
-              const SizedBox(height: 10),
-              if (_isLoadingAnalytics)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(20.0),
-                    child: CircularProgressIndicator(color: maroonTheme),
-                  ),
-                )
-              else
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildAtAGlance(),
-                    AnimatedSize(
-                      duration: const Duration(milliseconds: 250),
-                      curve: Curves.easeInOut,
-                      alignment: Alignment.topCenter,
-                      child: _expandedLevelKey == null
-                          ? const SizedBox.shrink()
-                          : _buildLevelStudentsDropdown(_expandedLevelKey!),
-                    ),
-                    const SizedBox(height: 16),
-                    PhilIriAnalyticsPanel(
-                      summary: _summaryData,
-                      testType: _summaryTestType,
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
               if (!_isLoadingAnalytics &&
                   _summaryData['students'] is List &&
                   (_summaryData['students'] as List).isNotEmpty) ...[

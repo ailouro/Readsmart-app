@@ -94,10 +94,14 @@ class PhilIriTestTypeFilter extends StatelessWidget {
   final String value; // 'pre_test' | 'post_test'
   final ValueChanged<String> onChanged;
 
+  /// true = patayong "side tabs" (para sa malapad na screen, nasa gilid).
+  final bool vertical;
+
   const PhilIriTestTypeFilter({
     super.key,
     required this.value,
     required this.onChanged,
+    this.vertical = false,
   });
 
   @override
@@ -119,6 +123,54 @@ class PhilIriTestTypeFilter extends StatelessWidget {
         backgroundColor: Colors.white,
         side: const BorderSide(color: Colors.black, width: 2),
         onSelected: (_) => onChanged(key),
+      );
+    }
+
+    if (vertical) {
+      Widget tab(String key, String label) {
+        final bool selected = value == key;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Material(
+            color: selected ? PhilIriTheme.maroon : Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(12),
+              onTap: () => onChanged(key),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 12,
+                ),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.black, width: 2),
+                ),
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w900,
+                    color: selected ? Colors.white : PhilIriTheme.ink,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          tab('pre_test', 'Pre-Test'),
+          tab('post_test', 'Post-Test'),
+          const SizedBox(height: 4),
+          const Text(
+            'Average ng lahat ng natapos na stories ng bawat bata.',
+            style: TextStyle(fontSize: 11, color: Colors.black54),
+          ),
+        ],
       );
     }
 
@@ -269,7 +321,7 @@ class PhilIriAnalyticsPanel extends StatelessWidget {
 }
 
 // ------------------------------------------------------------
-// Pangkalahatang card (comic style, kapareho ng existing charts)
+// Pangkalahatang seksyon ng chart (flat, walang kahon)
 // ------------------------------------------------------------
 class _PanelCard extends StatelessWidget {
   final String title;
@@ -284,15 +336,9 @@ class _PanelCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.black, width: 3),
-        boxShadow: const [BoxShadow(color: Colors.black, offset: Offset(4, 4))],
-      ),
+    // Flat na ito: walang kahon/border/shadow, titulo + chart na lang.
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

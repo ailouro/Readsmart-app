@@ -230,18 +230,47 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      PhilIriTestTypeFilter(
-                        value: _summaryTestType,
-                        onChanged: (v) {
-                          if (v == _summaryTestType) return;
-                          setState(() => _summaryTestType = v);
-                          _fetchDashboardData(keepStudentCache: true);
+                      LayoutBuilder(
+                        builder: (context, c) {
+                          // Malapad na screen: nasa kaliwang gilid ang tabs.
+                          final bool sideTabs = c.maxWidth >= 900;
+                          final Widget filter = PhilIriTestTypeFilter(
+                            value: _summaryTestType,
+                            vertical: sideTabs,
+                            onChanged: (v) {
+                              if (v == _summaryTestType) return;
+                              setState(() => _summaryTestType = v);
+                              _fetchDashboardData(keepStudentCache: true);
+                            },
+                          );
+                          final Widget content = Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              _buildLevelSummary(),
+                              const SizedBox(height: 16),
+                              _buildStudentRoster(),
+                            ],
+                          );
+                          if (!sideTabs) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                filter,
+                                const SizedBox(height: 12),
+                                content,
+                              ],
+                            );
+                          }
+                          return Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(width: 150, child: filter),
+                              const SizedBox(width: 20),
+                              Expanded(child: content),
+                            ],
+                          );
                         },
                       ),
-                      const SizedBox(height: 12),
-                      _buildLevelSummary(),
-                      const SizedBox(height: 16),
-                      _buildStudentRoster(),
                     ],
                   ),
                 ),
