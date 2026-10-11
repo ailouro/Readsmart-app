@@ -128,6 +128,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                     teacherId: widget.teacherId,
                   ),
                   _StudentsTab(teacherId: widget.teacherId),
+                  _StudentsTab(teacherId: widget.teacherId, classesOnly: true),
                   _AlertsTab(teacherId: widget.teacherId),
                   TeacherProfileScreen(
                     userName: widget.userName,
@@ -152,6 +153,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
           selectedLabelStyle: const TextStyle(fontWeight: FontWeight.w900),
           unselectedLabelStyle: const TextStyle(fontWeight: FontWeight.bold),
           elevation: 0,
+          type: BottomNavigationBarType.fixed,
           items: const [
             BottomNavigationBarItem(
               icon: Icon(Icons.collections_bookmark),
@@ -160,6 +162,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
             BottomNavigationBarItem(
               icon: Icon(Icons.people_alt),
               label: 'Students',
+            ),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.school_rounded),
+              label: 'Classes',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.warning_amber_rounded),
@@ -238,17 +244,23 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                   onTap: () => _onItemTapped(1),
                 ),
                 _buildDesktopNavItem(
-                  icon: Icons.warning_amber_rounded,
-                  label: 'Alerts',
+                  icon: Icons.school_rounded,
+                  label: 'Classes',
                   isActive: _selectedIndex == 2,
                   onTap: () => _onItemTapped(2),
+                ),
+                _buildDesktopNavItem(
+                  icon: Icons.warning_amber_rounded,
+                  label: 'Alerts',
+                  isActive: _selectedIndex == 3,
+                  onTap: () => _onItemTapped(3),
                 ),
                 const SizedBox(height: 16),
                 _buildDesktopNavItem(
                   icon: Icons.person,
                   label: 'Profile',
-                  isActive: _selectedIndex == 3,
-                  onTap: () => _onItemTapped(3),
+                  isActive: _selectedIndex == 4,
+                  onTap: () => _onItemTapped(4),
                 ),
                 const Spacer(),
                 _buildDesktopNavItem(
@@ -273,6 +285,7 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
                     teacherId: widget.teacherId,
                   ),
                   _StudentsTab(teacherId: widget.teacherId),
+                  _StudentsTab(teacherId: widget.teacherId, classesOnly: true),
                   _AlertsTab(teacherId: widget.teacherId),
                   TeacherProfileScreen(
                     userName: widget.userName,
@@ -1685,7 +1698,12 @@ class _LibraryTabState extends State<_LibraryTab> {
 // TAB 2: STUDENTS TAB
 class _StudentsTab extends StatefulWidget {
   final dynamic teacherId;
-  const _StudentsTab({this.teacherId});
+
+  /// false = Students tab (Phil-IRI, student progress, learners' records).
+  /// true  = Classes tab (the class list where you open a class, assign
+  /// stories, add students, or create a new class).
+  final bool classesOnly;
+  const _StudentsTab({this.teacherId, this.classesOnly = false});
 
   @override
   State<_StudentsTab> createState() => _StudentsTabState();
@@ -1797,12 +1815,15 @@ class _StudentsTabState extends State<_StudentsTab> {
   @override
   void initState() {
     super.initState();
-    _fetchClasses();
-    _fetchAnalytics();
-    _liveTimer = Timer.periodic(
-      const Duration(seconds: 30),
-      (_) => _fetchLiveProgress(),
-    );
+    if (widget.classesOnly) {
+      _fetchClasses();
+      _liveTimer = Timer.periodic(
+        const Duration(seconds: 30),
+        (_) => _fetchLiveProgress(),
+      );
+    } else {
+      _fetchAnalytics();
+    }
   }
 
   @override
@@ -2880,8 +2901,12 @@ class _StudentsTabState extends State<_StudentsTab> {
   }
 
   Future<void> _refreshAll() async {
+    if (widget.classesOnly) {
+      await _fetchClasses();
+      return;
+    }
     _levelStudentsCache.clear();
-    await Future.wait([_fetchClasses(), _fetchAnalytics()]);
+    await _fetchAnalytics();
   }
 
   /// Students whose averaged Phil-IRI level (from the dashboard-summary
@@ -2930,6 +2955,22 @@ class _StudentsTabState extends State<_StudentsTab> {
 
   @override
   Widget build(BuildContext context) {
+    if (widget.classesOnly) {
+      return ComicBackgroundWrapper(
+        child: RefreshIndicator(
+          onRefresh: _refreshAll,
+          color: maroonTheme,
+          child: SingleChildScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            padding: const EdgeInsets.all(20),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: _buildClassesSection(),
+            ),
+          ),
+        ),
+      );
+    }
     return ComicBackgroundWrapper(
       child: RefreshIndicator(
         onRefresh: _refreshAll,
@@ -3044,201 +3085,193 @@ class _StudentsTabState extends State<_StudentsTab> {
                 _buildUnassignedStudentsSection(
                   _summaryData['students'] as List,
                 ),
-              const SizedBox(height: 30),
-              Wrap(
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                spacing: 10,
-                runSpacing: 10,
-                children: [
-                  const ComicBadgeHeader(title: "YOUR CLASSES"),
-                  ElevatedButton.icon(
-                    onPressed: _showCreateClassDialog,
-                    icon: const Icon(Icons.add, color: Colors.black, size: 20),
-                    label: const Text(
-                      "New Class",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: accentTheme,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                        side: const BorderSide(color: Colors.black, width: 2),
-                      ),
-                      elevation: 0,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-
-              if (_isLoading)
-                const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(30.0),
-                    child: CircularProgressIndicator(color: maroonTheme),
-                  ),
-                )
-              else if (_classes.isEmpty)
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.black, width: 3),
-                    boxShadow: const [
-                      BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-                    ],
-                  ),
-                  child: const Center(
-                    child: Text(
-                      "No classes created yet.",
-                      style: TextStyle(
-                        color: Colors.black,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                )
-              else
-                ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _classes.length,
-                  itemBuilder: (context, index) {
-                    final item = _classes[index];
-                    final String className = _safeString(item['name'], 'Class');
-                    final String section = _safeString(item['section']);
-                    String rawGrade = _safeString(item['grade_level'], '5');
-                    final String grade = rawGrade
-                        .replaceAll(RegExp(r'Grade', caseSensitive: false), '')
-                        .trim();
-
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 15),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: Colors.black, width: 3),
-                        boxShadow: const [
-                          BoxShadow(color: Colors.black, offset: Offset(4, 4)),
-                        ],
-                      ),
-                      child: Material(
-                        color: Colors.transparent,
-                        borderRadius: BorderRadius.circular(16),
-                        child: InkWell(
-                          borderRadius: BorderRadius.circular(16),
-                          onTap: () {
-                            _openClassDetails(
-                              context,
-                              item,
-                              className,
-                              grade,
-                              section,
-                            );
-                          },
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 10,
-                            ),
-                            child: Row(
-                              children: [
-                                Container(
-                                  padding: const EdgeInsets.all(6),
-                                  decoration: BoxDecoration(
-                                    color: const Color(0xFFBAE6FD),
-                                    shape: BoxShape.circle,
-                                    border: Border.all(
-                                      color: Colors.black,
-                                      width: 2,
-                                    ),
-                                  ),
-                                  child: const Icon(
-                                    Icons.school,
-                                    color: Colors.black,
-                                    size: 20,
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        className,
-                                        maxLines: 1,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.w900,
-                                          fontSize: 15,
-                                        ),
-                                      ),
-                                      Text(
-                                        "Grade $grade${section.isNotEmpty ? ' • $section' : ''}\nCode: ${item['class_code'] ?? 'None'}",
-                                        style: const TextStyle(
-                                          fontWeight: FontWeight.bold,
-                                          fontSize: 11,
-                                          color: Colors.black87,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                _liveTrackingPanel(
-                                  _liveByClass[item['id']] ?? const [],
-                                ),
-                                const SizedBox(width: 4),
-                                IconButton(
-                                  tooltip: 'Pre vs Post Summary',
-                                  padding: EdgeInsets.zero,
-                                  constraints: const BoxConstraints(
-                                    minWidth: 36,
-                                    minHeight: 36,
-                                  ),
-                                  icon: const Icon(
-                                    Icons.compare_arrows_rounded,
-                                    size: 22,
-                                  ),
-                                  onPressed: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (_) =>
-                                            ClassPrePostSummaryScreen(
-                                              baseUrl: baseUrl,
-                                              classId: item['id'],
-                                              className: className,
-                                            ),
-                                      ),
-                                    );
-                                  },
-                                ),
-                                const SizedBox(width: 2),
-                                const Icon(
-                                  Icons.arrow_forward_ios_rounded,
-                                  size: 16,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  /// "YOUR CLASSES" list. Lives in its own Classes tab so teachers don't have
+  /// to scroll past the Phil-IRI charts and the student list to reach it.
+  List<Widget> _buildClassesSection() {
+    return [
+      Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 10,
+        runSpacing: 10,
+        children: [
+          const ComicBadgeHeader(title: "YOUR CLASSES"),
+          ElevatedButton.icon(
+            onPressed: _showCreateClassDialog,
+            icon: const Icon(Icons.add, color: Colors.black, size: 20),
+            label: const Text(
+              "New Class",
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: accentTheme,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+                side: const BorderSide(color: Colors.black, width: 2),
+              ),
+              elevation: 0,
+            ),
+          ),
+        ],
+      ),
+      const SizedBox(height: 10),
+
+      if (_isLoading)
+        const Center(
+          child: Padding(
+            padding: EdgeInsets.all(30.0),
+            child: CircularProgressIndicator(color: maroonTheme),
+          ),
+        )
+      else if (_classes.isEmpty)
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.black, width: 3),
+            boxShadow: const [
+              BoxShadow(color: Colors.black, offset: Offset(4, 4)),
+            ],
+          ),
+          child: const Center(
+            child: Text(
+              "No classes created yet.",
+              style: TextStyle(
+                color: Colors.black,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+        )
+      else
+        ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: _classes.length,
+          itemBuilder: (context, index) {
+            final item = _classes[index];
+            final String className = _safeString(item['name'], 'Class');
+            final String section = _safeString(item['section']);
+            String rawGrade = _safeString(item['grade_level'], '5');
+            final String grade = rawGrade
+                .replaceAll(RegExp(r'Grade', caseSensitive: false), '')
+                .trim();
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 15),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.black, width: 3),
+                boxShadow: const [
+                  BoxShadow(color: Colors.black, offset: Offset(4, 4)),
+                ],
+              ),
+              child: Material(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(16),
+                  onTap: () {
+                    _openClassDetails(context, item, className, grade, section);
+                  },
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFBAE6FD),
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.black, width: 2),
+                          ),
+                          child: const Icon(
+                            Icons.school,
+                            color: Colors.black,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                className,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w900,
+                                  fontSize: 15,
+                                ),
+                              ),
+                              Text(
+                                "Grade $grade${section.isNotEmpty ? ' • $section' : ''}\nCode: ${item['class_code'] ?? 'None'}",
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 11,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        _liveTrackingPanel(
+                          _liveByClass[item['id']] ?? const [],
+                        ),
+                        const SizedBox(width: 4),
+                        IconButton(
+                          tooltip: 'Pre vs Post Summary',
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(
+                            minWidth: 36,
+                            minHeight: 36,
+                          ),
+                          icon: const Icon(
+                            Icons.compare_arrows_rounded,
+                            size: 22,
+                          ),
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => ClassPrePostSummaryScreen(
+                                  baseUrl: baseUrl,
+                                  classId: item['id'],
+                                  className: className,
+                                ),
+                              ),
+                            );
+                          },
+                        ),
+                        const SizedBox(width: 2),
+                        const Icon(Icons.arrow_forward_ios_rounded, size: 16),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            );
+          },
+        ),
+    ];
   }
 
   /// "Sa isang tingin": isang card na nagsasabi agad sa guro kung ano ang
