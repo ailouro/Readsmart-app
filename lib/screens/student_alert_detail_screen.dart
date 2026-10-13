@@ -28,8 +28,8 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
   String? _error;
   Map<String, dynamic>? _data;
 
-  // Galing sa GET /api/student/{id}/progress-detail. Optional: kung pumalya,
-  // ang dating Review screen pa rin ang lalabas (walang breakdown sections).
+  // From GET /api/student/{id}/progress-detail. Optional: if it fails,
+  // the original Review screen still shows (just without the breakdown sections).
   List<dynamic> _records = [];
   Map<String, dynamic> _totals = {};
 
@@ -108,6 +108,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
     if (s.contains('independent')) return 'Independent';
     if (s.contains('instructional')) return 'Instructional';
     if (s.contains('frustration')) return 'Frustration';
+    if (s.contains('incomplete')) return 'Incomplete';
     return '—';
   }
 
@@ -115,6 +116,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
     final s = '${level ?? ''}'.toLowerCase();
     if (s.contains('independent')) return independentColor;
     if (s.contains('instructional')) return instructionalColor;
+    if (s.contains('incomplete')) return Colors.grey;
     return frustrationColor;
   }
 
@@ -156,8 +158,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
     ),
   );
 
-  String _attemptText(int n) =>
-      n <= 1 ? 'Isang beses nagkamali' : '$n beses nagkamali';
+  String _attemptText(int n) => n <= 1 ? 'Missed once' : 'Missed $n times';
 
   // ==========================================
   // PRE-TEST vs POST-TEST (pooled totals)
@@ -276,7 +277,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
             if (bothDone) ...[
               const Divider(height: 22),
               const Text(
-                'Pagbabago (Post − Pre)',
+                'Change (Post − Pre)',
                 style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
               ),
               _gainText(
@@ -297,7 +298,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
   }
 
   // ==========================================
-  // BAWAT STORY
+  // PER STORY
   // ==========================================
   Widget _storyTile(Map<String, dynamic> r) {
     final isPre = '${r['test_type']}' == 'pre_test';
@@ -393,7 +394,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
             Text('Comprehension: ${_p1(compPct)}%', style: small),
           const SizedBox(height: 2),
           Text(
-            'Words per minute: ${_p1(wpm)} • Oras: ${secs ~/ 60}m ${secs % 60}s',
+            'Words per minute: ${_p1(wpm)} • Time: ${secs ~/ 60}m ${secs % 60}s',
             style: const TextStyle(fontSize: 11, color: Colors.black54),
           ),
         ],
@@ -406,10 +407,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Bawat story',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
+        const Text('Per story', style: TextStyle(fontWeight: FontWeight.w600)),
         const SizedBox(height: 8),
         ..._records.whereType<Map>().map(
           (r) => _storyTile(Map<String, dynamic>.from(r)),
@@ -417,6 +415,39 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
         const SizedBox(height: 8),
       ],
     );
+  }
+
+  // History rows: one finished story per row.
+  String _historyTitle(Map item) {
+    final story = '${item['story_title'] ?? 'Reading result'}';
+    final type = '${item['test_type'] ?? ''}';
+    final tag = type == 'pre_test'
+        ? ' • PRE'
+        : type == 'post_test'
+        ? ' • POST'
+        : '';
+    return '$story$tag';
+  }
+
+  String _historySubtitle(Map item) {
+    final parts = <String>[];
+    final level = item['reading_level'];
+    if (level != null) parts.add(_levelLabel(level));
+    final wr = _n(item['word_reading_score_pct']);
+    if (wr != null) parts.add('Word Reading ${_p1(wr)}%');
+    final comp = _n(item['comprehension_score_pct']);
+    if (comp != null) parts.add('Comprehension ${_p1(comp)}%');
+    final wpm = _n(item['wpm']);
+    if (wpm != null && wpm > 0) parts.add('${_p1(wpm)} WPM');
+    final date = _historyDate(item);
+    return parts.isEmpty ? date : '${parts.join(' • ')}\n$date';
+  }
+
+  String _historyDate(Map item) {
+    final d = item['date'] ?? item['created_at'] ?? item['completed_at'];
+    if (d == null) return '—';
+    final t = '$d';
+    return t.length >= 10 ? t.substring(0, 10) : t;
   }
 
   @override
@@ -498,7 +529,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
         _buildStoriesSection(),
         const SizedBox(height: 8),
         const Text(
-          'Words na nahirapan',
+          'Words struggled with',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
@@ -558,15 +589,17 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
           const SizedBox(height: 16),
           const Text('History', style: TextStyle(fontWeight: FontWeight.w600)),
           const SizedBox(height: 8),
-          ...history.map((item) {
-            final score = item['score'] ?? '—';
-            final date = item['date'] ?? '—';
+          ...history.whereType<Map>().map((item) {
             return ListTile(
               dense: true,
+              isThreeLine: true,
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.history, size: 18),
-              title: Text('$score'),
-              subtitle: Text('$date'),
+              title: Text(
+                _historyTitle(item),
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+              subtitle: Text(_historySubtitle(item)),
             );
           }),
         ],
