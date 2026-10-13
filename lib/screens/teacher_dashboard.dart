@@ -2616,9 +2616,11 @@ class _StudentsTabState extends State<_StudentsTab> {
   }
 
   Widget _liveTrackingPanel(List<Map<String, dynamic>> live) {
+    // Walang nagbabasa: huwag nang magpakita ng panel.
+    if (live.isEmpty) return const SizedBox.shrink();
     final shown = live.take(2).toList();
     return Container(
-      width: 150,
+      width: double.infinity,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: const Color(0xFFFFF7CC),
@@ -2630,9 +2632,7 @@ class _StudentsTabState extends State<_StudentsTab> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            live.isEmpty
-                ? "📖 No one is reading"
-                : "📖 Nagbabasa (${live.length})",
+            "📖 Nagbabasa (${live.length})",
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
           ),
           for (final s in shown) ...[
@@ -3237,52 +3237,69 @@ class _StudentsTabState extends State<_StudentsTab> {
                       horizontal: 12,
                       vertical: 10,
                     ),
-                    child: Row(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFBAE6FD),
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.black, width: 2),
-                          ),
-                          child: const Icon(
-                            Icons.school,
-                            color: Colors.black,
-                            size: 20,
-                          ),
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                className,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.w900,
-                                  fontSize: 15,
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(6),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFFBAE6FD),
+                                shape: BoxShape.circle,
+                                border: Border.all(
+                                  color: Colors.black,
+                                  width: 2,
                                 ),
                               ),
-                              Text(
-                                "Grade $grade${section.isNotEmpty ? ' • $section' : ''}\nCode: ${item['class_code'] ?? 'None'}",
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 11,
-                                  color: Colors.black87,
-                                ),
+                              child: const Icon(
+                                Icons.school,
+                                color: Colors.black,
+                                size: 20,
                               ),
-                            ],
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    className,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w900,
+                                      fontSize: 15,
+                                    ),
+                                  ),
+                                  Text(
+                                    "Grade $grade${section.isNotEmpty ? ' • $section' : ''}\nCode: ${item['class_code'] ?? 'None'}",
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 11,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(
+                              Icons.arrow_forward_ios_rounded,
+                              size: 16,
+                            ),
+                          ],
+                        ),
+                        // Lalabas lang kapag may nagbabasa, at nasa ilalim
+                        // ng card para hindi masikip ang pangalan ng klase
+                        // sa maliit na screen.
+                        if ((_liveByClass[item['id']] ?? const []).isNotEmpty)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 8),
+                            child: _liveTrackingPanel(
+                              _liveByClass[item['id']] ?? const [],
+                            ),
                           ),
-                        ),
-                        const SizedBox(width: 8),
-                        _liveTrackingPanel(
-                          _liveByClass[item['id']] ?? const [],
-                        ),
-                        const SizedBox(width: 2),
-                        const Icon(Icons.arrow_forward_ios_rounded, size: 16),
                       ],
                     ),
                   ),
