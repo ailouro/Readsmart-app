@@ -1828,6 +1828,7 @@ class _StudentsTabState extends State<_StudentsTab> {
       );
     } else {
       _fetchAnalytics();
+      _fetchClasses(); // para sa class picker ng Pre vs Post
     }
   }
 
@@ -2918,7 +2919,7 @@ class _StudentsTabState extends State<_StudentsTab> {
       return;
     }
     _levelStudentsCache.clear();
-    await _fetchAnalytics();
+    await Future.wait([_fetchAnalytics(), _fetchClasses()]);
   }
 
   /// Students whose averaged Phil-IRI level (from the dashboard-summary
