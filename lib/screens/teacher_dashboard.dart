@@ -1721,6 +1721,7 @@ class _StudentsTabState extends State<_StudentsTab> {
 
   bool _isLoadingAnalytics = true;
   String _summaryTestType = 'post_test'; // 'pre_test' | 'post_test'
+  dynamic _prePostClassId; // napiling klase para sa Pre vs Post comparison
   Map<String, dynamic> _summaryData = {};
   List<dynamic> _mispronunciations = [];
   String _studentSearchQuery = '';
@@ -3058,6 +3059,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                   );
                 },
               ),
+              ..._buildPrePostSection(),
               if (!_isLoadingAnalytics &&
                   _summaryData['students'] is List &&
                   (_summaryData['students'] as List).isNotEmpty) ...[
@@ -3079,6 +3081,59 @@ class _StudentsTabState extends State<_StudentsTab> {
         ),
       ),
     );
+  }
+
+  /// PRE VS POST COMPARISON: nasa Analytics na (dati nasa class card).
+  /// Pumili ng klase, tapos lalabas ang gain, t-value at per-student results.
+  List<Widget> _buildPrePostSection() {
+    if (_classes.isEmpty) return const [];
+    final bool valid = _classes.any((c) => c['id'] == _prePostClassId);
+    final dynamic selId = valid ? _prePostClassId : _classes.first['id'];
+    final Map<String, dynamic> sel = _classes.firstWhere(
+      (c) => c['id'] == selId,
+    );
+    final String selName = _safeString(sel['name'], 'Class');
+
+    return [
+      const ComicBadgeHeader(title: "PRE VS POST"),
+      const SizedBox(height: 10),
+      Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.black, width: 3),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<dynamic>(
+            isExpanded: true,
+            value: selId,
+            items: [
+              for (final c in _classes)
+                DropdownMenuItem<dynamic>(
+                  value: c['id'],
+                  child: Text(
+                    _safeString(c['name'], 'Class'),
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+            ],
+            onChanged: (v) => setState(() => _prePostClassId = v),
+          ),
+        ),
+      ),
+      const SizedBox(height: 12),
+      ClassPrePostSummaryScreen(
+        key: ValueKey('prepost-$selId'),
+        baseUrl: baseUrl,
+        classId: selId,
+        className: selName,
+        embedded: true,
+      ),
+      const SizedBox(height: 24),
+    ];
   }
 
   /// "YOUR CLASSES" list. Lives in its own Classes tab so teachers don't have
@@ -3224,31 +3279,6 @@ class _StudentsTabState extends State<_StudentsTab> {
                         const SizedBox(width: 8),
                         _liveTrackingPanel(
                           _liveByClass[item['id']] ?? const [],
-                        ),
-                        const SizedBox(width: 4),
-                        IconButton(
-                          tooltip: 'Pre vs Post Summary',
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(
-                            minWidth: 36,
-                            minHeight: 36,
-                          ),
-                          icon: const Icon(
-                            Icons.compare_arrows_rounded,
-                            size: 22,
-                          ),
-                          onPressed: () {
-                            Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => ClassPrePostSummaryScreen(
-                                  baseUrl: baseUrl,
-                                  classId: item['id'],
-                                  className: className,
-                                ),
-                              ),
-                            );
-                          },
                         ),
                         const SizedBox(width: 2),
                         const Icon(Icons.arrow_forward_ios_rounded, size: 16),

@@ -13,11 +13,16 @@ class ClassPrePostSummaryScreen extends StatefulWidget {
   final dynamic classId;
   final String className;
 
+  /// true = ilalagay sa loob ng Analytics (walang Scaffold/AppBar, walang
+  /// sariling scroll). false = dating standalone screen.
+  final bool embedded;
+
   const ClassPrePostSummaryScreen({
     super.key,
     required this.baseUrl,
     required this.classId,
     required this.className,
+    this.embedded = false,
   });
 
   @override
@@ -408,9 +413,58 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
     );
   }
 
+  Widget _embeddedBody() {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.all(24),
+        child: Center(child: CircularProgressIndicator(color: _maroon)),
+      );
+    }
+    if (_error != null || _data == null) {
+      return Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          children: [
+            Text(_error ?? 'Something went wrong.'),
+            const SizedBox(height: 10),
+            ElevatedButton(onPressed: _load, child: const Text('Try Again')),
+          ],
+        ),
+      );
+    }
+    final s = Map<String, dynamic>.from(_data!['summary'] as Map);
+    final students = (_data!['students'] as List?) ?? [];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _openPdf,
+              icon: const Icon(Icons.picture_as_pdf_rounded, size: 18),
+              label: const Text('Download PDF'),
+            ),
+            OutlinedButton.icon(
+              onPressed: _copyCsv,
+              icon: const Icon(Icons.copy_all_rounded, size: 18),
+              label: const Text('Copy as spreadsheet'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _overview(s),
+        _metricsTable(s),
+        _studentTable(students),
+      ],
+    );
+  }
+
   @override
-  Widget build(BuildContext context) =>
-      DesktopTextScale(child: _buildScaled(context));
+  Widget build(BuildContext context) => widget.embedded
+      ? DesktopTextScale(child: _embeddedBody())
+      : DesktopTextScale(child: _buildScaled(context));
 
   Widget _buildScaled(BuildContext context) {
     return Scaffold(
