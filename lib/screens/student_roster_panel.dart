@@ -164,6 +164,80 @@ class _StudentRosterPanelState extends State<StudentRosterPanel> {
     return (a == null || b == null) ? null : b - a;
   }
 
+  double? _compChange(Map<String, dynamic> s) {
+    final pre = _test(s['id'], 'pre_test');
+    final post = _test(s['id'], 'post_test');
+    if (!_has(pre) || !_has(post)) return null;
+    final a = double.tryParse('${pre['comp_pct']}');
+    final b = double.tryParse('${post['comp_pct']}');
+    return (a == null || b == null) ? null : b - a;
+  }
+
+  String _fmt(double v) =>
+      v % 1 == 0 ? v.toStringAsFixed(0) : v.toStringAsFixed(1);
+
+  // Latest available test totals: post-test, otherwise pre-test.
+  Map<String, dynamic> _latestTotals(dynamic id) {
+    final post = _test(id, 'post_test');
+    if (_has(post)) return post;
+    final pre = _test(id, 'pre_test');
+    return _has(pre) ? pre : <String, dynamic>{};
+  }
+
+  // Phil-IRI Frustration range: Word Reading below 90%, Comprehension below 59%.
+  static const double _wrFrustrationBelow = 90;
+  static const double _compFrustrationBelow = 59;
+
+  List<String> _weakAreas(Map<String, dynamic> s) {
+    final t = _latestTotals(s['id']);
+    final wr = double.tryParse('${t['word_pct']}');
+    final comp = double.tryParse('${t['comp_pct']}');
+    return [
+      if (wr != null && wr < _wrFrustrationBelow) 'Word reading ${_fmt(wr)}%',
+      if (comp != null && comp < _compFrustrationBelow)
+        'Comprehension ${_fmt(comp)}%',
+    ];
+  }
+
+  List<String> _okAreas(Map<String, dynamic> s) {
+    final t = _latestTotals(s['id']);
+    final wr = double.tryParse('${t['word_pct']}');
+    final comp = double.tryParse('${t['comp_pct']}');
+    return [
+      if (wr != null && wr >= _wrFrustrationBelow) 'Word reading ${_fmt(wr)}%',
+      if (comp != null && comp >= _compFrustrationBelow)
+        'Comprehension ${_fmt(comp)}%',
+    ];
+  }
+
+  Widget _changeLine(String label, double? v) {
+    String text = '--';
+    Color color = Colors.black38;
+    if (v != null) {
+      final t = _fmt(v);
+      text = v >= 0 ? '+$t%' : '$t%';
+      color = v < 0 ? _lvFrustration : _lvIndependent;
+    }
+    return Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$label ',
+            style: const TextStyle(fontSize: 10, color: Colors.black45),
+          ),
+          TextSpan(
+            text: text,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w900,
+              color: color,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // Parehong rule ng Alerts tab: ang huling 2 natapos na story ay parehong
   // Frustration (kailangan ng hindi bababa sa 2 story).
   bool _needsHelp(Map<String, dynamic> s) {
@@ -246,15 +320,10 @@ class _StudentRosterPanelState extends State<StudentRosterPanel> {
     final lrn = _s(s['lrn']);
     final cls = _className(s);
 
-    String changeText = '--';
-    Color changeColor = Colors.black38;
-    if (change != null) {
-      final v = change % 1 == 0
-          ? change.toStringAsFixed(0)
-          : change.toStringAsFixed(1);
-      changeText = change >= 0 ? '+$v%' : '$v%';
-      changeColor = change < 0 ? _lvFrustration : _lvIndependent;
-    }
+    final compChange = _compChange(s);
+    final weak = _weakAreas(s);
+    final ok = _okAreas(s);
+    final needs = _needsHelp(s);
 
     return Material(
       color: selected ? const Color(0xFFE8F1FB) : Colors.transparent,
@@ -301,6 +370,31 @@ class _StudentRosterPanelState extends State<StudentRosterPanel> {
                           color: Colors.black54,
                         ),
                       ),
+                    if (weak.isNotEmpty || needs) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        weak.isNotEmpty
+                            ? 'Needs help: ${weak.join(', ')}'
+                            : 'Needs help: last 2 stories at Frustration',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w800,
+                          color: Color(0xFFC62828),
+                        ),
+                      ),
+                      if (ok.isNotEmpty)
+                        Text(
+                          'Doing fine: ${ok.join(', ')}',
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            fontSize: 11,
+                            color: Color(0xFF2E7D32),
+                          ),
+                        ),
+                    ],
                   ],
                 ),
               ),
@@ -310,14 +404,9 @@ class _StudentRosterPanelState extends State<StudentRosterPanel> {
                 children: [
                   _pill(_level(_test(s['id'], 'post_test'))),
                   const SizedBox(height: 4),
-                  Text(
-                    changeText,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
-                      color: changeColor,
-                    ),
-                  ),
+                  _changeLine('Word reading', change),
+                  if (compChange != null)
+                    _changeLine('Comprehension', compChange),
                 ],
               ),
               if (!wide) const Icon(Icons.chevron_right, color: Colors.black38),
