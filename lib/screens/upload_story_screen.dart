@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../services/config.dart';
 import '../services/cloudinary_service.dart';
-import '../widgets/guide_comic_background.dart';
 
 // Helper model para pagsamahin ang image file, bytes, at multiple script controllers
 class SlideItem {
@@ -479,11 +478,14 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
   }
 
   static const double _desktopBreakpoint = 900;
+  static const Color _kScreenBg = Color(0xFFEFF4FA);
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.transparent,
+      // Payak na kulay lang (walang larawan/rays/zigzag): banayad na light
+      // blue-gray para hindi masakit sa mata at malinaw ang mga puting card.
+      backgroundColor: _kScreenBg,
       appBar: AppBar(
         title: const Text(
           "Upload New Story",
@@ -497,7 +499,8 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
           child: Container(color: Colors.black, height: 4.0),
         ),
       ),
-      body: GuideComicBackground(
+      body: ColoredBox(
+        color: _kScreenBg,
         child: _isUploading
             ? Center(
                 child: Column(
@@ -511,7 +514,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
                           : _uploadStatus,
                       style: const TextStyle(
                         fontWeight: FontWeight.w900,
-                        color: Colors.white,
+                        color: Colors.black87,
                         fontSize: 16,
                       ),
                     ),
@@ -724,15 +727,8 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
   }
 
   Widget _sectionLabel(String text) {
-    // Walang kahon. Comic-style na heading: itim na letra na may makapal na
-    // puting outline (nababasa kahit tumawid ang rays/zigzag ng background)
-    // at maliit na dilaw na accent bar sa kaliwa, tugma sa dilaw/itim na
-    // tema ng screen.
-    const TextStyle base = TextStyle(
-      fontWeight: FontWeight.w900,
-      fontSize: 18,
-      letterSpacing: 0.3,
-    );
+    // Simpleng heading: dilaw na accent bar + itim na bold na text.
+    // Walang kahon o outline dahil payak na ang background.
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Align(
@@ -742,7 +738,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
           children: [
             Container(
               width: 8,
-              height: 24,
+              height: 22,
               decoration: BoxDecoration(
                 color: const Color(0xFFFDE047),
                 borderRadius: BorderRadius.circular(4),
@@ -751,22 +747,13 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
             ),
             const SizedBox(width: 8),
             Flexible(
-              child: Stack(
-                children: [
-                  // outline (puti)
-                  Text(
-                    text,
-                    style: base.copyWith(
-                      foreground: Paint()
-                        ..style = PaintingStyle.stroke
-                        ..strokeWidth = 6
-                        ..strokeJoin = StrokeJoin.round
-                        ..color = Colors.white,
-                    ),
-                  ),
-                  // punô (itim)
-                  Text(text, style: base.copyWith(color: Colors.black)),
-                ],
+              child: Text(
+                text,
+                style: const TextStyle(
+                  fontWeight: FontWeight.w900,
+                  fontSize: 17,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ],
