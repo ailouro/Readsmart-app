@@ -287,6 +287,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     _loadSavedPage();
   }
 
+  /// Key para sa naka-save na progress. Kasama ang student at test type para
+  /// hindi maghalo ang progress ng magkaibang bata sa iisang device (o ng
+  /// pre-test at post-test sa iisang kwento).
+  String _pk(String suffix) =>
+      'story_${widget.story['id'] ?? widget.story['_id']}_s${widget.studentId}_${widget.testType}_$suffix';
+
   void _sendCheckpointNow() {
     if (widget.assessmentMode || widget.isPracticeOnly) return;
     final pages = (widget.story['pages'] as List?) ?? const [];
@@ -370,18 +376,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     }
 
     // Ibalik ang oras na naipon na sa nakaraang session ng parehong kwento.
-    final int savedActive =
-        prefs.getInt(
-          'story_${widget.story['id']}_${widget.testType}_active_seconds',
-        ) ??
-        0;
+    final int savedActive = prefs.getInt(_pk('active_seconds')) ?? 0;
     if (savedActive > 0 && !widget.isPracticeOnly) {
       _activeReadingDuration += Duration(seconds: savedActive);
     }
 
-    final String? savedStates = prefs.getString(
-      'story_${widget.story['id']}_word_states',
-    );
+    final String? savedStates = prefs.getString(_pk('word_states'));
     if (savedStates != null && !widget.isPracticeOnly) {
       try {
         final Map<String, dynamic> decoded = jsonDecode(savedStates);
@@ -396,13 +396,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           }
 
           final pageData = pages[pageIdx];
-          var rawScripts = pageData['audio_scripts'];
-          String scriptText = '';
-          if (rawScripts is List) {
-            scriptText = rawScripts.join(' ');
-          } else if (rawScripts is String) {
-            scriptText = rawScripts;
-          }
+          // Parehong script ang gamit sa pag-setup ng salita (unang script
+          // lang). Dati join ng LAHAT ng script kaya hindi tumutugma ang bilang
+          // ng salita at tahimik na itinatapon ang naka-save na progress.
+          final String scriptText = _firstReadingScript(
+            pageData['audio_scripts'],
+          );
           if (scriptText.trim().isEmpty) return;
 
           final List<String> rawWords = scriptText
@@ -450,29 +449,53 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       } catch (_) {}
     }
 
+    if (!mounted) return;
+
+    // Ang slide 1 ay naka-setup na nang blangko ng build() bago pa
+    // nai-restore ang naka-save. Ilapat ang restored na salita sa kasalukuyang
+    // page, kung hindi mawawala ang progress at mao-overwrite pa ito ng
+    // blangko pag-alis sa page.
+    if (_pageTargetWords.containsKey(_currentPage)) {
+      setState(() {
+        _targetWords = List.from(_pageTargetWords[_currentPage]!);
+        _wordKeys = List.generate(_targetWords.length, (_) => GlobalKey());
+        _currentWordIndex = _pageCurrentWordIndex[_currentPage] ?? 0;
+        _isAssessmentPassed = _pageAssessmentPassed[_currentPage] ?? false;
+      });
+    }
+
     if (!widget.isPracticeOnly) {
-      int? savedPage = prefs.getInt('story_${widget.story['id']}_page');
-      if (savedPage != null && savedPage > 0) {
-        List<dynamic> pages = widget.story['pages'] ?? [];
-        if (savedPage < pages.length) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (_pageController.hasClients) {
-              _pageController.jumpToPage(savedPage);
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (mounted) _sendCheckpointNow(); // slide 1 / resumed slide
-              });
-            }
-          });
-        }
+      int? savedPage = prefs.getInt(_pk('page'));
+      final List<dynamic> pages = widget.story['pages'] ?? [];
+      if (savedPage != null && savedPage > 0 && savedPage < pages.length) {
+        _jumpToSavedPage(savedPage);
+      } else {
+        _sendCheckpointNow();
       }
     }
+  }
+
+  /// Lumipat sa slide kung saan huminto ang bata. Uulit-ulitin hanggang
+  /// handa na ang PageView (dati isang subok lang, kaya minsan hindi lumilipat).
+  void _jumpToSavedPage(int page, [int tries = 0]) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if (_pageController.hasClients) {
+        _pageController.jumpToPage(page);
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _sendCheckpointNow();
+        });
+      } else if (tries < 30) {
+        _jumpToSavedPage(page, tries + 1);
+      }
+    });
   }
 
   Future<void> _savePageWordStates(int pageIdx, List<WordStatus> words) async {
     if (widget.isPracticeOnly) return;
     try {
       final prefs = await SharedPreferences.getInstance();
-      final String key = 'story_${widget.story['id']}_word_states';
+      final String key = _pk('word_states');
       final String? existing = prefs.getString(key);
       Map<String, dynamic> allStates = {};
       if (existing != null) {
@@ -492,10 +515,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
           .toList();
       await prefs.setString(key, jsonEncode(allStates));
       // Itabi rin ang oras ng pagbasa para tama ang WPM kapag nag-resume.
-      await prefs.setInt(
-        'story_${widget.story['id']}_${widget.testType}_active_seconds',
-        _currentActiveSeconds(),
-      );
+      await prefs.setInt(_pk('active_seconds'), _currentActiveSeconds());
     } catch (_) {}
   }
 
@@ -1018,9 +1038,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       final prefs = await SharedPreferences.getInstance();
       final String storyId = (widget.story['id'] ?? widget.story['_id'])
           .toString();
-      await prefs.remove('story_${storyId}_word_states');
-      await prefs.remove('story_${storyId}_${widget.testType}_active_seconds');
-      await prefs.remove('story_${storyId}_page');
+      await prefs.remove(_pk('word_states'));
+      await prefs.remove(_pk('active_seconds'));
+      await prefs.remove(_pk('page'));
     } catch (_) {}
   }
 
@@ -1912,7 +1932,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         }
         if (!widget.isPracticeOnly) {
           final prefs = await SharedPreferences.getInstance();
-          await prefs.setInt('story_${widget.story['id']}_page', index);
+          await prefs.setInt(_pk('page'), index);
           await _savePageWordStates(leavingPage, leavingWords);
           if (!widget.assessmentMode) {
             _saveCheckpoint(index, pages.length);
