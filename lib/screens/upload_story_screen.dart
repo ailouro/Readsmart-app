@@ -54,7 +54,8 @@ class QuizQuestion {
     TextEditingController(),
     TextEditingController(),
   ];
-  int correctAnswerIndex = 0;
+  // null = wala pang napipiling tamang sagot (kailangang pumili ang teacher)
+  int? correctAnswerIndex;
 }
 
 class UploadStoryScreen extends StatefulWidget {
@@ -290,6 +291,34 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
       return;
     }
 
+    // Quiz (optional): kapag may tanong, kumpleto dapat at may napiling tamang sagot.
+    for (int i = 0; i < _quizQuestions.length; i++) {
+      final q = _quizQuestions[i];
+      final bool incomplete =
+          q.questionController.text.trim().isEmpty ||
+          q.optionControllers.any((o) => o.text.trim().isEmpty);
+      if (incomplete) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Question ${i + 1}: please fill in the question and all 4 options.",
+            ),
+          ),
+        );
+        return;
+      }
+      if (q.correctAnswerIndex == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              "Question ${i + 1}: please select the correct answer.",
+            ),
+          ),
+        );
+        return;
+      }
+    }
+
     setState(() {
       _isUploading = true;
       _uploadStatus = "Uploading cover image...";
@@ -354,7 +383,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
             return {
               "question_text": q.questionController.text.trim(),
               "options": q.optionControllers.map((c) => c.text.trim()).toList(),
-              "correct_answer": q.optionControllers[q.correctAnswerIndex].text
+              "correct_answer": q.optionControllers[q.correctAnswerIndex!].text
                   .trim(),
             };
           }).toList();
@@ -695,30 +724,52 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
   }
 
   Widget _sectionLabel(String text) {
-    // Wrapped in an opaque white "sticker" -- GuideComicBackground paints
-    // its zigzag/ray artwork directly behind this screen's content, and
-    // plain unfilled text sitting on top of it gets visually crossed out
-    // by those shapes (see "Cover Image" / "Story Quiz" in the screenshot).
-    // A solid backing box guarantees the label stays legible regardless of
-    // what the background is doing underneath.
+    // Walang kahon. Comic-style na heading: itim na letra na may makapal na
+    // puting outline (nababasa kahit tumawid ang rays/zigzag ng background)
+    // at maliit na dilaw na accent bar sa kaliwa, tugma sa dilaw/itim na
+    // tema ng screen.
+    const TextStyle base = TextStyle(
+      fontWeight: FontWeight.w900,
+      fontSize: 18,
+      letterSpacing: 0.3,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.black, width: 2),
-            boxShadow: const [
-              BoxShadow(color: Colors.black, offset: Offset(2, 2)),
-            ],
-          ),
-          child: Text(
-            text,
-            style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 8,
+              height: 24,
+              decoration: BoxDecoration(
+                color: const Color(0xFFFDE047),
+                borderRadius: BorderRadius.circular(4),
+                border: Border.all(color: Colors.black, width: 2),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Stack(
+                children: [
+                  // outline (puti)
+                  Text(
+                    text,
+                    style: base.copyWith(
+                      foreground: Paint()
+                        ..style = PaintingStyle.stroke
+                        ..strokeWidth = 6
+                        ..strokeJoin = StrokeJoin.round
+                        ..color = Colors.white,
+                    ),
+                  ),
+                  // punô (itim)
+                  Text(text, style: base.copyWith(color: Colors.black)),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -1020,7 +1071,7 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
           ),
           const SizedBox(height: 12),
           const Text(
-            "Options & Correct Answer:",
+            "Options (tap the circle to mark the correct answer):",
             style: TextStyle(fontWeight: FontWeight.w900, fontSize: 13),
           ),
           const SizedBox(height: 8),
