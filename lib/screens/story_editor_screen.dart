@@ -11,6 +11,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 // Tiyaking tama ang file path ng iyong QuizEditorScreen import.
 // Palitan ito kung iba ang pangalan ng iyong file.
 import 'quiz_editor_screen.dart';
+import '../widgets/desktop_scale.dart';
 
 class StoryEditorScreen extends StatefulWidget {
   final dynamic story;
@@ -219,11 +220,11 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
           final String message;
           if (newType != null) {
             message =
-                "Na-update ang Story Type sa ${effectiveType == 'post_test' ? 'Post Test' : 'Pre Test'}! 🎯";
+                "Story Type updated to ${effectiveType == 'post_test' ? 'Post Test' : 'Pre Test'}! 🎯";
           } else if (newGrade != null) {
-            message = "Na-update ang Grade Level sa $effectiveGrade! 🎯";
+            message = "Grade Level updated to $effectiveGrade! 🎯";
           } else {
-            message = "Na-update ang Passage Set sa $effectiveSet! 🎯";
+            message = "Passage Set updated to $effectiveSet! 🎯";
           }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(message), backgroundColor: Colors.green),
@@ -243,7 +244,7 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text("Error sa pag-update ng Story Info: $e"),
+            content: Text("Error updating Story Info: $e"),
             backgroundColor: Colors.redAccent,
           ),
         );
@@ -1603,7 +1604,10 @@ class _StoryEditorScreenState extends State<StoryEditorScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     String cleanBaseUrl = widget.baseUrl.endsWith('/api')
         ? widget.baseUrl.substring(0, widget.baseUrl.length - 4)
         : widget.baseUrl;

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../widgets/desktop_scale.dart';
 
 class TeacherReportsScreen extends StatefulWidget {
   final String baseUrl;
@@ -51,95 +52,127 @@ class _TeacherReportsScreenState extends State<TeacherReportsScreen> {
     }
   }
 
+  Widget _buildLogCard(dynamic log) {
+    final studentName = log['student']?['name'] ?? "Unknown Student";
+    final storyTitle = log['story_title'] ?? "Story";
+    final word = log['word'] ?? "N/A";
+    final slideIndex = (log['slide_index'] ?? 0) + 1;
+    final date = log['created_at']?.toString().substring(0, 10) ?? "";
+
+    return Card(
+      elevation: 3,
+      margin: const EdgeInsets.symmetric(vertical: 6),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: Colors.red[100],
+          child: const Icon(Icons.record_voice_over, color: Colors.red),
+        ),
+        title: Text(
+          studentName,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              "📖 Story: $storyTitle (Slide $slideIndex)",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            Text(
+              "❌ Hard Word: \"$word\"",
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.redAccent,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+        trailing: Text(
+          date,
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildInfoBanner() {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.blue.shade200),
+      ),
+      child: const Text(
+        "Words your students had trouble pronouncing while reading. Each card shows the student, the story and slide, the hard word, and the date.",
+        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  Widget _buildLogList() {
+    final bool desktop = DesktopLayout.isDesktop(context);
+
+    // Desktop: two-column grid so the cards do not stretch across the window.
+    if (desktop) {
+      return GridView.builder(
+        padding: const EdgeInsets.all(16),
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 560,
+          mainAxisExtent: 112,
+          crossAxisSpacing: 16,
+          mainAxisSpacing: 4,
+        ),
+        itemCount: _mispronunciations.length,
+        itemBuilder: (context, index) =>
+            _buildLogCard(_mispronunciations[index]),
+      );
+    }
+
+    // Mobile: unchanged single-column list.
+    return ListView.builder(
+      padding: const EdgeInsets.all(12),
+      itemCount: _mispronunciations.length,
+      itemBuilder: (context, index) => _buildLogCard(_mispronunciations[index]),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text("Student Reading Reports 📊"),
-        backgroundColor: Colors.indigo,
-        foregroundColor: Colors.white,
-      ),
-      body: _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _mispronunciations.isEmpty
-          ? const Center(
-              child: Text(
-                "No mispronunciation reports yet. Great job students! 🎉",
-                style: TextStyle(fontSize: 16, color: Colors.grey),
-              ),
-            )
-          : Column(
-              children: [
-                Container(
-          width: double.infinity,
-          margin: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          decoration: BoxDecoration(
-            color: Colors.blue.shade50,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: Colors.blue.shade200),
-          ),
-          child: const Text(
-            "Words your students had trouble pronouncing while reading. Each card shows the student, the story and slide, the hard word, and the date.",
-            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-          ),
+    return DesktopTextScale(
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text("Student Reading Reports 📊"),
+          backgroundColor: Colors.indigo,
+          foregroundColor: Colors.white,
         ),
-                Expanded(
-                  child: ListView.builder(
-              padding: const EdgeInsets.all(12),
-              itemCount: _mispronunciations.length,
-              itemBuilder: (context, index) {
-                final log = _mispronunciations[index];
-                final studentName =
-                    log['student']?['name'] ?? "Unknown Student";
-                final storyTitle = log['story_title'] ?? "Story";
-                final word = log['word'] ?? "N/A";
-                final slideIndex = (log['slide_index'] ?? 0) + 1;
-                final date =
-                    log['created_at']?.toString().substring(0, 10) ?? "";
-
-                return Card(
-                  elevation: 3,
-                  margin: const EdgeInsets.symmetric(vertical: 6),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: ListTile(
-                    leading: CircleAvatar(
-                      backgroundColor: Colors.red[100],
-                      child: const Icon(
-                        Icons.record_voice_over,
-                        color: Colors.red,
-                      ),
-                    ),
-                    title: Text(
-                      studentName,
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text("📖 Story: $storyTitle (Slide $slideIndex)"),
-                        Text(
-                          "❌ Hard Word: \"$word\"",
-                          style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    trailing: Text(
-                      date,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ),
-                );
-              },
-            ),
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : _mispronunciations.isEmpty
+            ? const Center(
+                child: Text(
+                  "No mispronunciation reports yet. Great job students! 🎉",
+                  style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
-              ],
-            ),
+              )
+            : DesktopContent(
+                maxWidth: 1200,
+                child: Column(
+                  children: [
+                    _buildInfoBanner(),
+                    Expanded(child: _buildLogList()),
+                  ],
+                ),
+              ),
+      ),
     );
   }
 }

@@ -4,6 +4,7 @@ import 'package:http/http.dart' as http;
 import 'package:fl_chart/fl_chart.dart';
 import 'package:printing/printing.dart';
 import 'student_report_pdf.dart';
+import '../widgets/desktop_scale.dart';
 
 /// Per-word tally for the "Words to practice" card.
 class _WordStat {
@@ -132,7 +133,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     if (_records.isEmpty) {
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('Wala pang natapos na story para sa report.'),
+          content: Text('No finished stories yet for the report.'),
         ),
       );
       return;
@@ -156,7 +157,9 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     } catch (e) {
       debugPrint('Error creating report: $e');
       messenger.showSnackBar(
-        const SnackBar(content: Text('Hindi nagawa ang report. Subukan ulit.')),
+        const SnackBar(
+          content: Text('Could not create the report. Please try again.'),
+        ),
       );
     }
   }
@@ -446,12 +449,12 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
             const SizedBox(height: 2),
             if (!hasData)
               const Text(
-                'Wala pang natapos na story.',
+                'No finished stories yet.',
                 style: TextStyle(color: inkSubtext, fontSize: 12),
               )
             else ...[
               Text(
-                '$stories ${stories == 1 ? 'story' : 'stories'} natapos',
+                '$stories ${stories == 1 ? 'story' : 'stories'} finished',
                 style: const TextStyle(color: inkSubtext, fontSize: 12),
               ),
               const SizedBox(height: 12),
@@ -459,7 +462,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                 'Word Reading',
                 '${_fmt(wr)}%',
                 words > 0
-                    ? '${_i(t['correct_words'])} sa $words salita tama'
+                    ? '${_i(t['correct_words'])} of $words words correct'
                     : null,
               ),
               const SizedBox(height: 10),
@@ -467,7 +470,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
                 'Comprehension',
                 '${_fmt(comp)}%',
                 quizQ > 0
-                    ? '${_i(t['quiz_correct'])} sa $quizQ tanong tama'
+                    ? '${_i(t['quiz_correct'])} of $quizQ questions correct'
                     : null,
               ),
               const SizedBox(height: 12),
@@ -578,8 +581,8 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
           _sectionHeader(
             'Pre-Test vs Post-Test 📊',
             subtitle:
-                'Kabuuan ng lahat ng natapos na stories sa bawat test '
-                '(total ng salita at sagot, hindi average ng %).',
+                'Totals across all finished stories in each test '
+                '(total words and answers, not an average of percentages).',
           ),
           const SizedBox(height: 12),
           Wrap(
@@ -786,16 +789,16 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
         children: [
           Text(
             total > 0
-                ? 'Tamang salita: $correct sa $total  ($miscues miscues)'
-                : 'Walang naka-save na bilang ng salita',
+                ? 'Correct words: $correct of $total  ($miscues miscues)'
+                : 'No saved word count',
             style: detail,
           ),
           if (qt > 0) ...[
             const SizedBox(height: 4),
-            Text('Quiz: $qc sa $qt tama', style: detail),
+            Text('Quiz: $qc of $qt correct', style: detail),
           ],
           const SizedBox(height: 4),
-          Text('Oras ng pagbasa: ${_dur(secs)}', style: detail),
+          Text('Reading time: ${_dur(secs)}', style: detail),
         ],
       ),
     );
@@ -806,15 +809,15 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
         ? 'Pre-Test'
         : type == 'post_test'
         ? 'Post-Test'
-        : 'Mga Kwento';
+        : 'Stories';
     return _card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _sectionHeader(
-            '$name — Bawat Story 🎯',
+            '$name — Each Story 🎯',
             subtitle:
-                'Isang bar kada story (guhit = 90% at 97% na cutoff). I-tap ang story para makita ang detalye.',
+                'One bar per story (lines = 90% and 97% cutoffs). Tap a story to see its details.',
           ),
           const SizedBox(height: 12),
           _buildLegend(),
@@ -1671,7 +1674,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
         child: Center(
           child: ConstrainedBox(
             constraints: BoxConstraints(
-              maxWidth: isWide ? 900 : double.infinity,
+              maxWidth: isWide ? 1100 : double.infinity,
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1709,7 +1712,10 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     final bool isWide = MediaQuery.of(context).size.width >= 800;
     final double bottomInset = MediaQuery.of(context).padding.bottom;
 

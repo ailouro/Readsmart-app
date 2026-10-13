@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../services/config.dart';
+import '../widgets/desktop_scale.dart';
 
 class StudentAlertDetailScreen extends StatefulWidget {
   final int teacherId;
@@ -65,7 +66,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = 'Hindi ma-load: $e';
+        _error = 'Could not load: $e';
         _loading = false;
       });
     }
@@ -171,7 +172,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
           const SizedBox(height: 6),
           if (stories == 0)
             const Text(
-              'Wala pang natapos.',
+              'Nothing finished yet.',
               style: TextStyle(fontSize: 12, color: Colors.black54),
             )
           else ...[
@@ -191,7 +192,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
               )
             else
               const Text(
-                'Walang naka-save na bilang ng salita',
+                'No saved word count',
                 style: TextStyle(fontSize: 10, color: Colors.black54),
               ),
             Text(
@@ -260,7 +261,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
               style: TextStyle(fontWeight: FontWeight.w600),
             ),
             const Text(
-              'Kabuuang tamang salita ÷ kabuuang salita (pooled)',
+              'Total correct words ÷ total words (pooled)',
               style: TextStyle(fontSize: 10, color: Colors.black54),
             ),
             const SizedBox(height: 10),
@@ -351,7 +352,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
           const SizedBox(height: 8),
           if (total > 0) ...[
             Text(
-              '$total salita − $miscues miscues = $correct tama',
+              '$total words − $miscues miscues = $correct correct',
               style: small,
             ),
             Text(
@@ -379,7 +380,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
             ),
           ] else
             Text(
-              'Word Reading: ${_p1(wordPct)}% (walang naka-save na bilang ng salita)',
+              'Word Reading: ${_p1(wordPct)}% (no saved word count)',
               style: small,
             ),
           const SizedBox(height: 6),
@@ -419,7 +420,10 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Student Review'),
@@ -430,7 +434,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
           ? const Center(child: CircularProgressIndicator(color: maroon))
           : _error != null
           ? Center(child: Text(_error!))
-          : _buildBody(),
+          : DesktopContent(maxWidth: 1000, child: _buildBody()),
     );
   }
 
@@ -499,7 +503,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
         ),
         const SizedBox(height: 8),
         if (words.isEmpty)
-          const Text('Wala pang naitalang struggled words.')
+          const Text('No struggled words recorded yet.')
         else ...[
           Container(
             width: double.infinity,
@@ -509,7 +513,7 @@ class _StudentAlertDetailScreenState extends State<StudentAlertDetailScreen> {
               borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              'Pinakamadalas nahirapan sa '
+              'Most often struggled with '
               '${words.take(3).map((w) => '"${w['word']}"').join(', ')}.',
               style: const TextStyle(fontSize: 13),
             ),

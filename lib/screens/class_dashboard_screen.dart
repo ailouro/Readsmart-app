@@ -11,6 +11,7 @@ import 'assessment_flow_screen.dart';
 import '../services/phil_iri_session.dart';
 import '../services/phil_iri_rules.dart';
 import '../services/bgm_service.dart';
+import '../widgets/desktop_scale.dart';
 
 String _safeString(dynamic value, [String fallback = ""]) {
   if (value == null) return fallback;
@@ -1156,7 +1157,10 @@ class _ClassDashboardScreenState extends State<ClassDashboardScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     final code = widget.classCode.isNotEmpty
         ? widget.classCode
         : (_classDetails?['code'] ?? _classDetails?['class_code'] ?? 'N/A');

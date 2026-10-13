@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../widgets/desktop_scale.dart';
 
 class QuizEditorScreen extends StatefulWidget {
   final dynamic story;
@@ -187,7 +188,10 @@ class _QuizEditorScreenState extends State<QuizEditorScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
@@ -231,7 +235,7 @@ class _QuizEditorScreenState extends State<QuizEditorScreen> {
             )
           : _questionGroups.isEmpty
           ? _buildEmptyState()
-          : _buildQuestionsList(),
+          : DesktopContent(maxWidth: 960, child: _buildQuestionsList()),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: Colors.amberAccent,
         foregroundColor: Colors.black,

@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../services/config.dart'; // Adjust import to your config file path
 import 'story_view_screen.dart';
+import '../widgets/desktop_scale.dart';
 
 class TeacherClassDetailScreen extends StatefulWidget {
   final String classId;
@@ -132,7 +133,7 @@ class _TeacherClassDetailScreenState extends State<TeacherClassDetailScreen> {
 
     if (confirm != true) return;
 
-      try {
+    try {
       final res = await http.delete(
         Uri.parse("$baseUrl/api/classes/${widget.classId}"),
         headers: networkHeaders,
@@ -145,7 +146,12 @@ class _TeacherClassDetailScreenState extends State<TeacherClassDetailScreen> {
         Navigator.pop(context, true); // Close screen & notify dashboard
       } else if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Failed to delete. Code: ${res.statusCode}, Body: ${res.body}"), backgroundColor: Colors.orange),
+          SnackBar(
+            content: Text(
+              "Failed to delete. Code: ${res.statusCode}, Body: ${res.body}",
+            ),
+            backgroundColor: Colors.orange,
+          ),
         );
       }
     } catch (e) {
@@ -159,7 +165,10 @@ class _TeacherClassDetailScreenState extends State<TeacherClassDetailScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -487,7 +496,10 @@ class _AssignStorySheetState extends State<_AssignStorySheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       height: MediaQuery.of(context).size.height * 0.6,

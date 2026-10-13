@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:url_launcher/url_launcher.dart';
+import '../widgets/desktop_scale.dart';
 
 /// Class-level Pre-Test vs Post-Test summary (numeric gain + CSV export).
 /// Backend: GET /api/classes/{classId}/pre-post-summary  (ClassReportController)
@@ -204,7 +205,7 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
               headingRowHeight: 34,
               dataRowMinHeight: 34,
               dataRowMaxHeight: 38,
-              columnSpacing: 16,
+              columnSpacing: DesktopLayout.isDesktop(context) ? 40 : 16,
               columns: const [
                 DataColumn(
                   label: Text('Measure', style: TextStyle(fontSize: 13)),
@@ -314,7 +315,7 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
               headingRowHeight: 34,
               dataRowMinHeight: 34,
               dataRowMaxHeight: 38,
-              columnSpacing: 14,
+              columnSpacing: DesktopLayout.isDesktop(context) ? 36 : 14,
               columns: const [
                 DataColumn(
                   label: Text('Student', style: TextStyle(fontSize: 13)),
@@ -408,7 +409,10 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFAF6F6),
       appBar: AppBar(
@@ -431,7 +435,7 @@ class _ClassPrePostSummaryScreenState extends State<ClassPrePostSummaryScreen> {
           ),
         ],
       ),
-      body: _body(),
+      body: DesktopContent(maxWidth: 1200, child: _body()),
     );
   }
 }

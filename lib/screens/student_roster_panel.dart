@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'student_progress_screen.dart';
+import '../widgets/desktop_scale.dart';
 
 /// Roster ng mga estudyante ng teacher: initials, LRN, post-test level at
 /// pagbabago, may search at filter. Sa malapad na screen (laptop) ang profile
@@ -356,7 +357,10 @@ class _StudentRosterPanelState extends State<StudentRosterPanel> {
   );
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     final students = _list;
     if (students.isEmpty) return const SizedBox.shrink();
 

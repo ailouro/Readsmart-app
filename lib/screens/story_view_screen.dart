@@ -15,6 +15,7 @@ import '../widgets/story_comic_background.dart';
 import 'package:theapp/screens/quiz_screen.dart';
 import '../services/deepgram_service.dart';
 import '../services/assessment_score.dart';
+import '../widgets/desktop_scale.dart';
 
 class WordStatus {
   final String originalWord;
@@ -809,8 +810,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text(
-              "Hindi marinig ang boses mo. Lakasan ang boses o lumapit sa mic, "
-              "at siguraduhing may internet.",
+              "We could not hear your voice. Speak louder or move closer to the mic, "
+              "and make sure you have an internet connection.",
             ),
             backgroundColor: Colors.orange,
           ),
@@ -1119,11 +1120,11 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            title: const Text("May Problema sa Kwentong Ito"),
+            title: const Text("There Is a Problem With This Story"),
             content: const Text(
-              "Ang kwentong ito ay walang laman na pwedeng basahin nang "
-              "malakas. Hindi muna maaaring magpatuloy. Pakisabi sa iyong "
-              "guro na tingnan ang kwentong ito.",
+              "This story has no text that can be read aloud, so you cannot "
+              "continue for now. Please ask your teacher to check "
+              "this story.",
             ),
             actions: [
               TextButton(
@@ -1208,9 +1209,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            title: const Text("Magaling! 🌟", textAlign: TextAlign.center),
+            title: const Text("Great job! 🌟", textAlign: TextAlign.center),
             content: const Text(
-              "Natapos mo ang pagsasanay sa pagbasa!",
+              "You finished your reading practice!",
               textAlign: TextAlign.center,
             ),
             actions: [
@@ -1514,7 +1515,10 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     List<dynamic> pages = widget.story['pages'] ?? [];
     String cleanBaseUrl = widget.baseUrl.endsWith('/api')
         ? widget.baseUrl.substring(0, widget.baseUrl.length - 4)
@@ -1653,8 +1657,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                         const SizedBox(width: 8),
                         const Flexible(
                           child: Text(
-                            "Kailangan mo munang basahin nang malakas dito "
-                            "bago ka makapunta sa quiz!",
+                            "You need to read aloud here first "
+                            "before you can go to the quiz!",
                             style: TextStyle(
                               fontWeight: FontWeight.w900,
                               fontSize: 12,
@@ -2259,7 +2263,10 @@ class _RemediationDialogState extends State<RemediationDialog> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     if (_currentIndex >= widget.failedWords.length) {
       return const SizedBox.shrink();
     }
@@ -2500,7 +2507,10 @@ class _DefinitionSheetState extends State<_DefinitionSheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: const BoxDecoration(
@@ -2679,7 +2689,10 @@ class _ReadingResultsDialogState extends State<_ReadingResultsDialog> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     return Stack(
       alignment: Alignment.topCenter,
       children: [

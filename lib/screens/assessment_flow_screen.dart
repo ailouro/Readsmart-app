@@ -8,6 +8,7 @@ import '../services/assessment_score.dart';
 import '../services/phil_iri_rules.dart';
 import '../services/phil_iri_session.dart';
 import 'story_view_screen.dart';
+import '../widgets/desktop_scale.dart';
 
 enum _Phase { loading, ready, fetching, notNeeded, error, complete }
 
@@ -320,8 +321,10 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
   Widget _card({required List<Widget> children}) {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(maxWidth: 480),
-      padding: const EdgeInsets.all(24),
+      constraints: BoxConstraints(
+        maxWidth: DesktopLayout.isDesktop(context) ? 640 : 480,
+      ),
+      padding: EdgeInsets.all(DesktopLayout.isDesktop(context) ? 36 : 24),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -335,7 +338,7 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
   Widget _button(String label, VoidCallback onPressed) {
     return SizedBox(
       width: double.infinity,
-      height: 50,
+      height: DesktopLayout.isDesktop(context) ? 58 : 50,
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
           backgroundColor: _yellow,
@@ -473,7 +476,10 @@ class _AssessmentFlowScreenState extends State<AssessmentFlowScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     return Scaffold(
       backgroundColor: _background,
       appBar: AppBar(

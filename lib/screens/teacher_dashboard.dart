@@ -20,6 +20,7 @@ import 'student_roster_panel.dart';
 import 'class_pre_post_summary_screen.dart';
 import 'student_alert_detail_screen.dart';
 import 'login_screen.dart';
+import '../widgets/desktop_scale.dart';
 
 String _safeString(dynamic value, [String fallback = ""]) {
   if (value == null) return fallback;
@@ -108,7 +109,10 @@ class _TeacherDashboardState extends State<TeacherDashboard> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     Widget mobileLayout = Scaffold(
       backgroundColor: const Color(0xFFD4B2C2),
       body: SafeArea(
@@ -1407,7 +1411,7 @@ class _LibraryTabState extends State<_LibraryTab> {
               border: Border.all(color: Colors.black26, width: 2),
             ),
             child: const Text(
-              "Wala pang kwento dito.",
+              "No stories here yet.",
               style: TextStyle(
                 color: Colors.black54,
                 fontWeight: FontWeight.bold,
@@ -2625,7 +2629,7 @@ class _StudentsTabState extends State<_StudentsTab> {
         children: [
           Text(
             live.isEmpty
-                ? "📖 Walang nagbabasa"
+                ? "📖 No one is reading"
                 : "📖 Nagbabasa (${live.length})",
             style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w900),
           ),
@@ -3294,7 +3298,7 @@ class _StudentsTabState extends State<_StudentsTab> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              "Wala pang batang nakatapos ng $testLabel, kaya wala pang maipapakita.",
+              "No student has finished the $testLabel yet, so there is nothing to show.",
               style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
             ),
             if (noRecord > 0) ...[
@@ -3314,7 +3318,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                   ),
                   alignment: Alignment.center,
                   child: Text(
-                    "$noRecord bata · Walang record",
+                    "$noRecord students · No record",
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
@@ -3359,14 +3363,14 @@ class _StudentsTabState extends State<_StudentsTab> {
     final Color headColor;
     if (fr > 0) {
       headline =
-          "$fr sa $assessed bata ang nahihirapan (Frustration). Unahin silang tulungan.";
+          "$fr of $assessed students are struggling (Frustration). Help them first.";
       headColor = frC;
     } else if (ins > 0) {
       headline =
-          "Walang nahihirapan. $ins sa $assessed bata ang kailangan pa ng gabay (Instructional).";
+          "No one is struggling. $ins of $assessed students still need guidance (Instructional).";
       headColor = insC;
     } else {
-      headline = "Magaling! Lahat ng $assessed bata ay Independent na.";
+      headline = "Great! All $assessed students are Independent.";
       headColor = indC;
     }
 
@@ -3395,7 +3399,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    "$n bata · $pct%",
+                    "$n students · $pct%",
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
@@ -3458,19 +3462,19 @@ class _StudentsTabState extends State<_StudentsTab> {
     String pctText(double? v) => v == null ? '—' : '${v.round()}%';
 
     final tiles = <Widget>[
-      kpi(pctText(wr), "Word Reading", "Karaniwang tamang basa ng klase"),
-      kpi(pctText(comp), "Comprehension", "Karaniwang tamang sagot sa tanong"),
+      kpi(pctText(wr), "Word Reading", "Class average of words read correctly"),
+      kpi(pctText(comp), "Comprehension", "Class average of correct answers"),
       kpi(
         wpm == null ? '—' : wpm.round().toString(),
         "Words per minute",
-        "Bilis ng pagbasa ng klase",
+        "Class reading speed",
       ),
       kpi(
         micIssues == 0 ? 'OK' : '$micIssues',
-        micIssues == 0 ? "Maayos ang mic" : "Posibleng sira ang mic",
+        micIssues == 0 ? "Mic is working" : "Possible mic problem",
         micIssues == 0
-            ? "Walang problema sa pag-record"
-            : "Suriin muna bago husgahan ang mababang score",
+            ? "No recording problems"
+            : "Check first before judging a low score",
         color: micIssues == 0 ? Colors.green.shade700 : Colors.red.shade700,
       ),
     ];
@@ -3508,7 +3512,7 @@ class _StudentsTabState extends State<_StudentsTab> {
           if (noRecord > 0) ...[
             const SizedBox(height: 6),
             Text(
-              "$noRecord sa $total bata ang wala pang record sa $testLabel.",
+              "$noRecord of $total students have no record yet for the $testLabel.",
               style: const TextStyle(fontSize: 14, color: Colors.black54),
             ),
           ],
@@ -3520,13 +3524,13 @@ class _StudentsTabState extends State<_StudentsTab> {
                 segment('frustration', 'Frustration', fr, frC),
                 segment('instructional', 'Instructional', ins, insC),
                 segment('independent', 'Independent', ind, indC),
-                segment('norecord', 'Walang record', noRecord, noRecC),
+                segment('norecord', 'No record', noRecord, noRecC),
               ],
             ),
           ),
           const SizedBox(height: 4),
           const Text(
-            "I-tap ang kulay para makita ang mga pangalan ng bata.",
+            "Tap a color to see the students' names.",
             style: TextStyle(fontSize: 14, color: Colors.black54),
           ),
           const SizedBox(height: 12),
@@ -3568,7 +3572,7 @@ class _StudentsTabState extends State<_StudentsTab> {
               : const Color(0xFF8BCA84));
     final bool isNoRecord = levelKey == 'norecord';
     final String levelLabel = isNoRecord
-        ? 'Walang record'
+        ? 'No record'
         : levelKey[0].toUpperCase() + levelKey.substring(1);
 
     return Container(
@@ -3599,8 +3603,8 @@ class _StudentsTabState extends State<_StudentsTab> {
               padding: const EdgeInsets.all(8),
               child: Text(
                 isNoRecord
-                    ? "Lahat ng bata ay may record na."
-                    : "Walang estudyanteng kasalukuyang nasa $levelLabel level.",
+                    ? "All students have a record."
+                    : "No students are currently at the $levelLabel level.",
                 style: const TextStyle(fontWeight: FontWeight.bold),
               ),
             );
@@ -3683,7 +3687,7 @@ class _StudentsTabState extends State<_StudentsTab> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (notStarted.isNotEmpty) ...[
-                  heading("Hindi pa nagbabasa (${notStarted.length})"),
+                  heading("Not started reading (${notStarted.length})"),
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
@@ -3711,9 +3715,9 @@ class _StudentsTabState extends State<_StudentsTab> {
                 ],
                 if (partial.isNotEmpty) ...[
                   const SizedBox(height: 10),
-                  heading("Kulang ang record (${partial.length})"),
+                  heading("Incomplete record (${partial.length})"),
                   const Text(
-                    "May nabasa na, pero kulang ang isang bahagi (hal. walang nasagutang quiz).",
+                    "Has read something, but part is missing (e.g., no quiz answered).",
                     style: TextStyle(fontSize: 14, color: Colors.black54),
                   ),
                   const SizedBox(height: 4),
@@ -3768,7 +3772,7 @@ class _StudentsTabState extends State<_StudentsTab> {
     final bool noData = pct == null;
     final Color color = noData ? Colors.black38 : _philIriLevelColor(level);
     final String levelLabel = noData
-        ? 'Walang record'
+        ? 'No record'
         : (level.isEmpty ? '-' : level[0].toUpperCase() + level.substring(1));
     return Row(
       children: [
@@ -5022,8 +5026,8 @@ class _StudentsTabState extends State<_StudentsTab> {
           const Padding(
             padding: EdgeInsets.only(bottom: 8),
             child: Text(
-              "🔑 WR = Word Recognition Accuracy (% ng salitang tama nabasa) • "
-              "Comp = Comprehension Score (% ng tamang sagot sa quiz)",
+              "🔑 WR = Word Recognition Accuracy (% of words read correctly) • "
+              "Comp = Comprehension Score (% of quiz answers correct)",
               style: TextStyle(
                 fontSize: 9,
                 fontStyle: FontStyle.italic,
@@ -5091,7 +5095,10 @@ class _StudentRecordScreen extends StatelessWidget {
   static const Color maroonTheme = Color(0xFF940D0D);
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFD4B2C2),
       appBar: AppBar(
@@ -6858,7 +6865,10 @@ class _ClassDetailsSheetState extends State<_ClassDetailsSheet> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     final classId =
         widget.item['id'] ?? widget.item['_id'] ?? widget.item['class_id'];
 

@@ -7,6 +7,7 @@ import 'class_report_pdf.dart';
 import 'student_progress_screen.dart';
 import '../widgets/guide_comic_background.dart';
 import '../widgets/phil_iri_analytics_panel.dart';
+import '../widgets/desktop_scale.dart';
 
 class TeacherAnalyticsDashboard extends StatefulWidget {
   final int teacherId;
@@ -137,7 +138,7 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
     if (raw is! List || raw.isEmpty) {
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('Wala pang naka-enroll na estudyante para sa report.'),
+          content: Text('No enrolled students yet for the report.'),
         ),
       );
       return;
@@ -188,7 +189,9 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
     } catch (e) {
       debugPrint('Error creating class report: $e');
       messenger.showSnackBar(
-        const SnackBar(content: Text('Hindi nagawa ang report. Subukan ulit.')),
+        const SnackBar(
+          content: Text('Could not create the report. Please try again.'),
+        ),
       );
     } finally {
       if (mounted) setState(() => _isExporting = false);
@@ -202,7 +205,10 @@ class _TeacherAnalyticsDashboardState extends State<TeacherAnalyticsDashboard> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Teacher Analytics"),

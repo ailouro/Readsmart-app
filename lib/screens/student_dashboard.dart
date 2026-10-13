@@ -11,6 +11,7 @@ import 'class_dashboard_screen.dart';
 import 'student_progress_screen.dart';
 import '../widgets/bouncy_tap.dart';
 import '../widgets/badge_system.dart';
+import '../widgets/desktop_scale.dart';
 
 // ==========================================
 // 1. STUDENT DASHBOARD SCREEN
@@ -460,7 +461,7 @@ class _StudentDashboardState extends State<StudentDashboard>
                       _buildDesktopTopBar(),
                       Center(
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 880),
+                          constraints: const BoxConstraints(maxWidth: 1000),
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(32, 8, 32, 40),
                             child: _buildMissionsSection(),
@@ -492,10 +493,9 @@ class _StudentDashboardState extends State<StudentDashboard>
         final mq = MediaQuery.of(context);
         return MediaQuery(
           data: mq.copyWith(
-            textScaler: mq.textScaler.clamp(
-              minScaleFactor: 1.0,
-              maxScaleFactor: 1.1,
-            ),
+            textScaler: isDesktop
+                ? TextScaler.linear(DesktopLayout.textScale)
+                : mq.textScaler.clamp(minScaleFactor: 1.0, maxScaleFactor: 1.1),
           ),
           child: isDesktop
               ? KeyedSubtree(
@@ -628,7 +628,7 @@ class _StudentDashboardState extends State<StudentDashboard>
       padding: const EdgeInsets.fromLTRB(32, 30, 32, 6),
       child: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 880),
+          constraints: const BoxConstraints(maxWidth: 1000),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -1140,7 +1140,7 @@ class _StudentDashboardState extends State<StudentDashboard>
             const Center(child: CircularProgressIndicator())
           else if (_myLibraryStories.isEmpty)
             const Text(
-              "Wala ka pang natatapos na kuwento. Tapusin ang mga missions para mapuno ang iyong Library! 📖",
+              "You haven't finished any stories yet. Complete your missions to fill your Library! 📖",
               style: TextStyle(fontSize: 14, color: Colors.black87),
             )
           else
@@ -1158,7 +1158,7 @@ class _StudentDashboardState extends State<StudentDashboard>
                     size: 32,
                   ),
                   title: Text(
-                    story['title'] ?? 'Kuwento',
+                    story['title'] ?? 'Story',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontWeight: FontWeight.bold),
@@ -1325,7 +1325,10 @@ class _ChangePasswordDialogState extends State<ChangePasswordDialog> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     return AlertDialog(
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),

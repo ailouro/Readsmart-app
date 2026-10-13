@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:http/http.dart' as http;
 import '../services/assessment_score.dart';
+import '../widgets/desktop_scale.dart';
 
 class QuizScreen extends StatefulWidget {
   final int storyId;
@@ -370,7 +371,10 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      DesktopTextScale(child: _buildScaled(context));
+
+  Widget _buildScaled(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -402,7 +406,7 @@ class _QuizScreenState extends State<QuizScreen> {
               final isDesktop = constraints.maxWidth > 650;
               return Center(
                 child: Container(
-                  width: isDesktop ? 600 : constraints.maxWidth,
+                  width: isDesktop ? 760 : constraints.maxWidth,
                   padding: const EdgeInsets.symmetric(horizontal: 16),
                   child: _isLoading
                       ? const Center(
