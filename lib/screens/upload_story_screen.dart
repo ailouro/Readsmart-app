@@ -3,7 +3,8 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart'
+    show kIsWeb, defaultTargetPlatform, TargetPlatform;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import '../services/config.dart';
 import '../services/cloudinary_service.dart';
@@ -150,8 +151,14 @@ class _UploadStoryScreenState extends State<UploadStoryScreen> {
 
   Future<void> _scanTextFromImage(int index) async {
     final slide = _slides[index];
+    // ML Kit only works on Android/iOS. Every other platform (Windows,
+    // macOS, Linux, web) uses the cloud OCR path instead.
+    final useCloudOcr =
+        kIsWeb ||
+        (defaultTargetPlatform != TargetPlatform.android &&
+            defaultTargetPlatform != TargetPlatform.iOS);
     try {
-      if (kIsWeb) {
+      if (useCloudOcr) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text("Extracting text via Cloud OCR...")),
