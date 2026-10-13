@@ -64,7 +64,11 @@ class DeepgramService {
   bool _trackHealth =
       true; // false sa remediation retry: huwag guluhin ang sukat
   bool _socketReady = false;
+  bool _fatal = false; // auth/key error: huwag nang mag-retry
   int _retry = 0;
+
+  /// Bakit hindi gumana: no_api_key | no_permission | mic_error | auth | null
+  String? lastError;
   List<String> _keywords = const [];
   Function(String word, bool isFinal)? _onResult;
 
@@ -124,12 +128,38 @@ class DeepgramService {
   }
 
   // ---------------------------------------------------------------- Listening
-  Future<void> startListening({
+  /// Nagbabalik ng `true` kapag talagang nag-umpisa ang mic. Kapag `false`,
+  /// tingnan ang [lastError] para malaman kung bakit.
+  Future<bool> startListening({
     required List<String> targetKeywords,
     required Function(String word, bool isFinal) onResult,
     bool trackHealth = true,
   }) async {
-    if (_listening) return;
+    if (_listening) return true;
+    lastError = null;
+    _fatal = false;
+
+    // 1. Walang API key = laging fail ang Deepgram (401) at tahimik lang.
+    if (_apiKey.isEmpty) {
+      lastError = 'no_api_key';
+      debugPrint(
+        "DEEPGRAM_API_KEY is empty. Run with --dart-define=DEEPGRAM_API_KEY=xxxx",
+      );
+      return false;
+    }
+
+    // 2. Mic permission (humihingi rin ng permission kapag wala pa).
+    try {
+      if (!await _audioRecorder.hasPermission()) {
+        lastError = 'no_permission';
+        return false;
+      }
+    } catch (e) {
+      debugPrint("Permission check failed: $e");
+      lastError = 'no_permission';
+      return false;
+    }
+
     _listening = true;
     _trackHealth = trackHealth;
     _audioBuffer.clear();
@@ -142,8 +172,6 @@ class DeepgramService {
         .toList();
     _onResult = onResult;
 
-    await _connect();
-
     _keepAliveTimer?.cancel();
     _keepAliveTimer = Timer.periodic(const Duration(seconds: 5), (_) {
       if (_socketReady && _channel != null) {
@@ -155,24 +183,32 @@ class DeepgramService {
       }
     });
 
-    if (await _audioRecorder.hasPermission()) {
-      try {
-        final audioStream = await _audioRecorder.startStream(
-          const RecordConfig(
-            encoder: AudioEncoder.pcm16bits,
-            sampleRate: 16000,
-            numChannels: 1,
-          ),
-        );
-
-        _micStartedAt = DateTime.now();
-        _audioStreamSubscription = audioStream.listen(_onAudioChunk);
-      } catch (e) {
-        debugPrint("Mic Stream Error: $e");
-      }
-    } else {
-      debugPrint("Microphone permission denied.");
+    // 3. Buksan MUNA ang mic, tapos saka mag-connect. Dati hinihintay ang
+    //    koneksyon bago mag-record, kaya kapag mabagal/hindi makakonekta
+    //    ang Deepgram, hindi kailanman nag-start ang mic. Ang audio habang
+    //    nagko-connect ay naiipon sa _pending at ipapadala pagkakonekta.
+    try {
+      final audioStream = await _audioRecorder.startStream(
+        const RecordConfig(
+          encoder: AudioEncoder.pcm16bits,
+          sampleRate: 16000,
+          numChannels: 1,
+        ),
+      );
+      _micStartedAt = DateTime.now();
+      _audioStreamSubscription = audioStream.listen(
+        _onAudioChunk,
+        onError: (e) => debugPrint("Mic stream error: $e"),
+      );
+    } catch (e) {
+      debugPrint("Mic Stream Error: $e");
+      lastError = 'mic_error';
+      await stopListening();
+      return false;
     }
+
+    unawaited(_connect());
+    return true;
   }
 
   void _onAudioChunk(List<int> chunk) {
@@ -250,7 +286,8 @@ class DeepgramService {
         protocols: ['token', _apiKey],
       );
       _channel = channel;
-      await channel.ready; // hintayin ang totoong koneksyon
+      // hintayin ang totoong koneksyon (may timeout para hindi mag-hang)
+      await channel.ready.timeout(const Duration(seconds: 10));
 
       _wsSubscription = channel.stream.listen(
         _onMessage,
@@ -276,6 +313,13 @@ class DeepgramService {
       _pending.clear();
     } catch (e) {
       debugPrint("Deepgram connect failed: $e");
+      final msg = e.toString();
+      if (msg.contains('401') || msg.contains('403')) {
+        // Mali/expired ang API key: walang saysay ang paulit-ulit na retry.
+        _fatal = true;
+        lastError = 'auth';
+        return;
+      }
       _onSocketLost();
     }
   }
@@ -303,7 +347,7 @@ class DeepgramService {
   }
 
   void _onSocketLost() {
-    if (!_listening) return; // normal na pagsara
+    if (!_listening || _fatal) return; // normal na pagsara / auth error
     if (_socketReady && _trackHealth) health.drops++;
     _socketReady = false;
     if (_reconnectTimer?.isActive ?? false) return;

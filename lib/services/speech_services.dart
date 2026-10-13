@@ -8,7 +8,7 @@ class SpeechService {
   WebSocketChannel? _channel;
   bool _isRecording = false;
 
-  final String _deepgramApiKey = "7905187eebc3f25d97f256336e4db7374b62dbda";
+  final String _deepgramApiKey = "83753f44ae2998a12ef160454cff235de71acb3a";
 
   Future<bool> initSpeech() async {
     try {
@@ -30,36 +30,42 @@ class SpeechService {
       // Create WebSocket connection
       // For web, passing headers directly in WebSocketChannel is not supported.
       // Deepgram supports sending the token as a subprotocol:
-      final uri = Uri.parse('wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&channels=1&model=nova-2&language=en');
-      
+      final uri = Uri.parse(
+        'wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&channels=1&model=nova-2&language=en',
+      );
+
       _channel = WebSocketChannel.connect(
         uri,
         protocols: ['token', _deepgramApiKey],
       );
 
-      _channel!.stream.listen((message) {
-        if (!_isRecording) return;
-        try {
-          final data = jsonDecode(message);
-          if (data['is_final'] == true || data['is_final'] == false) {
-            if (data['channel'] != null && 
-                data['channel']['alternatives'] != null && 
-                data['channel']['alternatives'].isNotEmpty) {
-                  
-              String transcript = data['channel']['alternatives'][0]['transcript'];
-              if (transcript.isNotEmpty) {
-                onResult(transcript);
+      _channel!.stream.listen(
+        (message) {
+          if (!_isRecording) return;
+          try {
+            final data = jsonDecode(message);
+            if (data['is_final'] == true || data['is_final'] == false) {
+              if (data['channel'] != null &&
+                  data['channel']['alternatives'] != null &&
+                  data['channel']['alternatives'].isNotEmpty) {
+                String transcript =
+                    data['channel']['alternatives'][0]['transcript'];
+                if (transcript.isNotEmpty) {
+                  onResult(transcript);
+                }
               }
             }
+          } catch (e) {
+            debugPrint("JSON Parse Error: $e");
           }
-        } catch (e) {
-          debugPrint("JSON Parse Error: $e");
-        }
-      }, onError: (error) {
-        debugPrint("WebSocket Error: $error");
-      }, onDone: () {
-        debugPrint("WebSocket Closed");
-      });
+        },
+        onError: (error) {
+          debugPrint("WebSocket Error: $error");
+        },
+        onDone: () {
+          debugPrint("WebSocket Closed");
+        },
+      );
 
       // Start recording audio
       final stream = await _audioRecorder.startStream(
@@ -75,7 +81,6 @@ class SpeechService {
           _channel!.sink.add(data);
         }
       });
-
     } catch (e) {
       debugPrint("Start listening error: $e");
       _isRecording = false;

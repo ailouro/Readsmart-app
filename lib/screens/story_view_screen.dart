@@ -307,10 +307,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             audioFocus: AndroidAudioFocus.gainTransientMayDuck,
           ),
           iOS: AudioContextIOS(
-            category: AVAudioSessionCategory.playback,
+            // playAndRecord (hindi playback) para gumana ang mic sa iOS.
+            category: AVAudioSessionCategory.playAndRecord,
             options: const {
               AVAudioSessionOptions.mixWithOthers,
               AVAudioSessionOptions.defaultToSpeaker,
+              AVAudioSessionOptions.allowBluetooth,
             },
           ),
         ),
@@ -563,10 +565,12 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       try {
         await _flutterTts.setSharedInstance(true);
         await _flutterTts.setIosAudioCategory(
-          IosTextToSpeechAudioCategory.playback,
+          // playAndRecord (hindi playback) para gumana ang mic sa iOS.
+          IosTextToSpeechAudioCategory.playAndRecord,
           [
             IosTextToSpeechAudioCategoryOptions.mixWithOthers,
             IosTextToSpeechAudioCategoryOptions.defaultToSpeaker,
+            IosTextToSpeechAudioCategoryOptions.allowBluetooth,
           ],
           IosTextToSpeechAudioMode.defaultMode,
         );
@@ -807,11 +811,14 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     Future.delayed(const Duration(seconds: 8), () {
       if (!mounted || !_isListening || listenToken != _listenToken) return;
       if (_deepgramService.health.transcripts == transcriptsBefore) {
+        final bool authFail = _deepgramService.lastError == 'auth';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
+          SnackBar(
             content: Text(
-              "We could not hear your voice. Speak louder or move closer to the mic, "
-              "and make sure you have an internet connection.",
+              authFail
+                  ? "Speech service rejected the API key. Please contact your teacher."
+                  : "We could not hear your voice. Speak louder or move closer to the mic, "
+                        "and make sure you have an internet connection.",
             ),
             backgroundColor: Colors.orange,
           ),
@@ -819,7 +826,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       }
     });
 
-    await _deepgramService.startListening(
+    final bool micStarted = await _deepgramService.startListening(
       targetKeywords: keywords,
       onResult: (transcript, isFinal) {
         if (!mounted) return;
@@ -835,6 +842,28 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         _evaluateSpokenStream(_spokenText, isFinal: isFinal);
       },
     );
+
+    if (!micStarted && mounted) {
+      _endActiveReadingSegment();
+      setState(() => _isListening = false);
+      _pagesWithOralReadingStarted.remove(_currentPage);
+      final String msg;
+      switch (_deepgramService.lastError) {
+        case 'no_permission':
+          msg =
+              "Microphone permission is off. Please allow the microphone in "
+              "Settings, then try again.";
+          break;
+        case 'no_api_key':
+          msg = "Speech service is not configured (missing DEEPGRAM_API_KEY).";
+          break;
+        default:
+          msg = "Could not start the microphone. Please try again.";
+      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(msg), backgroundColor: Colors.red));
+    }
   }
 
   Future<void> _evaluateSpokenStream(
