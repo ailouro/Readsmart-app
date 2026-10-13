@@ -3318,7 +3318,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                   ),
                   alignment: Alignment.center,
                   child: Text(
-                    "$noRecord students · No record",
+                    "$noRecord/$total · No record",
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
@@ -3377,7 +3377,6 @@ class _StudentsTabState extends State<_StudentsTab> {
     Widget segment(String key, String label, int n, Color c) {
       if (n == 0) return const SizedBox.shrink();
       final bool selected = _expandedLevelKey == key;
-      final int pct = (n * 100 / total).round();
       return Expanded(
         flex: n,
         child: InkWell(
@@ -3399,7 +3398,7 @@ class _StudentsTabState extends State<_StudentsTab> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    "$n students · $pct%",
+                    "$n/$total",
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w900,
