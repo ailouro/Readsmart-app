@@ -1457,11 +1457,17 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     super.dispose();
   }
 
-  Widget _buildScriptBox() {
+  Widget _buildScriptBox({
+    double fontSize = 14,
+    EdgeInsets padding = const EdgeInsets.symmetric(
+      horizontal: 10,
+      vertical: 8,
+    ),
+  }) {
     if (_targetWords.isEmpty) return const SizedBox.shrink();
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      padding: padding,
       decoration: BoxDecoration(
         color: Colors.amberAccent,
         borderRadius: BorderRadius.circular(16),
@@ -1470,8 +1476,8 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       ),
       child: Wrap(
         alignment: WrapAlignment.center,
-        spacing: 8.0,
-        runSpacing: 6.0,
+        spacing: fontSize > 14 ? fontSize * 0.5 : 8.0,
+        runSpacing: fontSize > 14 ? fontSize * 0.4 : 6.0,
         children: _targetWords.asMap().entries.map((entry) {
           int wIndex = entry.key;
           WordStatus wStatus = entry.value;
@@ -1507,7 +1513,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
             wStatus.originalWord,
             style: GoogleFonts.fredoka(
               color: textColor,
-              fontSize: 14,
+              fontSize: fontSize,
               fontWeight: FontWeight.w700,
               decoration: decoration,
               decorationStyle: decorationStyle,
@@ -2092,6 +2098,11 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                     bool isDesktop = constraints.maxWidth > 750;
 
                     if (isDesktop) {
+                      // Ang script ang pumupuno sa buong kanang panel (malaking
+                      // letra, nakagitna), at ang controls ay nasa ibaba, para
+                      // walang nasasayang na espasyo sa desktop.
+                      final double panelW = constraints.maxWidth * 0.5;
+                      final double scriptFont = (panelW / 26).clamp(22.0, 40.0);
                       return Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -2105,21 +2116,47 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
                                 bottom: 20.0,
                               ),
                               child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
                                 children: [
-                                  if (currentScripts.isNotEmpty)
-                                    Flexible(
-                                      flex: 2,
-                                      child: Padding(
-                                        padding: const EdgeInsets.only(
-                                          bottom: 10.0,
-                                        ),
-                                        child: SingleChildScrollView(
-                                          controller: _scriptScrollController,
-                                          child: _buildScriptBox(),
-                                        ),
-                                      ),
+                                  Expanded(
+                                    child: currentScripts.isEmpty
+                                        ? const SizedBox.shrink()
+                                        : Padding(
+                                            padding: const EdgeInsets.only(
+                                              bottom: 12.0,
+                                            ),
+                                            child: LayoutBuilder(
+                                              builder: (context, box) =>
+                                                  SingleChildScrollView(
+                                                    controller:
+                                                        _scriptScrollController,
+                                                    child: ConstrainedBox(
+                                                      constraints:
+                                                          BoxConstraints(
+                                                            minHeight:
+                                                                box.maxHeight,
+                                                          ),
+                                                      child: Center(
+                                                        child: _buildScriptBox(
+                                                          fontSize: scriptFont,
+                                                          padding:
+                                                              const EdgeInsets.symmetric(
+                                                                horizontal: 24,
+                                                                vertical: 28,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                            ),
+                                          ),
+                                  ),
+                                  ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxHeight: constraints.maxHeight * 0.5,
                                     ),
-                                  Expanded(flex: 4, child: controlsWidget),
+                                    child: controlsWidget,
+                                  ),
                                   skipButtonWidget,
                                 ],
                               ),

@@ -322,7 +322,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
       padding: const EdgeInsets.only(bottom: 14),
       child: SegmentedButton<String>(
         segments: const [
-          ButtonSegment(value: 'all', label: Text('Lahat')),
+          ButtonSegment(value: 'all', label: Text('All')),
           ButtonSegment(value: 'pre_test', label: Text('Pre-Test')),
           ButtonSegment(value: 'post_test', label: Text('Post-Test')),
         ],
@@ -569,7 +569,7 @@ class _StudentProgressScreenState extends State<StudentProgressScreen> {
     if (both) {
       String sign(double d) => d >= 0 ? '+${_fmt(d)}' : _fmt(d);
       gainText =
-          'Pagbabago (Post − Pre): Word Reading '
+          'Change (Post − Pre): Word Reading '
           '${sign(v(post, 'word_pct') - v(pre, 'word_pct'))}% • '
           'Comprehension ${sign(v(post, 'comp_pct') - v(pre, 'comp_pct'))}%';
     }

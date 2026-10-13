@@ -213,7 +213,7 @@ class PhilIriTestTypeFilter extends StatelessWidget {
               ),
               icon: const Icon(Icons.info_outline_rounded, size: 18),
               label: const Text(
-                'Paano nakukuwenta?',
+                'How is it calculated?',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
               ),
               onPressed: () => showPhilIriGuide(context),
@@ -221,7 +221,7 @@ class PhilIriTestTypeFilter extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           const Text(
-            'Average ng lahat ng natapos na stories ng bawat bata.',
+            'Average of all finished stories for each student.',
             style: TextStyle(
               fontSize: 14,
               color: Colors.black87,
@@ -243,7 +243,7 @@ class PhilIriTestTypeFilter extends StatelessWidget {
             chip('pre_test', 'Pre-Test'),
             chip('post_test', 'Post-Test'),
             IconButton(
-              tooltip: 'Paano nakukuwenta ang level',
+              tooltip: 'How the level is calculated',
               visualDensity: VisualDensity.compact,
               color: PhilIriTheme.maroon,
               icon: const Icon(Icons.info_outline_rounded),
@@ -253,7 +253,7 @@ class PhilIriTestTypeFilter extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         const Text(
-          'Average ng lahat ng natapos na stories ng bawat bata.',
+          'Average of all finished stories for each student.',
           style: TextStyle(
             fontSize: 14,
             color: Colors.black87,
@@ -341,11 +341,10 @@ class PhilIriAnalyticsPanel extends StatelessWidget {
 
     if (learners.isEmpty) {
       return _PanelCard(
-        title: 'Wala pang resulta para sa $testLabel',
+        title: 'No results yet for $testLabel',
         subtitle: null,
         child: const Text(
-          'Lalabas dito ang resulta kapag may natapos nang kuwento at '
-          'pagsusulit ang mga bata.',
+          'Results will appear here once students finish a story and its quiz.',
           style: TextStyle(fontSize: 16, height: 1.4),
         ),
       );
@@ -449,9 +448,9 @@ class _LevelLegend extends StatelessWidget {
       spacing: 18,
       runSpacing: 8,
       children: [
-        item('frustration', 'kailangan ng tulong'),
-        item('instructional', 'kailangan ng gabay'),
-        item('independent', 'magaling na'),
+        item('frustration', 'needs help'),
+        item('instructional', 'needs guidance'),
+        item('independent', 'reads on their own'),
       ],
     );
   }
@@ -534,7 +533,7 @@ class _NeedHelpCard extends StatelessWidget {
           const SizedBox(height: 12),
           if (none)
             const Text(
-              'Magaling ang lahat ng bata dito.',
+              'All students are doing well here.',
               style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800),
             )
           else
@@ -579,8 +578,8 @@ class _NeedHelpCard extends StatelessWidget {
         .toList();
 
     return _PanelCard(
-      title: 'Saan kailangan ng tulong?',
-      subtitle: 'Ang kulay ng pangalan ay ang level ng bata sa bahaging iyon.',
+      title: 'Where is help needed?',
+      subtitle: 'The name color shows each student level in that area.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -588,14 +587,14 @@ class _NeedHelpCard extends StatelessWidget {
           const SizedBox(height: 14),
           _section(
             title: 'Word Reading',
-            hint: 'Mga batang kailangang tulungan sa pagbasa ng mga salita.',
+            hint: 'Students who need help reading words.',
             icon: Icons.record_voice_over_rounded,
             weak: weakWr,
             levelOf: (l) => l.wrLevel,
           ),
           _section(
             title: 'Comprehension',
-            hint: 'Mga batang kailangang tulungan sa pag-unawa ng binasa.',
+            hint: 'Students who need help understanding what they read.',
             icon: Icons.lightbulb_rounded,
             weak: weakComp,
             levelOf: (l) => l.compLevel,
@@ -615,10 +614,10 @@ class _FlowCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _PanelCard(
-      title: 'Paano nakukuwenta ang level',
+      title: 'How the level is calculated',
       subtitle:
-          'Mula sa score ng bata hanggang sa final na level. '
-          'Average ito ng lahat ng natapos na stories ng bata.',
+          'From the score to the final level. '
+          'It is the average of all finished stories for each student.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -628,29 +627,30 @@ class _FlowCard extends StatelessWidget {
               const steps = <Widget>[
                 _FlowStep(
                   number: 1,
-                  title: 'Pagbasa nang malakas',
+                  title: 'Oral reading',
                   formula:
-                      'Word Reading % =\ntamang salita ÷ kabuuang salita × 100',
+                      'Word Reading % =\ncorrect words ÷ total words × 100',
                   fill: Color(0xFFE3F2FD),
                 ),
                 _FlowStep(
                   number: 2,
-                  title: 'Pagsusulit',
+                  title: 'Quiz',
                   formula:
-                      'Comprehension % =\ntamang sagot ÷ bilang ng tanong × 100\n'
-                      '(ni-round sa buong numero)',
+                      'Comprehension % =\ncorrect answers ÷ number of questions × 100\n'
+                      '(rounded to a whole number)',
                   fill: Color(0xFFFFF8E1),
                 ),
                 _FlowStep(
                   number: 3,
-                  title: 'Level ng bawat score',
-                  formula: 'Ikumpara ang bawat % sa mga cutoff sa ibaba.',
+                  title: 'Level for each score',
+                  formula: 'Compare each % with the cutoffs below.',
                   fill: Color(0xFFF3E5F5),
                 ),
                 _FlowStep(
                   number: 4,
-                  title: 'Final na level',
-                  formula: 'Ang mas mababa sa dalawang level ang panalo.',
+                  title: 'Final level',
+                  formula:
+                      'The lower of the two levels becomes the final level.',
                   fill: Color(0xFFE8F5E9),
                 ),
               ];
@@ -686,12 +686,12 @@ class _FlowCard extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           const _ThresholdBar(
-            title: 'Word Reading (Pagbasa)',
+            title: 'Word Reading',
             ranges: ['0–89%', '90–96%', '97–100%'],
           ),
           const SizedBox(height: 10),
           const _ThresholdBar(
-            title: 'Comprehension (Pag-unawa)',
+            title: 'Comprehension',
             ranges: ['0–58%', '59–79%', '80–100%'],
           ),
         ],
@@ -875,7 +875,7 @@ class _ClassSummaryCard extends StatelessWidget {
                     ),
                   ),
                   Text(
-                    '$total bata',
+                    '$total ${total == 1 ? 'student' : 'students'}',
                     style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w700,
@@ -895,7 +895,7 @@ class _ClassSummaryCard extends StatelessWidget {
                   child: total == 0
                       ? const Center(
                           child: Text(
-                            'Wala pang resulta',
+                            'No results yet',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -935,13 +935,11 @@ class _ClassSummaryCard extends StatelessWidget {
     }
 
     return _PanelCard(
-      title: 'Bawat klase',
-      subtitle: 'Ilang bata sa bawat level, at ang average na score ng klase.',
+      title: 'By class',
+      subtitle:
+          'Number of students at each level, and the class average score.',
       child: rows.isEmpty
-          ? const Text(
-              'Wala pang datos ng klase.',
-              style: TextStyle(fontSize: 16),
-            )
+          ? const Text('No class data yet.', style: TextStyle(fontSize: 16))
           : Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
