@@ -41,7 +41,7 @@ class DeepgramService {
   // HUWAG i-hardcode ang key. Ipasa sa build:
   //   flutter run --dart-define=DEEPGRAM_API_KEY=xxxx
   // (Mas ligtas pa: kumuha ng short-lived token mula sa Laravel.)
-  static const String _apiKey = String.fromEnvironment('83753f44ae2998a12ef160454cff235de71acb3a');
+  static const String _apiKey = String.fromEnvironment('DEEPGRAM_API_KEY');
 
   // Ilang audio lang ang itatabi para sa "struggle word" recording
   // (6 na segundo ng 16kHz 16-bit mono). Dati lumalaki ito buong session.

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io' show Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter/material.dart';
 import '../services/bgm_service.dart';
@@ -581,7 +582,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   void _initTtsEngine() async {
-    if (Platform.isIOS) {
+    if (!kIsWeb && Platform.isIOS) {
       try {
         await _flutterTts.setSharedInstance(true);
         await _flutterTts.setIosAudioCategory(
@@ -1452,7 +1453,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     _scriptScrollController.dispose();
     _flutterTts.stop();
     _audioPlayer.dispose();
-    _deepgramService.stopListening();
+    _deepgramService.dispose();
     _sendCheckpointNow();
     super.dispose();
   }
