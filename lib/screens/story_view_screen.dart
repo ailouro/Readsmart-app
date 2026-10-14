@@ -1,7 +1,9 @@
 import 'dart:convert';
-import 'dart:io' show Platform;
+import 'dart:io' show Platform, File;
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:flutter/material.dart';
 import '../services/bgm_service.dart';
 import 'package:flutter/services.dart';
@@ -303,6 +305,9 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
 
   /// 🔊 MOBILE AUDIO FIX
   Future<void> _configureAudioSession() async {
+    // Android/iOS lang ang AudioContext na ito. Sa Windows/Linux/Web, walang
+    // saysay at puwedeng magdulot ng problema sa native plugin.
+    if (kIsWeb || !(Platform.isAndroid || Platform.isIOS)) return;
     try {
       await AudioPlayer.global.setAudioContext(
         AudioContext(
@@ -691,8 +696,23 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
   }
 
   Future<void> _stopAllAudio() async {
-    await _flutterTts.stop();
-    await _audioPlayer.stop();
+    // HUWAG tawagin ang native stop() kung wala namang tumutugtog. Sa Windows,
+    // puwedeng ma-crash (magsara ang buong app) ang flutter_tts/audioplayers
+    // kapag idle sila. Kaya sinisigurado muna at naka-try/catch pa.
+    if (_isPlayingTts) {
+      try {
+        await _flutterTts.stop();
+      } catch (e) {
+        debugPrint("TTS stop failed: $e");
+      }
+    }
+    if (_isPlayingServerAudio) {
+      try {
+        await _audioPlayer.stop();
+      } catch (e) {
+        debugPrint("Audio player stop failed: $e");
+      }
+    }
     if (_isListening) {
       _endActiveReadingSegment();
       await _deepgramService.stopListening();
@@ -727,6 +747,19 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     await _flutterTts.speak(text);
   }
 
+  /// Sa Windows, mas ligtas ang file kaysa BytesSource (hindi pantay ang
+  /// suporta ng audioplayers sa desktop). Sa ibang platform, BytesSource pa rin.
+  Future<void> _playBytes(Uint8List bytes, String key) async {
+    if (!kIsWeb && Platform.isWindows) {
+      final dir = await getTemporaryDirectory();
+      final File f = File('${dir.path}/story_audio_${key.hashCode}.mp3');
+      if (!await f.exists()) await f.writeAsBytes(bytes);
+      await _audioPlayer.play(DeviceFileSource(f.path));
+    } else {
+      await _audioPlayer.play(BytesSource(bytes));
+    }
+  }
+
   Future<void> _playServerAudio(int sIndex, String cleanBaseUrl) async {
     if (_isListening) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -747,7 +780,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
         "$cleanBaseUrl/api/get-audio?story_id=${widget.story['id']}&page_index=$_currentPage&script_index=$sIndex";
     try {
       if (_audioCache.containsKey(audioUrl)) {
-        await _audioPlayer.play(BytesSource(_audioCache[audioUrl]!));
+        await _playBytes(_audioCache[audioUrl]!, audioUrl);
         return;
       }
 
@@ -757,7 +790,7 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
       );
       if (response.statusCode == 200) {
         _audioCache[audioUrl] = response.bodyBytes;
-        await _audioPlayer.play(BytesSource(response.bodyBytes));
+        await _playBytes(response.bodyBytes, audioUrl);
       } else {
         throw Exception("Audio not found");
       }
@@ -1451,8 +1484,14 @@ class _StoryViewerScreenState extends State<StoryViewerScreen> {
     _endActiveReadingSegment();
     _pageController.dispose();
     _scriptScrollController.dispose();
-    _flutterTts.stop();
-    _audioPlayer.dispose();
+    if (_isPlayingTts) {
+      try {
+        _flutterTts.stop();
+      } catch (_) {}
+    }
+    try {
+      _audioPlayer.dispose();
+    } catch (_) {}
     _deepgramService.dispose();
     _sendCheckpointNow();
     super.dispose();

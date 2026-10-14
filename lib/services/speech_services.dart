@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:record/record.dart';
@@ -6,9 +7,15 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 class SpeechService {
   final AudioRecorder _audioRecorder = AudioRecorder();
   WebSocketChannel? _channel;
+  StreamSubscription<List<int>>? _audioSub;
+  StreamSubscription? _wsSub;
   bool _isRecording = false;
 
-  final String _deepgramApiKey = "83753f44ae2998a12ef160454cff235de71acb3a";
+  // HUWAG i-hardcode ang key. Ipasa sa build:
+  //   flutter run --dart-define=DEEPGRAM_API_KEY=xxxx
+  static const String _deepgramApiKey = String.fromEnvironment(
+    'DEEPGRAM_API_KEY',
+  );
 
   Future<bool> initSpeech() async {
     try {
@@ -24,6 +31,14 @@ class SpeechService {
 
   void startListening(Function(String) onResult) async {
     if (_isRecording) return;
+
+    if (_deepgramApiKey.isEmpty) {
+      debugPrint(
+        "DEEPGRAM_API_KEY is empty. Run with --dart-define=DEEPGRAM_API_KEY=83753f44ae2998a12ef160454cff235de71acb3a",
+      );
+      return;
+    }
+
     _isRecording = true;
 
     try {
@@ -39,7 +54,7 @@ class SpeechService {
         protocols: ['token', _deepgramApiKey],
       );
 
-      _channel!.stream.listen(
+      _wsSub = _channel!.stream.listen(
         (message) {
           if (!_isRecording) return;
           try {
@@ -67,6 +82,11 @@ class SpeechService {
         },
       );
 
+      // Kung may natirang recording, isara muna (ligtas sa Windows).
+      if (await _audioRecorder.isRecording()) {
+        await _audioRecorder.stop();
+      }
+
       // Start recording audio
       final stream = await _audioRecorder.startStream(
         const RecordConfig(
@@ -76,9 +96,13 @@ class SpeechService {
         ),
       );
 
-      stream.listen((data) {
+      _audioSub = stream.listen((data) {
         if (_isRecording && _channel != null) {
-          _channel!.sink.add(data);
+          try {
+            _channel!.sink.add(data);
+          } catch (e) {
+            debugPrint("Audio send failed: $e");
+          }
         }
       });
     } catch (e) {
@@ -87,14 +111,42 @@ class SpeechService {
     }
   }
 
-  void stopListening() {
+  Future<void> stopListening() async {
     _isRecording = false;
-    _audioRecorder.stop();
+
+    await _audioSub?.cancel();
+    _audioSub = null;
+
+    // Huwag tawagin ang stop() kung hindi naman nagre-record: puwedeng
+    // mag-crash ang native recorder sa Windows.
+    try {
+      if (await _audioRecorder.isRecording()) {
+        await _audioRecorder.stop();
+      }
+    } catch (e) {
+      debugPrint("Recorder stop failed: $e");
+    }
+
     // Send close message to Deepgram
-    if (_channel != null) {
-      _channel!.sink.add(jsonEncode({"type": "CloseStream"}));
-      _channel!.sink.close();
-      _channel = null;
+    try {
+      if (_channel != null) {
+        _channel!.sink.add(jsonEncode({"type": "CloseStream"}));
+        await _channel!.sink.close();
+      }
+    } catch (_) {}
+    _channel = null;
+
+    await _wsSub?.cancel();
+    _wsSub = null;
+  }
+
+  /// Tawagin kapag hindi na gagamitin ang service (halimbawa sa dispose()).
+  Future<void> dispose() async {
+    await stopListening();
+    try {
+      await _audioRecorder.dispose();
+    } catch (e) {
+      debugPrint("Recorder dispose failed: $e");
     }
   }
 

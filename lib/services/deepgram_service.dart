@@ -211,6 +211,12 @@ class DeepgramService {
     //    ang Deepgram, hindi kailanman nag-start ang mic. Ang audio habang
     //    nagko-connect ay naiipon sa _pending at ipapadala pagkakonekta.
     try {
+      // Kung may natirang recording (halimbawa hindi naisara nang maayos),
+      // isara muna bago mag-start ulit. Ligtas ito sa Windows.
+      if (await _audioRecorder.isRecording()) {
+        await _audioRecorder.stop();
+      }
+
       final audioStream = await _audioRecorder.startStream(
         const RecordConfig(
           encoder: AudioEncoder.pcm16bits,
