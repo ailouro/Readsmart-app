@@ -64,6 +64,9 @@ class DeepgramService {
   bool _trackHealth =
       true; // false sa remediation retry: huwag guluhin ang sukat
   bool _socketReady = false;
+  bool _starting = false; // guard laban sa dobleng startListening (double tap)
+  Future<void>? _stopping; // guard laban sa dobleng/sabay na stopListening
+  bool _disposed = false;
   bool _fatal = false; // auth/key error: huwag nang mag-retry
   int _retry = 0;
 
@@ -135,7 +138,27 @@ class DeepgramService {
     required Function(String word, bool isFinal) onResult,
     bool trackHealth = true,
   }) async {
-    if (_listening) return true;
+    if (_disposed) return false;
+    // Hintayin muna matapos ang kasalukuyang stop bago mag-start ulit.
+    if (_stopping != null) await _stopping;
+    if (_listening || _starting) return _listening;
+    _starting = true;
+    try {
+      return await _startInternal(
+        targetKeywords: targetKeywords,
+        onResult: onResult,
+        trackHealth: trackHealth,
+      );
+    } finally {
+      _starting = false;
+    }
+  }
+
+  Future<bool> _startInternal({
+    required List<String> targetKeywords,
+    required Function(String word, bool isFinal) onResult,
+    required bool trackHealth,
+  }) async {
     lastError = null;
     _fatal = false;
 
@@ -365,7 +388,25 @@ class DeepgramService {
   }
 
   // ------------------------------------------------------------------- Stop
-  Future<void> stopListening() async {
+  /// Ligtas na tawagin nang ilang beses (o sabay-sabay): iisang stop lang
+  /// ang tatakbo, at hindi ito tatama sa recorder kung hindi naman nagre-record.
+  Future<void> stopListening() {
+    return _stopping ??= _doStop().whenComplete(() => _stopping = null);
+  }
+
+  /// Tawagin sa dispose() ng screen. Isinasara rin ang recorder.
+  Future<void> dispose() async {
+    if (_disposed) return;
+    _disposed = true;
+    await stopListening();
+    try {
+      await _audioRecorder.dispose();
+    } catch (e) {
+      debugPrint("Recorder dispose failed: $e");
+    }
+  }
+
+  Future<void> _doStop() async {
     _listening = false;
     _keepAliveTimer?.cancel();
     _keepAliveTimer = null;
@@ -375,7 +416,15 @@ class DeepgramService {
 
     await _audioStreamSubscription?.cancel();
     _audioStreamSubscription = null;
-    await _audioRecorder.stop();
+    try {
+      // Huwag tawagin ang stop() kung hindi naman nagre-record (puwedeng
+      // mag-crash ang native recorder, lalo na sa Windows).
+      if (await _audioRecorder.isRecording()) {
+        await _audioRecorder.stop();
+      }
+    } catch (e) {
+      debugPrint("Recorder stop failed: $e");
+    }
 
     // Hayaang mag-flush ang Deepgram ng huling salita bago isara.
     // Dati agad isinasara kaya nawawala ang final transcript ng huling salita.
