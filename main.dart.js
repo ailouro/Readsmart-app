@@ -126396,7 +126396,7 @@ var $async$P_=A.q(function(d,e){if(d===1)return A.r(e,r)
 for(;;)switch(s){case 0:p.CW=null
 p.ay=!1
 p.CW="no_api_key"
-A.ch().$1("DEEPGRAM_API_KEY is empty. Run with --dart-define=DEEPGRAM_API_KEY=xxxx")
+A.ch().$1("DEEPGRAM_API_KEY is empty. Run with --dart-define=DEEPGRAM_API_KEY=83753f44ae2998a12ef160454cff235de71acb3a")
 q=!1
 s=1
 break
