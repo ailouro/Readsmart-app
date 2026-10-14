@@ -166,7 +166,7 @@ class DeepgramService {
     if (_apiKey.isEmpty) {
       lastError = 'no_api_key';
       debugPrint(
-        "DEEPGRAM_API_KEY is empty. Run with --dart-define=DEEPGRAM_API_KEY=xxxx",
+        "DEEPGRAM_API_KEY is empty. Run with --dart-define=DEEPGRAM_API_KEY=83753f44ae2998a12ef160454cff235de71acb3a",
       );
       return false;
     }
